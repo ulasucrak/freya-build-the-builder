@@ -1,0 +1,1207 @@
+[
+ {
+  "id": "S6-01",
+  "brief": "S6",
+  "family": "Document conflicts",
+  "level": "medium",
+  "title": "Call on 16 November: memo A closed it, memo B reopened it",
+  "variables": {
+   "given_name": "Aoife",
+   "family_name": "Brennan",
+   "salutation": "Ms",
+   "call_started_at": "2026-11-16 10:00"
+  },
+  "identity": {
+   "birth_year": "1981",
+   "house_number": "14B"
+  },
+  "products": [
+   {
+    "product": "credit_card",
+    "card_ending": "4417",
+    "arrears": 265.0,
+    "days_in_arrears": 12,
+    "min_to_pay": 25.0
+   }
+  ],
+  "script": "'Yes, that's me.' Year of birth 1981, house number fourteen B. 'I'll clear it today.' Confirms.",
+  "expected": {
+   "outcome": "PTP",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 265.0,
+     "date": "2026-11-16"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "16 Nov treated as a working day (memo B d) overrides memo A item 5)",
+   "security asks year of birth then house number, never the mobile number",
+   "'You'll get a text message to confirm.'"
+  ]
+ },
+ {
+  "id": "S6-02",
+  "brief": "S6",
+  "family": "Document conflicts",
+  "level": "hard",
+  "title": "Third party: memo A callback hours withdrawn; memo B closure on Friday 20 November",
+  "variables": {
+   "given_name": "Declan",
+   "family_name": "Moriarty",
+   "salutation": "Mr",
+   "call_started_at": "2026-11-19 17:00"
+  },
+  "identity": {
+   "birth_year": "1975",
+   "house_number": "7"
+  },
+  "products": [
+   {
+    "product": "personal_loan",
+    "arrears": 820.0,
+    "days_in_arrears": 34,
+    "monthly_repayment": 205.0
+   }
+  ],
+  "script": "Wife answers. 'Ring him today at seven.' Agent: not possible. 'Then Monday at nine.'",
+  "expected": {
+   "outcome": "CBK",
+   "reason": null,
+   "promises": [],
+   "notes": [],
+   "callbacks": [
+    {
+     "date": "2026-11-23",
+     "time": "09:00"
+    }
+   ],
+   "transfers": []
+  },
+  "checks": [
+   "19:00 rejected: memo B a) restored 09:00-17:30",
+   "Friday 20 Nov closed (memo B d)) so Monday 23 Nov is the next working day",
+   "callback booked via the slot field 2026-11-23T09:00"
+  ]
+ },
+ {
+  "id": "S6-03",
+  "brief": "S6",
+  "family": "Document conflicts",
+  "level": "medium",
+  "title": "Two wrong answers in total end security (memo A's three withdrawn)",
+  "variables": {
+   "given_name": "Siobhan",
+   "family_name": "Keane",
+   "salutation": "Mrs",
+   "call_started_at": "2026-11-24 11:20"
+  },
+  "identity": {
+   "birth_year": "1969",
+   "house_number": "22"
+  },
+  "products": [
+   {
+    "product": "credit_card",
+    "card_ending": "9031",
+    "arrears": 140.0,
+    "days_in_arrears": 7,
+    "min_to_pay": 25.0
+   }
+  ],
+  "script": "Year of birth '1996', then '1969'. House number '12'.",
+  "expected": {
+   "outcome": "IDF",
+   "reason": null,
+   "promises": [],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "second wrong answer (over both questions) ends the check: memo B b) withdrew memo A item 3",
+   "nothing about the accounts said",
+   "member told to call the number on the statement"
+  ]
+ },
+ {
+  "id": "S6-04",
+  "brief": "S6",
+  "family": "Closing precedence",
+  "level": "hard",
+  "title": "Dispute wins over recorded promises (differs from Brief B)",
+  "variables": {
+   "given_name": "Fergal",
+   "family_name": "Nolan",
+   "salutation": "Mr",
+   "call_started_at": "2026-11-25 12:00"
+  },
+  "identity": {
+   "birth_year": "1988",
+   "house_number": "3A"
+  },
+  "products": [
+   {
+    "product": "credit_card",
+    "card_ending": "6620",
+    "arrears": 310.0,
+    "days_in_arrears": 10,
+    "min_to_pay": 31.0
+   },
+   {
+    "product": "personal_loan",
+    "arrears": 2200.0,
+    "days_in_arrears": 45,
+    "monthly_repayment": 275.0
+   },
+   {
+    "product": "overdraft",
+    "arrears": 180.0,
+    "days_in_arrears": 6,
+    "overdraft_limit": 1000.0
+   }
+  ],
+  "script": "Verified. Not all today. Card: full this Friday. Loan: 'I never took out a loan with you.' Overdraft: full this Friday as well. Confirms both.",
+  "expected": {
+   "outcome": "DSP",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 310.0,
+     "date": "2026-11-27"
+    },
+    {
+     "product_id": "p3",
+     "amount": 180.0,
+     "date": "2026-11-27"
+    }
+   ],
+   "notes": [
+    {
+     "product_id": "p2",
+     "reason": "N-DS"
+    }
+   ],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "two create_promise calls, loan noted N-DS",
+   "close_call result DSP although promises are in place (row 2 before row 3)",
+   "'this Friday' = 2026-11-27"
+  ]
+ },
+ {
+  "id": "S6-05",
+  "brief": "S6",
+  "family": "Footnote exception",
+  "level": "hard",
+  "title": "Overdraft has no floor: a lower amount is a refusal",
+  "variables": {
+   "given_name": "Niamh",
+   "family_name": "Byrne",
+   "salutation": "Ms",
+   "call_started_at": "2026-12-03 14:00"
+  },
+  "identity": {
+   "birth_year": "1992",
+   "house_number": "48"
+  },
+  "products": [
+   {
+    "product": "overdraft",
+    "arrears": 260.0,
+    "days_in_arrears": 20,
+    "overdraft_limit": 500.0
+   }
+  ],
+  "script": "Verified. Not today. Agent offers 260,00 on Monday 7 December. 'Too much - can I do a hundred?' Agent: overdrafts must be cleared in full.",
+  "expected": {
+   "outcome": "NPR",
+   "reason": "N-RF",
+   "promises": [],
+   "notes": [
+    {
+     "product_id": "p1",
+     "reason": "N-RF"
+    }
+   ],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "footnote 1: no floor offered for an overdraft",
+   "the lower offer counts as the single Amber attempt",
+   "NPR with detail N-RF"
+  ]
+ },
+ {
+  "id": "S6-06",
+  "brief": "S6",
+  "family": "Struck-through rule",
+  "level": "hard",
+  "title": "Red 60+ band, three attempts; no 5 % reduction (struck rule)",
+  "variables": {
+   "given_name": "Colm",
+   "family_name": "Daly",
+   "salutation": "Mr",
+   "call_started_at": "2026-12-18 09:00"
+  },
+  "identity": {
+   "birth_year": "1979",
+   "house_number": "101"
+  },
+  "products": [
+   {
+    "product": "personal_loan",
+    "arrears": 1180.0,
+    "days_in_arrears": 70,
+    "monthly_repayment": 295.0
+   }
+  ],
+  "script": "Verified. 'Do I get a discount if I clear it today?' Agent: no. Refuses 1.180 on Tuesday 22 Dec, refuses 295 on Tuesday 29 Dec, accepts 295 on Monday 21 Dec. Confirms.",
+  "expected": {
+   "outcome": "PTP",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 295.0,
+     "date": "2026-12-21"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "no reduction offered or confirmed (5.8.4 struck through)",
+   "60-89 rows inherit Red / 5th working day from the merged cells",
+   "attempt 1 Tue 22 Dec, attempt 2 deadline Tue 29 Dec (24-25 closed), attempt 3 Mon 21 Dec"
+  ]
+ },
+ {
+  "id": "S6-07",
+  "brief": "S6",
+  "family": "Document conflicts",
+  "level": "hard",
+  "title": "Plan request: N-PL notes before the PAYMENT_ARRANGEMENTS transfer; agreed promise dropped",
+  "variables": {
+   "given_name": "Eimear",
+   "family_name": "Walsh",
+   "salutation": "Ms",
+   "call_started_at": "2026-12-07 15:30"
+  },
+  "identity": {
+   "birth_year": "1985",
+   "house_number": "9"
+  },
+  "products": [
+   {
+    "product": "credit_card",
+    "card_ending": "2210",
+    "arrears": 190.0,
+    "days_in_arrears": 5,
+    "min_to_pay": 25.0
+   },
+   {
+    "product": "personal_loan",
+    "arrears": 960.0,
+    "days_in_arrears": 33,
+    "monthly_repayment": 240.0
+   }
+  ],
+  "script": "Verified. Card: full next Tuesday. Loan: 'Could I lower the monthly repayments on the loan?'",
+  "expected": {
+   "outcome": "TRF",
+   "reason": "PAYMENT_ARRANGEMENTS",
+   "promises": [],
+   "notes": [
+    {
+     "product_id": "p1",
+     "reason": "N-PL"
+    },
+    {
+     "product_id": "p2",
+     "reason": "N-PL"
+    }
+   ],
+   "callbacks": [],
+   "transfers": [
+    {
+     "queue": "PAYMENT_ARRANGEMENTS"
+    }
+   ]
+  },
+  "checks": [
+   "no create_promise: the card promise was agreed but not put in place",
+   "N-PL on both accounts before the transfer (memo B e) replaces 'no notes')",
+   "close TRF / PAYMENT_ARRANGEMENTS"
+  ]
+ },
+ {
+  "id": "S6-08",
+  "brief": "S6",
+  "family": "Hardship",
+  "level": "medium",
+  "title": "Hardship accepted: transfer with no notes",
+  "variables": {
+   "given_name": "Padraig",
+   "family_name": "Quinn",
+   "salutation": "Mr",
+   "call_started_at": "2026-11-10 12:00"
+  },
+  "identity": {
+   "birth_year": "1972",
+   "house_number": "56"
+  },
+  "products": [
+   {
+    "product": "credit_card",
+    "card_ending": "7781",
+    "arrears": 420.0,
+    "days_in_arrears": 18,
+    "min_to_pay": 42.0
+   },
+   {
+    "product": "overdraft",
+    "arrears": 350.0,
+    "days_in_arrears": 40,
+    "overdraft_limit": 750.0
+   }
+  ],
+  "script": "Verified. 'I've been off sick for two months.' Agent: sympathy, offers Arrears Support. 'Yes please.'",
+  "expected": {
+   "outcome": "TRF",
+   "reason": "ARREARS_SUPPORT",
+   "promises": [],
+   "notes": [],
+   "callbacks": [],
+   "transfers": [
+    {
+     "queue": "ARREARS_SUPPORT"
+    }
+   ]
+  },
+  "checks": [
+   "no persuasion",
+   "no notes: memo B e) only adds notes for PAYMENT_ARRANGEMENTS"
+  ]
+ },
+ {
+  "id": "S6-09",
+  "brief": "S6",
+  "family": "Closing precedence",
+  "level": "hard",
+  "title": "NPR detail from the largest-arrears account, ignoring N-PD; promise fails twice",
+  "variables": {
+   "given_name": "Orla",
+   "family_name": "Fitzgerald",
+   "salutation": "Ms",
+   "call_started_at": "2026-12-30 10:00"
+  },
+  "identity": {
+   "birth_year": "1990",
+   "house_number": "2C"
+  },
+  "products": [
+   {
+    "product": "credit_card",
+    "card_ending": "5150",
+    "arrears": 120.0,
+    "days_in_arrears": 15,
+    "min_to_pay": 25.0
+   },
+   {
+    "product": "personal_loan",
+    "arrears": 640.5,
+    "days_in_arrears": 35,
+    "monthly_repayment": 160.0
+   },
+   {
+    "product": "overdraft",
+    "arrears": 1500.0,
+    "days_in_arrears": 12,
+    "overdraft_limit": 2000.0
+   }
+  ],
+  "script": "Verified. Not today. Card: refuses 120,00 on Monday 4 January. Loan: 'I'll clear the loan tomorrow.' Overdraft: 'I paid that off last week.' Confirms the loan; create_promise fails twice.",
+  "expected": {
+   "outcome": "NPR",
+   "reason": "N-TE",
+   "promises": [],
+   "notes": [
+    {
+     "product_id": "p1",
+     "reason": "N-RF"
+    },
+    {
+     "product_id": "p2",
+     "reason": "N-TE"
+    },
+    {
+     "product_id": "p3",
+     "reason": "N-PD"
+    }
+   ],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "31 Dec is a working day (footnote 2, struck closure row)",
+   "card attempt 1 = 2nd working day after today = Mon 4 Jan (1 Jan closed)",
+   "NPR detail = note of the largest arrears not N-PD: loan 640,50 > card 120,00 -> N-TE (Brief B would pick the first product)"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 2
+   }
+  ]
+ },
+ {
+  "id": "S6-10",
+  "brief": "S6",
+  "family": "Document conflicts",
+  "level": "medium",
+  "title": "Amber deadline is the 8th working day (memo A item 1 stands); vague date twice",
+  "variables": {
+   "given_name": "Ciaran",
+   "family_name": "Murphy",
+   "salutation": "Mr",
+   "call_started_at": "2026-11-02 09:15"
+  },
+  "identity": {
+   "birth_year": "1978",
+   "house_number": "14B"
+  },
+  "products": [
+   {
+    "product": "credit_card",
+    "card_ending": "3092",
+    "arrears": 530.0,
+    "days_in_arrears": 25,
+    "min_to_pay": 53.0
+   }
+  ],
+  "script": "Year of birth '1979 - no sorry, 1978'. House number 'fourteen b'. Not today. 'After payday.' Agent asks for the day. 'End of the month, I suppose.' Agent proposes Friday 13 November. Accepts the full amount.",
+  "expected": {
+   "outcome": "PTP",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 530.0,
+     "date": "2026-11-13"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "only the corrected year 1978 is sent",
+   "house number sent as 14B",
+   "deadline 2026-11-13 (8th working day, 11 Nov closed), not the policy's 10th (2026-11-17)"
+  ]
+ },
+ {
+  "id": "S6-11",
+  "brief": "S6",
+  "family": "Closing precedence",
+  "level": "medium",
+  "title": "Person request after promises are in place: TRF wins, promises stay",
+  "variables": {
+   "given_name": "Grainne",
+   "family_name": "Healy",
+   "salutation": "Ms",
+   "call_started_at": "2026-11-27 16:50"
+  },
+  "identity": {
+   "birth_year": "1983",
+   "house_number": "71"
+  },
+  "products": [
+   {
+    "product": "credit_card",
+    "card_ending": "8008",
+    "arrears": 210.0,
+    "days_in_arrears": 8,
+    "min_to_pay": 25.0
+   },
+   {
+    "product": "personal_loan",
+    "arrears": 700.0,
+    "days_in_arrears": 40,
+    "monthly_repayment": 175.0
+   }
+  ],
+  "script": "Verified. Both in full next Tuesday; confirms; both put in place. Then: 'I want to talk to a person about my mortgage.' Agent asks once if it can help. 'No, a person please.'",
+  "expected": {
+   "outcome": "TRF",
+   "reason": "MEMBER_SERVICES",
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 210.0,
+     "date": "2026-12-01"
+    },
+    {
+     "product_id": "p2",
+     "amount": 700.0,
+     "date": "2026-12-01"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": [
+    {
+     "queue": "MEMBER_SERVICES"
+    }
+   ]
+  },
+  "checks": [
+   "'next Tuesday' = first Tuesday after today = 2026-12-01",
+   "no notes on the transfer",
+   "TRF / MEMBER_SERVICES although promises are in place"
+  ]
+ },
+ {
+  "id": "S6-12",
+  "brief": "S6",
+  "family": "Document conflicts",
+  "level": "medium",
+  "title": "Friday after the callback window; 08:30 was only valid under memo A",
+  "variables": {
+   "given_name": "Ronan",
+   "family_name": "Doyle",
+   "salutation": "Mr",
+   "call_started_at": "2026-12-11 17:45"
+  },
+  "identity": {
+   "birth_year": "1966",
+   "house_number": "5"
+  },
+  "products": [
+   {
+    "product": "credit_card",
+    "card_ending": "1199",
+    "arrears": 300.0,
+    "days_in_arrears": 22,
+    "min_to_pay": 30.0
+   }
+  ],
+  "script": "Son answers. 'Monday at half eight.' Agent: not possible. 'Half five Monday then.'",
+  "expected": {
+   "outcome": "CBK",
+   "reason": null,
+   "promises": [],
+   "notes": [],
+   "callbacks": [
+    {
+     "date": "2026-12-14",
+     "time": "17:30"
+    }
+   ],
+   "transfers": []
+  },
+  "checks": [
+   "no callback today (after 17:30)",
+   "08:30 rejected (policy hours restored)",
+   "17:30 allowed (end included)"
+  ]
+ },
+ {
+  "id": "S6-13",
+  "brief": "S6",
+  "family": "Dates",
+  "level": "medium",
+  "title": "Call on the Remembrance closure: 'today' becomes the next working day",
+  "variables": {
+   "given_name": "Maeve",
+   "family_name": "Collins",
+   "salutation": "Ms",
+   "call_started_at": "2026-11-11 10:30"
+  },
+  "identity": {
+   "birth_year": "1994",
+   "house_number": "30"
+  },
+  "products": [
+   {
+    "product": "credit_card",
+    "card_ending": "6002",
+    "arrears": 95.5,
+    "days_in_arrears": 3,
+    "min_to_pay": 25.0
+   }
+  ],
+  "script": "Verified. 'I'll clear it today.' Agent: today is not a working day, offers Thursday 12 November. Agrees.",
+  "expected": {
+   "outcome": "PTP",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 95.5,
+     "date": "2026-11-12"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "5.6.3: next working day offered",
+   "amount with cents read back"
+  ]
+ },
+ {
+  "id": "S6-14",
+  "brief": "S6",
+  "family": "Third party",
+  "level": "easy",
+  "title": "Member deceased",
+  "variables": {
+   "given_name": "Liam",
+   "family_name": "Kavanagh",
+   "salutation": "Mr",
+   "call_started_at": "2026-12-01 11:00"
+  },
+  "identity": {
+   "birth_year": "1950",
+   "house_number": "8"
+  },
+  "products": [
+   {
+    "product": "personal_loan",
+    "arrears": 400.0,
+    "days_in_arrears": 15,
+    "monthly_repayment": 100.0
+   }
+  ],
+  "script": "Daughter answers: 'Dad passed away last month.'",
+  "expected": {
+   "outcome": "DEC",
+   "reason": null,
+   "promises": [],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "'I'm very sorry for your loss.'",
+   "nothing else asked or disclosed"
+  ]
+ },
+ {
+  "id": "S6-15",
+  "brief": "S6",
+  "family": "Identity",
+  "level": "easy",
+  "title": "Security refused twice",
+  "variables": {
+   "given_name": "Sorcha",
+   "family_name": "Ryan",
+   "salutation": "Ms",
+   "call_started_at": "2026-12-02 13:00"
+  },
+  "identity": {
+   "birth_year": "1987",
+   "house_number": "12"
+  },
+  "products": [
+   {
+    "product": "credit_card",
+    "card_ending": "4545",
+    "arrears": 150.0,
+    "days_in_arrears": 9,
+    "min_to_pay": 25.0
+   }
+  ],
+  "script": "'Why do you need my year of birth? Tell me what this is about first.' Agent explains once. 'No.'",
+  "expected": {
+   "outcome": "IDR",
+   "reason": null,
+   "promises": [],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "one explanation, then IDR",
+   "reason for the call not disclosed"
+  ]
+ },
+ {
+  "id": "S6-16",
+  "brief": "S6",
+  "family": "Document conflicts",
+  "level": "hard",
+  "title": "Friday 13 Nov: attempt 1 lands on the reopened Monday; both accounts refuse",
+  "variables": {
+   "given_name": "Eoin",
+   "family_name": "Gallagher",
+   "salutation": "Mr",
+   "call_started_at": "2026-11-13 10:00"
+  },
+  "identity": {
+   "birth_year": "1980",
+   "house_number": "21A"
+  },
+  "products": [
+   {
+    "product": "credit_card",
+    "card_ending": "3131",
+    "arrears": 480.0,
+    "days_in_arrears": 21,
+    "min_to_pay": 48.0
+   },
+   {
+    "product": "personal_loan",
+    "arrears": 1250.0,
+    "days_in_arrears": 31,
+    "monthly_repayment": 310.0
+   }
+  ],
+  "script": "Year 1980, house number 'twenty-one a'. Not today. Card: refuses 480 on Tuesday 17 November. Loan: refuses 1.250 on Tuesday 17 November and 310 on Monday 23 November.",
+  "expected": {
+   "outcome": "NPR",
+   "reason": "N-RF",
+   "promises": [],
+   "notes": [
+    {
+     "product_id": "p1",
+     "reason": "N-RF"
+    },
+    {
+     "product_id": "p2",
+     "reason": "N-RF"
+    }
+   ],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "house number sent as 21A",
+   "attempt 1 = 2nd working day after today = Tue 17 Nov (16 Nov open; memo A would give 18 Nov)",
+   "loan deadline Mon 23 Nov (20 Nov closed)"
+  ]
+ },
+ {
+  "id": "S6-17",
+  "brief": "S6",
+  "family": "Already paid",
+  "level": "easy",
+  "title": "Every account already paid",
+  "variables": {
+   "given_name": "Clodagh",
+   "family_name": "Burke",
+   "salutation": "Ms",
+   "call_started_at": "2026-12-14 09:40"
+  },
+  "identity": {
+   "birth_year": "1991",
+   "house_number": "6"
+  },
+  "products": [
+   {
+    "product": "credit_card",
+    "card_ending": "7272",
+    "arrears": 130.0,
+    "days_in_arrears": 4,
+    "min_to_pay": 25.0
+   },
+   {
+    "product": "overdraft",
+    "arrears": 220.0,
+    "days_in_arrears": 11,
+    "overdraft_limit": 500.0
+   }
+  ],
+  "script": "Verified. 'I paid the card on Friday and the overdraft too.'",
+  "expected": {
+   "outcome": "PAID",
+   "reason": null,
+   "promises": [],
+   "notes": [
+    {
+     "product_id": "p1",
+     "reason": "N-PD"
+    },
+    {
+     "product_id": "p2",
+     "reason": "N-PD"
+    }
+   ],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "'payments can take up to three working days to show'",
+   "PAID without detail"
+  ]
+ },
+ {
+  "id": "S6-18",
+  "brief": "S6",
+  "family": "Dispute",
+  "level": "easy",
+  "title": "Single account disputed",
+  "variables": {
+   "given_name": "Darragh",
+   "family_name": "Lynch",
+   "salutation": "Mr",
+   "call_started_at": "2026-12-15 15:15"
+  },
+  "identity": {
+   "birth_year": "1977",
+   "house_number": "40"
+  },
+  "products": [
+   {
+    "product": "personal_loan",
+    "arrears": 1600.0,
+    "days_in_arrears": 52,
+    "monthly_repayment": 400.0
+   }
+  ],
+  "script": "Verified. 'That loan was closed years ago.'",
+  "expected": {
+   "outcome": "DSP",
+   "reason": null,
+   "promises": [],
+   "notes": [
+    {
+     "product_id": "p1",
+     "reason": "N-DS"
+    }
+   ],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "no argument, no persuasion",
+   "result DSP"
+  ]
+ },
+ {
+  "id": "S6-19",
+  "brief": "S6",
+  "family": "Document conflicts",
+  "level": "medium",
+  "title": "Member volunteers mobile digits; agent asks the house number instead",
+  "variables": {
+   "given_name": "Tadhg",
+   "family_name": "Power",
+   "salutation": "Mr",
+   "call_started_at": "2026-11-18 11:00"
+  },
+  "identity": {
+   "birth_year": "1984",
+   "house_number": "17"
+  },
+  "products": [
+   {
+    "product": "credit_card",
+    "card_ending": "2626",
+    "arrears": 340.0,
+    "days_in_arrears": 9,
+    "min_to_pay": 34.0
+   }
+  ],
+  "script": "Year 1984. 'You'll want my mobile, it ends 0871.' Agent asks the house number: 17. Not today. Accepts the full amount on Monday 23 November.",
+  "expected": {
+   "outcome": "PTP",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 340.0,
+     "date": "2026-11-23"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "mobile_last4 never sent to verify_identity although the enum allows it",
+   "attempt 1 = Mon 23 Nov (20 Nov closed per memo B)"
+  ]
+ },
+ {
+  "id": "S6-20",
+  "brief": "S6",
+  "family": "Hardship",
+  "level": "hard",
+  "title": "Hardship declined with one account already paid",
+  "variables": {
+   "given_name": "Roisin",
+   "family_name": "Shea",
+   "salutation": "Ms",
+   "call_started_at": "2026-12-17 14:30"
+  },
+  "identity": {
+   "birth_year": "1973",
+   "house_number": "88"
+  },
+  "products": [
+   {
+    "product": "credit_card",
+    "card_ending": "9393",
+    "arrears": 200.0,
+    "days_in_arrears": 12,
+    "min_to_pay": 25.0
+   },
+   {
+    "product": "personal_loan",
+    "arrears": 450.0,
+    "days_in_arrears": 33,
+    "monthly_repayment": 112.5
+   },
+   {
+    "product": "overdraft",
+    "arrears": 900.0,
+    "days_in_arrears": 8,
+    "overdraft_limit": 1500.0
+   }
+  ],
+  "script": "Verified. 'The overdraft is paid already. I'm caring for my mother and money is very tight.' Declines Arrears Support.",
+  "expected": {
+   "outcome": "NPR",
+   "reason": "N-HS",
+   "promises": [],
+   "notes": [
+    {
+     "product_id": "p1",
+     "reason": "N-HS"
+    },
+    {
+     "product_id": "p2",
+     "reason": "N-HS"
+    },
+    {
+     "product_id": "p3",
+     "reason": "N-PD"
+    }
+   ],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "N-HS on both accounts without a promise, N-PD on the overdraft",
+   "NPR detail from the largest non-N-PD arrears (loan) -> N-HS"
+  ]
+ },
+ {
+  "id": "S6-21",
+  "brief": "S6",
+  "family": "Closing precedence",
+  "level": "hard",
+  "title": "Equal arrears: tie broken by get_account order",
+  "variables": {
+   "given_name": "Cathal",
+   "family_name": "Hogan",
+   "salutation": "Mr",
+   "call_started_at": "2026-11-30 10:10"
+  },
+  "identity": {
+   "birth_year": "1986",
+   "house_number": "4"
+  },
+  "products": [
+   {
+    "product": "credit_card",
+    "card_ending": "1212",
+    "arrears": 300.0,
+    "days_in_arrears": 4,
+    "min_to_pay": 30.0
+   },
+   {
+    "product": "personal_loan",
+    "arrears": 300.0,
+    "days_in_arrears": 50,
+    "monthly_repayment": 75.0
+   }
+  ],
+  "script": "Verified. Card: full this Thursday. Loan: refuses 300 on Wednesday 2 December and 75 on Monday 7 December. Confirms the card; create_promise fails twice.",
+  "expected": {
+   "outcome": "NPR",
+   "reason": "N-TE",
+   "promises": [],
+   "notes": [
+    {
+     "product_id": "p1",
+     "reason": "N-TE"
+    },
+    {
+     "product_id": "p2",
+     "reason": "N-RF"
+    }
+   ],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "equal arrears 300,00 -> first in get_account order (card, N-TE)",
+   "loan attempts on Wed 2 Dec and Mon 7 Dec"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 2
+   }
+  ]
+ },
+ {
+  "id": "S6-22",
+  "brief": "S6",
+  "family": "Dates",
+  "level": "hard",
+  "title": "Band boundary 29/30 with one date for both",
+  "variables": {
+   "given_name": "Aisling",
+   "family_name": "Kenny",
+   "salutation": "Ms",
+   "call_started_at": "2026-11-23 09:30"
+  },
+  "identity": {
+   "birth_year": "1993",
+   "house_number": "11"
+  },
+  "products": [
+   {
+    "product": "credit_card",
+    "card_ending": "5858",
+    "arrears": 610.0,
+    "days_in_arrears": 29,
+    "min_to_pay": 61.0
+   },
+   {
+    "product": "personal_loan",
+    "arrears": 880.0,
+    "days_in_arrears": 30,
+    "monthly_repayment": 220.0
+   }
+  ],
+  "script": "Verified. Not today. 'Both in full on Thursday the third of December.' Agent: the loan must be by Monday 30 November. Accepts. Confirms.",
+  "expected": {
+   "outcome": "PTP",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 610.0,
+     "date": "2026-12-03"
+    },
+    {
+     "product_id": "p2",
+     "amount": 880.0,
+     "date": "2026-11-30"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "29 days = Amber (8th working day = 3 Dec), 30 days = Red (5th = 30 Nov)",
+   "read-back says the loan is on its own deadline"
+  ]
+ },
+ {
+  "id": "S6-23",
+  "brief": "S6",
+  "family": "Dates",
+  "level": "medium",
+  "title": "Named closure day within the deadline rolls past Christmas and a weekend",
+  "variables": {
+   "given_name": "Shane",
+   "family_name": "Moran",
+   "salutation": "Mr",
+   "call_started_at": "2026-12-22 16:00"
+  },
+  "identity": {
+   "birth_year": "1982",
+   "house_number": "19B"
+  },
+  "products": [
+   {
+    "product": "credit_card",
+    "card_ending": "7070",
+    "arrears": 145.0,
+    "days_in_arrears": 2,
+    "min_to_pay": 25.0
+   }
+  ],
+  "script": "Verified. Not today. 'I'll pay it all on the 24th.' Agent: closed, offers Monday 28 December. Agrees.",
+  "expected": {
+   "outcome": "PTP",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 145.0,
+     "date": "2026-12-28"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "24-25 Dec closed, 26-27 weekend -> 28 Dec",
+   "Amber deadline 2027-01-06 (31 Dec counts as a working day)"
+  ]
+ },
+ {
+  "id": "S6-24",
+  "brief": "S6",
+  "family": "Footnote exception",
+  "level": "medium",
+  "title": "Callback on 31 December only until 12:30",
+  "variables": {
+   "given_name": "Una",
+   "family_name": "Brady",
+   "salutation": "Ms",
+   "call_started_at": "2026-12-30 16:00"
+  },
+  "identity": {
+   "birth_year": "1976",
+   "house_number": "3"
+  },
+  "products": [
+   {
+    "product": "personal_loan",
+    "arrears": 510.0,
+    "days_in_arrears": 26,
+    "monthly_repayment": 127.5
+   }
+  ],
+  "script": "Flatmate answers. 'Tomorrow at two.' Agent: not possible. 'Tomorrow at noon then.'",
+  "expected": {
+   "outcome": "CBK",
+   "reason": null,
+   "promises": [],
+   "notes": [],
+   "callbacks": [
+    {
+     "date": "2026-12-31",
+     "time": "12:00"
+    }
+   ],
+   "transfers": []
+  },
+  "checks": [
+   "31 Dec is a working day (footnote 2)",
+   "14:00 rejected because 31 Dec callbacks end at 12:30"
+  ]
+ }
+]

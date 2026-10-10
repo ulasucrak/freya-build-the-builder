@@ -1,11 +1,10 @@
 {
  "bank": "S2",
- "seconds": 102.29543614387512,
+ "seconds": 130.69649410247803,
  "warnings": [
-  "resolved bands; evidence: [\"| Stage 1 | 1-14 | 8th working day after today | 1 |\", \"| Stage 2 | 15-60 | 5th working day after today | 2 |\", \"The latest promise date for Stage 1 (1-14 days overdue) is now the 10th working day after today, not the 8th. Stage 2 is unchanged.\", \"Attempt 1: the full amount (or the lowest acceptab",
-  "resolved identity; evidence: [\"Two questions, one at a time: (a) date of birth, (b) the postcode of the home address on file.\", \"verify_identity wants the date of birth as DD-MM-YYYY (e.g. 07-03-1981). Customers say dates any way they like; a date given in numbers only is day, month, year.\", \"The postcode is sent in capitals wi",
-  "resolved triggers; evidence: [\"Accept only a clear yes or the customer giving their own name. Otherwise ask once more; if still unclear, close with the \\\"could not confirm\\\" code.\", \"Callbacks may now be booked from 08:30 to 19:30, both times included.\", \"If the promise system falls over, try once more. If it fails again, say s",
-  "close tool close_call has no reason field: 6 close reasons dropped",
+  "resolved bands; evidence: [\"| Stage 1 | 1-14 | 8th working day after today | 1 |\", \"| Stage 2 | 15-60 | 5th working day after today | 2 |\", \"The latest promise date for Stage 1 (1-14 days overdue) is now the 10th working day after today, not the 8th. Stage 2 is unchanged.\", \"\\\"After today\\\" means today is not counted, the co",
+  "resolved identity; evidence: [\"Two questions, one at a time: (a) date of birth, (b) the postcode of the home address on file. Check each with verify_identity.\", \"verify_identity wants the date of birth as DD-MM-YYYY (e.g. 07-03-1981). Customers say dates any way they like; a date given in numbers only is day, month, year.\", \"Th",
+  "resolved triggers; evidence: [\"Customer deceased: say \\\"I'm very sorry to hear that.\\\", ask nothing more and close with the deceased code.\", \"Callbacks may now be booked from 08:30 to 19:30, both times included.\", \"If the second is also outside, do not book; close with the no-suitable-time code.\", \"Two incorrect answers in tota",
   "validate: identity question 1: normalise must be one of ['dmy_to_iso', 'mdy_to_iso', 'digits_only', 'none']",
   "validate: identity question 2: normalise must be one of ['dmy_to_iso', 'mdy_to_iso', 'digits_only', 'none']"
  ],
@@ -179,7 +178,7 @@
    "check": "dob tool format",
    "ok": true,
    "gold": "DD-MM-YYYY",
-   "got": "convert the spoken date to dd-mm-yyyy; a date given in numbers only is day, month, year"
+   "got": "convert the spoken date to dd-mm-yyyy. a date given in numbers only is day, month, year."
   },
   {
    "section": "identity",
@@ -1008,7 +1007,7 @@
    "check": "count",
    "ok": true,
    "gold": 4,
-   "got": 6
+   "got": 5
   },
   {
    "section": "dates",

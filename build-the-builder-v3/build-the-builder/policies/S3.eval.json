@@ -1,8 +1,8 @@
 {
  "bank": "S3",
- "seconds": 81.93527603149414,
+ "seconds": 107.49627900123596,
  "warnings": [
-  "resolved triggers; evidence: [\"| 1 | `transferred` | `payment_plan`, `hardship`, `human` | J4, J3, J5 |\", \"J4. A request for a payment plan or lower instalments on any product: do not discuss terms.\", \"Accepted: `transfer_to_agent` with queue `hardship_team`, close as `transferred` / `hardship`, no notes. Declined: note every p"
+  "resolved triggers; evidence: [\"J4. A request for a payment plan or lower instalments on any product: do not discuss terms. First call `add_note` with reason `restructuring`\", \"Accepted: `transfer_to_agent` with queue `hardship_team`, close as `transferred` / `hardship`, no notes. Declined: note every product without a promise `"
  ],
  "passed": 142,
  "total": 142,

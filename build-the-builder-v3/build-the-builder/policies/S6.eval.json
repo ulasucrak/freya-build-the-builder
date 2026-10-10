@@ -1,0 +1,2718 @@
+{
+ "bank": "S6",
+ "seconds": 114.6580548286438,
+ "warnings": [
+  "resolved bands; evidence: [\"The Amber deadline becomes the **8th working day after today** (was the 10th). Red is unchanged.\", \"Memo A items 1 and 4 stand (Amber deadline 8th working day; house number instead of mobile).\", \"| 30 - 59         | Red    | 5th working day after today     | 2        |\", \"| 60 - 89         |   \\\" ",
+  "resolved identity; evidence: [\"Question (b) becomes **the house number of the home address we hold** (as written on the statement, e.g. 14B; send it in capitals with no spaces). Question (a), the year of birth, stays and is still asked first.\", \"Memo A item 3 (three incorrect answers) is **withdrawn**. The policy rule of two in",
+  "resolved triggers; evidence: [\"Only a clear yes or the member giving their own name confirms. Otherwise ask once more; if it is still unclear, close with result UNC.\", \"Wrong number: close with WRN. Member deceased: say \\\"I'm very sorry for your loss.\\\", ask nothing else, close with DEC.\", \"Memo A item 2 (callback hours) is **w",
+  "validate: identity question 2: normalise must be one of ['dmy_to_iso', 'mdy_to_iso', 'digits_only', 'none']"
+ ],
+ "passed": 339,
+ "total": 339,
+ "rows": [
+  {
+   "section": "variables",
+   "check": "member_ref",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "variables",
+   "check": "given_name",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "variables",
+   "check": "family_name",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "variables",
+   "check": "salutation",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "variables",
+   "check": "call_started_at",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "clock",
+   "check": "now_variable",
+   "ok": true,
+   "gold": "call_started_at",
+   "got": "call_started_at"
+  },
+  {
+   "section": "clock",
+   "check": "date_format",
+   "ok": true,
+   "gold": "YYYY-MM-DD HH:MM",
+   "got": "YYYY-MM-DD HH:MM"
+  },
+  {
+   "section": "calendar",
+   "check": "weekend",
+   "ok": true,
+   "gold": [
+    6,
+    7
+   ],
+   "got": [
+    6,
+    7
+   ]
+  },
+  {
+   "section": "calendar",
+   "check": "holidays",
+   "ok": true,
+   "gold": [
+    "2026-11-11",
+    "2026-11-20",
+    "2026-12-24",
+    "2026-12-25",
+    "2026-12-26",
+    "2027-01-01"
+   ],
+   "got": [
+    "2026-11-11",
+    "2026-11-20",
+    "2026-12-24",
+    "2026-12-25",
+    "2026-12-26",
+    "2027-01-01"
+   ]
+  },
+  {
+   "section": "calendar",
+   "check": "not holiday 2026-11-16",
+   "ok": true,
+   "gold": false,
+   "got": false
+  },
+  {
+   "section": "calendar",
+   "check": "not holiday 2026-12-31",
+   "ok": true,
+   "gold": false,
+   "got": false
+  },
+  {
+   "section": "calendar",
+   "check": "week_starts",
+   "ok": true,
+   "gold": 1,
+   "got": 1
+  },
+  {
+   "section": "opening",
+   "check": "forbidden 'arrears'",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "opening",
+   "check": "forbidden 'overdue'",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "opening",
+   "check": "forbidden 'owe'",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "opening",
+   "check": "forbidden 'debt'",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "opening",
+   "check": "forbidden 'payment'",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "opening",
+   "check": "forbidden 'card'",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "opening",
+   "check": "forbidden 'loan'",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "opening",
+   "check": "forbidden 'overdraft'",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "opening",
+   "check": "confirm_question",
+   "ok": true,
+   "gold": "Am I speaking with {salutation} {family_name}?",
+   "got": null
+  },
+  {
+   "section": "identity",
+   "check": "question order",
+   "ok": true,
+   "gold": [
+    "birth_year",
+    "house_number"
+   ],
+   "got": [
+    "birth_year",
+    "house_number"
+   ]
+  },
+  {
+   "section": "identity",
+   "check": "birth_year answer_format",
+   "ok": true,
+   "gold": "digits",
+   "got": "digits"
+  },
+  {
+   "section": "identity",
+   "check": "birth_year normalise",
+   "ok": true,
+   "gold": "digits_only",
+   "got": "digits_only"
+  },
+  {
+   "section": "identity",
+   "check": "house_number answer_format",
+   "ok": true,
+   "gold": "text",
+   "got": "text"
+  },
+  {
+   "section": "identity",
+   "check": "max_wrong",
+   "ok": true,
+   "gold": 2,
+   "got": 2
+  },
+  {
+   "section": "identity",
+   "check": "max_wrong_scope",
+   "ok": true,
+   "gold": "total",
+   "got": "total"
+  },
+  {
+   "section": "identity",
+   "check": "fail",
+   "ok": true,
+   "gold": [
+    "IDF",
+    ""
+   ],
+   "got": [
+    "IDF",
+    ""
+   ]
+  },
+  {
+   "section": "identity",
+   "check": "declined pair",
+   "ok": true,
+   "gold": [
+    "IDR",
+    ""
+   ],
+   "got": null
+  },
+  {
+   "section": "products",
+   "check": "max_count",
+   "ok": true,
+   "gold": 3,
+   "got": 3
+  },
+  {
+   "section": "products",
+   "check": "list_field",
+   "ok": true,
+   "gold": "accounts",
+   "got": "accounts"
+  },
+  {
+   "section": "products",
+   "check": "type_field",
+   "ok": true,
+   "gold": "product",
+   "got": "product"
+  },
+  {
+   "section": "products",
+   "check": "id_field",
+   "ok": true,
+   "gold": "account_id",
+   "got": "account_id"
+  },
+  {
+   "section": "products",
+   "check": "days_late_field",
+   "ok": true,
+   "gold": "days_in_arrears",
+   "got": "days_in_arrears"
+  },
+  {
+   "section": "products",
+   "check": "floor credit_card",
+   "ok": true,
+   "gold": "min_to_pay",
+   "got": "min_to_pay"
+  },
+  {
+   "section": "products",
+   "check": "floor personal_loan",
+   "ok": true,
+   "gold": "monthly_repayment",
+   "got": "monthly_repayment"
+  },
+  {
+   "section": "products",
+   "check": "floor overdraft",
+   "ok": true,
+   "gold": "arrears",
+   "got": "arrears"
+  },
+  {
+   "section": "products",
+   "check": "full credit_card",
+   "ok": true,
+   "gold": "arrears",
+   "got": "arrears"
+  },
+  {
+   "section": "products",
+   "check": "full personal_loan",
+   "ok": true,
+   "gold": "arrears",
+   "got": "arrears"
+  },
+  {
+   "section": "products",
+   "check": "full overdraft",
+   "ok": true,
+   "gold": "arrears",
+   "got": "arrears"
+  },
+  {
+   "section": "products",
+   "check": "speak_as credit_card",
+   "ok": true,
+   "gold": "your credit card ending {card_ending}",
+   "got": "your credit card ending {card_ending}"
+  },
+  {
+   "section": "products",
+   "check": "speak_as personal_loan",
+   "ok": true,
+   "gold": "your personal loan",
+   "got": "your personal loan"
+  },
+  {
+   "section": "products",
+   "check": "speak_as overdraft",
+   "ok": true,
+   "gold": "your overdraft",
+   "got": "your overdraft"
+  },
+  {
+   "section": "bands",
+   "check": "count",
+   "ok": true,
+   "gold": 3,
+   "got": 3
+  },
+  {
+   "section": "bands",
+   "check": "Amber range",
+   "ok": true,
+   "gold": [
+    1,
+    29
+   ],
+   "got": [
+    1,
+    29
+   ]
+  },
+  {
+   "section": "bands",
+   "check": "Amber deadline n",
+   "ok": true,
+   "gold": 8,
+   "got": 8
+  },
+  {
+   "section": "bands",
+   "check": "Amber counted_from",
+   "ok": true,
+   "gold": "after_today",
+   "got": "after_today"
+  },
+  {
+   "section": "bands",
+   "check": "Amber attempts",
+   "ok": true,
+   "gold": 1,
+   "got": 1
+  },
+  {
+   "section": "bands",
+   "check": "Red range",
+   "ok": true,
+   "gold": [
+    30,
+    59
+   ],
+   "got": [
+    30,
+    59
+   ]
+  },
+  {
+   "section": "bands",
+   "check": "Red deadline n",
+   "ok": true,
+   "gold": 5,
+   "got": 5
+  },
+  {
+   "section": "bands",
+   "check": "Red counted_from",
+   "ok": true,
+   "gold": "after_today",
+   "got": "after_today"
+  },
+  {
+   "section": "bands",
+   "check": "Red attempts",
+   "ok": true,
+   "gold": 2,
+   "got": 2
+  },
+  {
+   "section": "bands",
+   "check": "Red range",
+   "ok": true,
+   "gold": [
+    60,
+    89
+   ],
+   "got": [
+    60,
+    89
+   ]
+  },
+  {
+   "section": "bands",
+   "check": "Red deadline n",
+   "ok": true,
+   "gold": 5,
+   "got": 5
+  },
+  {
+   "section": "bands",
+   "check": "Red counted_from",
+   "ok": true,
+   "gold": "after_today",
+   "got": "after_today"
+  },
+  {
+   "section": "bands",
+   "check": "Red attempts",
+   "ok": true,
+   "gold": 3,
+   "got": 3
+  },
+  {
+   "section": "examples",
+   "check": "S6-01 dl=12 band",
+   "ok": true,
+   "gold": [
+    1,
+    29
+   ],
+   "got": [
+    1,
+    29
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-01 dl=12 deadline",
+   "ok": true,
+   "gold": "2026-11-27",
+   "got": "2026-11-27"
+  },
+  {
+   "section": "examples",
+   "check": "S6-01 dl=12 attempt 1",
+   "ok": true,
+   "gold": "2026-11-18",
+   "got": "2026-11-18"
+  },
+  {
+   "section": "examples",
+   "check": "S6-01 dl=12 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-01 dl=12 attempts",
+   "ok": true,
+   "gold": 1,
+   "got": 1
+  },
+  {
+   "section": "examples",
+   "check": "S6-01 dl=12 full",
+   "ok": true,
+   "gold": 265.0,
+   "got": 265.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-01 dl=12 floor",
+   "ok": true,
+   "gold": 25.0,
+   "got": 25.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-02 dl=34 band",
+   "ok": true,
+   "gold": [
+    30,
+    59
+   ],
+   "got": [
+    30,
+    59
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-02 dl=34 deadline",
+   "ok": true,
+   "gold": "2026-11-27",
+   "got": "2026-11-27"
+  },
+  {
+   "section": "examples",
+   "check": "S6-02 dl=34 attempt 1",
+   "ok": true,
+   "gold": "2026-11-24",
+   "got": "2026-11-24"
+  },
+  {
+   "section": "examples",
+   "check": "S6-02 dl=34 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-02 dl=34 attempts",
+   "ok": true,
+   "gold": 2,
+   "got": 2
+  },
+  {
+   "section": "examples",
+   "check": "S6-02 dl=34 full",
+   "ok": true,
+   "gold": 820.0,
+   "got": 820.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-02 dl=34 floor",
+   "ok": true,
+   "gold": 205.0,
+   "got": 205.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-03 dl=7 band",
+   "ok": true,
+   "gold": [
+    1,
+    29
+   ],
+   "got": [
+    1,
+    29
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-03 dl=7 deadline",
+   "ok": true,
+   "gold": "2026-12-04",
+   "got": "2026-12-04"
+  },
+  {
+   "section": "examples",
+   "check": "S6-03 dl=7 attempt 1",
+   "ok": true,
+   "gold": "2026-11-26",
+   "got": "2026-11-26"
+  },
+  {
+   "section": "examples",
+   "check": "S6-03 dl=7 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-03 dl=7 attempts",
+   "ok": true,
+   "gold": 1,
+   "got": 1
+  },
+  {
+   "section": "examples",
+   "check": "S6-03 dl=7 full",
+   "ok": true,
+   "gold": 140.0,
+   "got": 140.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-03 dl=7 floor",
+   "ok": true,
+   "gold": 25.0,
+   "got": 25.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-04 dl=10 band",
+   "ok": true,
+   "gold": [
+    1,
+    29
+   ],
+   "got": [
+    1,
+    29
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-04 dl=10 deadline",
+   "ok": true,
+   "gold": "2026-12-07",
+   "got": "2026-12-07"
+  },
+  {
+   "section": "examples",
+   "check": "S6-04 dl=10 attempt 1",
+   "ok": true,
+   "gold": "2026-11-27",
+   "got": "2026-11-27"
+  },
+  {
+   "section": "examples",
+   "check": "S6-04 dl=10 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-04 dl=10 attempts",
+   "ok": true,
+   "gold": 1,
+   "got": 1
+  },
+  {
+   "section": "examples",
+   "check": "S6-04 dl=10 full",
+   "ok": true,
+   "gold": 310.0,
+   "got": 310.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-04 dl=10 floor",
+   "ok": true,
+   "gold": 31.0,
+   "got": 31.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-04 dl=45 band",
+   "ok": true,
+   "gold": [
+    30,
+    59
+   ],
+   "got": [
+    30,
+    59
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-04 dl=45 deadline",
+   "ok": true,
+   "gold": "2026-12-02",
+   "got": "2026-12-02"
+  },
+  {
+   "section": "examples",
+   "check": "S6-04 dl=45 attempt 1",
+   "ok": true,
+   "gold": "2026-11-27",
+   "got": "2026-11-27"
+  },
+  {
+   "section": "examples",
+   "check": "S6-04 dl=45 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-04 dl=45 attempts",
+   "ok": true,
+   "gold": 2,
+   "got": 2
+  },
+  {
+   "section": "examples",
+   "check": "S6-04 dl=45 full",
+   "ok": true,
+   "gold": 2200.0,
+   "got": 2200.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-04 dl=45 floor",
+   "ok": true,
+   "gold": 275.0,
+   "got": 275.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-04 dl=6 band",
+   "ok": true,
+   "gold": [
+    1,
+    29
+   ],
+   "got": [
+    1,
+    29
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-04 dl=6 deadline",
+   "ok": true,
+   "gold": "2026-12-07",
+   "got": "2026-12-07"
+  },
+  {
+   "section": "examples",
+   "check": "S6-04 dl=6 attempt 1",
+   "ok": true,
+   "gold": "2026-11-27",
+   "got": "2026-11-27"
+  },
+  {
+   "section": "examples",
+   "check": "S6-04 dl=6 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-04 dl=6 attempts",
+   "ok": true,
+   "gold": 1,
+   "got": 1
+  },
+  {
+   "section": "examples",
+   "check": "S6-04 dl=6 full",
+   "ok": true,
+   "gold": 180.0,
+   "got": 180.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-04 dl=6 floor",
+   "ok": true,
+   "gold": 180.0,
+   "got": 180.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-05 dl=20 band",
+   "ok": true,
+   "gold": [
+    1,
+    29
+   ],
+   "got": [
+    1,
+    29
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-05 dl=20 deadline",
+   "ok": true,
+   "gold": "2026-12-15",
+   "got": "2026-12-15"
+  },
+  {
+   "section": "examples",
+   "check": "S6-05 dl=20 attempt 1",
+   "ok": true,
+   "gold": "2026-12-07",
+   "got": "2026-12-07"
+  },
+  {
+   "section": "examples",
+   "check": "S6-05 dl=20 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-05 dl=20 attempts",
+   "ok": true,
+   "gold": 1,
+   "got": 1
+  },
+  {
+   "section": "examples",
+   "check": "S6-05 dl=20 full",
+   "ok": true,
+   "gold": 260.0,
+   "got": 260.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-05 dl=20 floor",
+   "ok": true,
+   "gold": 260.0,
+   "got": 260.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-06 dl=70 band",
+   "ok": true,
+   "gold": [
+    60,
+    89
+   ],
+   "got": [
+    60,
+    89
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-06 dl=70 deadline",
+   "ok": true,
+   "gold": "2026-12-29",
+   "got": "2026-12-29"
+  },
+  {
+   "section": "examples",
+   "check": "S6-06 dl=70 attempt 1",
+   "ok": true,
+   "gold": "2026-12-22",
+   "got": "2026-12-22"
+  },
+  {
+   "section": "examples",
+   "check": "S6-06 dl=70 attempt 3",
+   "ok": true,
+   "gold": "2026-12-21",
+   "got": "2026-12-21"
+  },
+  {
+   "section": "examples",
+   "check": "S6-06 dl=70 attempts",
+   "ok": true,
+   "gold": 3,
+   "got": 3
+  },
+  {
+   "section": "examples",
+   "check": "S6-06 dl=70 full",
+   "ok": true,
+   "gold": 1180.0,
+   "got": 1180.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-06 dl=70 floor",
+   "ok": true,
+   "gold": 295.0,
+   "got": 295.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-07 dl=5 band",
+   "ok": true,
+   "gold": [
+    1,
+    29
+   ],
+   "got": [
+    1,
+    29
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-07 dl=5 deadline",
+   "ok": true,
+   "gold": "2026-12-17",
+   "got": "2026-12-17"
+  },
+  {
+   "section": "examples",
+   "check": "S6-07 dl=5 attempt 1",
+   "ok": true,
+   "gold": "2026-12-09",
+   "got": "2026-12-09"
+  },
+  {
+   "section": "examples",
+   "check": "S6-07 dl=5 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-07 dl=5 attempts",
+   "ok": true,
+   "gold": 1,
+   "got": 1
+  },
+  {
+   "section": "examples",
+   "check": "S6-07 dl=5 full",
+   "ok": true,
+   "gold": 190.0,
+   "got": 190.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-07 dl=5 floor",
+   "ok": true,
+   "gold": 25.0,
+   "got": 25.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-07 dl=33 band",
+   "ok": true,
+   "gold": [
+    30,
+    59
+   ],
+   "got": [
+    30,
+    59
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-07 dl=33 deadline",
+   "ok": true,
+   "gold": "2026-12-14",
+   "got": "2026-12-14"
+  },
+  {
+   "section": "examples",
+   "check": "S6-07 dl=33 attempt 1",
+   "ok": true,
+   "gold": "2026-12-09",
+   "got": "2026-12-09"
+  },
+  {
+   "section": "examples",
+   "check": "S6-07 dl=33 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-07 dl=33 attempts",
+   "ok": true,
+   "gold": 2,
+   "got": 2
+  },
+  {
+   "section": "examples",
+   "check": "S6-07 dl=33 full",
+   "ok": true,
+   "gold": 960.0,
+   "got": 960.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-07 dl=33 floor",
+   "ok": true,
+   "gold": 240.0,
+   "got": 240.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-08 dl=18 band",
+   "ok": true,
+   "gold": [
+    1,
+    29
+   ],
+   "got": [
+    1,
+    29
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-08 dl=18 deadline",
+   "ok": true,
+   "gold": "2026-11-24",
+   "got": "2026-11-24"
+  },
+  {
+   "section": "examples",
+   "check": "S6-08 dl=18 attempt 1",
+   "ok": true,
+   "gold": "2026-11-13",
+   "got": "2026-11-13"
+  },
+  {
+   "section": "examples",
+   "check": "S6-08 dl=18 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-08 dl=18 attempts",
+   "ok": true,
+   "gold": 1,
+   "got": 1
+  },
+  {
+   "section": "examples",
+   "check": "S6-08 dl=18 full",
+   "ok": true,
+   "gold": 420.0,
+   "got": 420.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-08 dl=18 floor",
+   "ok": true,
+   "gold": 42.0,
+   "got": 42.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-08 dl=40 band",
+   "ok": true,
+   "gold": [
+    30,
+    59
+   ],
+   "got": [
+    30,
+    59
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-08 dl=40 deadline",
+   "ok": true,
+   "gold": "2026-11-18",
+   "got": "2026-11-18"
+  },
+  {
+   "section": "examples",
+   "check": "S6-08 dl=40 attempt 1",
+   "ok": true,
+   "gold": "2026-11-13",
+   "got": "2026-11-13"
+  },
+  {
+   "section": "examples",
+   "check": "S6-08 dl=40 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-08 dl=40 attempts",
+   "ok": true,
+   "gold": 2,
+   "got": 2
+  },
+  {
+   "section": "examples",
+   "check": "S6-08 dl=40 full",
+   "ok": true,
+   "gold": 350.0,
+   "got": 350.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-08 dl=40 floor",
+   "ok": true,
+   "gold": 350.0,
+   "got": 350.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-09 dl=15 band",
+   "ok": true,
+   "gold": [
+    1,
+    29
+   ],
+   "got": [
+    1,
+    29
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-09 dl=15 deadline",
+   "ok": true,
+   "gold": "2027-01-12",
+   "got": "2027-01-12"
+  },
+  {
+   "section": "examples",
+   "check": "S6-09 dl=15 attempt 1",
+   "ok": true,
+   "gold": "2027-01-04",
+   "got": "2027-01-04"
+  },
+  {
+   "section": "examples",
+   "check": "S6-09 dl=15 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-09 dl=15 attempts",
+   "ok": true,
+   "gold": 1,
+   "got": 1
+  },
+  {
+   "section": "examples",
+   "check": "S6-09 dl=15 full",
+   "ok": true,
+   "gold": 120.0,
+   "got": 120.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-09 dl=15 floor",
+   "ok": true,
+   "gold": 25.0,
+   "got": 25.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-09 dl=35 band",
+   "ok": true,
+   "gold": [
+    30,
+    59
+   ],
+   "got": [
+    30,
+    59
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-09 dl=35 deadline",
+   "ok": true,
+   "gold": "2027-01-07",
+   "got": "2027-01-07"
+  },
+  {
+   "section": "examples",
+   "check": "S6-09 dl=35 attempt 1",
+   "ok": true,
+   "gold": "2027-01-04",
+   "got": "2027-01-04"
+  },
+  {
+   "section": "examples",
+   "check": "S6-09 dl=35 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-09 dl=35 attempts",
+   "ok": true,
+   "gold": 2,
+   "got": 2
+  },
+  {
+   "section": "examples",
+   "check": "S6-09 dl=35 full",
+   "ok": true,
+   "gold": 640.5,
+   "got": 640.5
+  },
+  {
+   "section": "examples",
+   "check": "S6-09 dl=35 floor",
+   "ok": true,
+   "gold": 160.0,
+   "got": 160.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-09 dl=12 band",
+   "ok": true,
+   "gold": [
+    1,
+    29
+   ],
+   "got": [
+    1,
+    29
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-09 dl=12 deadline",
+   "ok": true,
+   "gold": "2027-01-12",
+   "got": "2027-01-12"
+  },
+  {
+   "section": "examples",
+   "check": "S6-09 dl=12 attempt 1",
+   "ok": true,
+   "gold": "2027-01-04",
+   "got": "2027-01-04"
+  },
+  {
+   "section": "examples",
+   "check": "S6-09 dl=12 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-09 dl=12 attempts",
+   "ok": true,
+   "gold": 1,
+   "got": 1
+  },
+  {
+   "section": "examples",
+   "check": "S6-09 dl=12 full",
+   "ok": true,
+   "gold": 1500.0,
+   "got": 1500.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-09 dl=12 floor",
+   "ok": true,
+   "gold": 1500.0,
+   "got": 1500.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-10 dl=25 band",
+   "ok": true,
+   "gold": [
+    1,
+    29
+   ],
+   "got": [
+    1,
+    29
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-10 dl=25 deadline",
+   "ok": true,
+   "gold": "2026-11-13",
+   "got": "2026-11-13"
+  },
+  {
+   "section": "examples",
+   "check": "S6-10 dl=25 attempt 1",
+   "ok": true,
+   "gold": "2026-11-04",
+   "got": "2026-11-04"
+  },
+  {
+   "section": "examples",
+   "check": "S6-10 dl=25 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-10 dl=25 attempts",
+   "ok": true,
+   "gold": 1,
+   "got": 1
+  },
+  {
+   "section": "examples",
+   "check": "S6-10 dl=25 full",
+   "ok": true,
+   "gold": 530.0,
+   "got": 530.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-10 dl=25 floor",
+   "ok": true,
+   "gold": 53.0,
+   "got": 53.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-11 dl=8 band",
+   "ok": true,
+   "gold": [
+    1,
+    29
+   ],
+   "got": [
+    1,
+    29
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-11 dl=8 deadline",
+   "ok": true,
+   "gold": "2026-12-09",
+   "got": "2026-12-09"
+  },
+  {
+   "section": "examples",
+   "check": "S6-11 dl=8 attempt 1",
+   "ok": true,
+   "gold": "2026-12-01",
+   "got": "2026-12-01"
+  },
+  {
+   "section": "examples",
+   "check": "S6-11 dl=8 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-11 dl=8 attempts",
+   "ok": true,
+   "gold": 1,
+   "got": 1
+  },
+  {
+   "section": "examples",
+   "check": "S6-11 dl=8 full",
+   "ok": true,
+   "gold": 210.0,
+   "got": 210.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-11 dl=8 floor",
+   "ok": true,
+   "gold": 25.0,
+   "got": 25.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-11 dl=40 band",
+   "ok": true,
+   "gold": [
+    30,
+    59
+   ],
+   "got": [
+    30,
+    59
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-11 dl=40 deadline",
+   "ok": true,
+   "gold": "2026-12-04",
+   "got": "2026-12-04"
+  },
+  {
+   "section": "examples",
+   "check": "S6-11 dl=40 attempt 1",
+   "ok": true,
+   "gold": "2026-12-01",
+   "got": "2026-12-01"
+  },
+  {
+   "section": "examples",
+   "check": "S6-11 dl=40 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-11 dl=40 attempts",
+   "ok": true,
+   "gold": 2,
+   "got": 2
+  },
+  {
+   "section": "examples",
+   "check": "S6-11 dl=40 full",
+   "ok": true,
+   "gold": 700.0,
+   "got": 700.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-11 dl=40 floor",
+   "ok": true,
+   "gold": 175.0,
+   "got": 175.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-12 dl=22 band",
+   "ok": true,
+   "gold": [
+    1,
+    29
+   ],
+   "got": [
+    1,
+    29
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-12 dl=22 deadline",
+   "ok": true,
+   "gold": "2026-12-23",
+   "got": "2026-12-23"
+  },
+  {
+   "section": "examples",
+   "check": "S6-12 dl=22 attempt 1",
+   "ok": true,
+   "gold": "2026-12-15",
+   "got": "2026-12-15"
+  },
+  {
+   "section": "examples",
+   "check": "S6-12 dl=22 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-12 dl=22 attempts",
+   "ok": true,
+   "gold": 1,
+   "got": 1
+  },
+  {
+   "section": "examples",
+   "check": "S6-12 dl=22 full",
+   "ok": true,
+   "gold": 300.0,
+   "got": 300.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-12 dl=22 floor",
+   "ok": true,
+   "gold": 30.0,
+   "got": 30.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-13 dl=3 band",
+   "ok": true,
+   "gold": [
+    1,
+    29
+   ],
+   "got": [
+    1,
+    29
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-13 dl=3 deadline",
+   "ok": true,
+   "gold": "2026-11-24",
+   "got": "2026-11-24"
+  },
+  {
+   "section": "examples",
+   "check": "S6-13 dl=3 attempt 1",
+   "ok": true,
+   "gold": "2026-11-13",
+   "got": "2026-11-13"
+  },
+  {
+   "section": "examples",
+   "check": "S6-13 dl=3 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-13 dl=3 attempts",
+   "ok": true,
+   "gold": 1,
+   "got": 1
+  },
+  {
+   "section": "examples",
+   "check": "S6-13 dl=3 full",
+   "ok": true,
+   "gold": 95.5,
+   "got": 95.5
+  },
+  {
+   "section": "examples",
+   "check": "S6-13 dl=3 floor",
+   "ok": true,
+   "gold": 25.0,
+   "got": 25.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-14 dl=15 band",
+   "ok": true,
+   "gold": [
+    1,
+    29
+   ],
+   "got": [
+    1,
+    29
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-14 dl=15 deadline",
+   "ok": true,
+   "gold": "2026-12-11",
+   "got": "2026-12-11"
+  },
+  {
+   "section": "examples",
+   "check": "S6-14 dl=15 attempt 1",
+   "ok": true,
+   "gold": "2026-12-03",
+   "got": "2026-12-03"
+  },
+  {
+   "section": "examples",
+   "check": "S6-14 dl=15 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-14 dl=15 attempts",
+   "ok": true,
+   "gold": 1,
+   "got": 1
+  },
+  {
+   "section": "examples",
+   "check": "S6-14 dl=15 full",
+   "ok": true,
+   "gold": 400.0,
+   "got": 400.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-14 dl=15 floor",
+   "ok": true,
+   "gold": 100.0,
+   "got": 100.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-15 dl=9 band",
+   "ok": true,
+   "gold": [
+    1,
+    29
+   ],
+   "got": [
+    1,
+    29
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-15 dl=9 deadline",
+   "ok": true,
+   "gold": "2026-12-14",
+   "got": "2026-12-14"
+  },
+  {
+   "section": "examples",
+   "check": "S6-15 dl=9 attempt 1",
+   "ok": true,
+   "gold": "2026-12-04",
+   "got": "2026-12-04"
+  },
+  {
+   "section": "examples",
+   "check": "S6-15 dl=9 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-15 dl=9 attempts",
+   "ok": true,
+   "gold": 1,
+   "got": 1
+  },
+  {
+   "section": "examples",
+   "check": "S6-15 dl=9 full",
+   "ok": true,
+   "gold": 150.0,
+   "got": 150.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-15 dl=9 floor",
+   "ok": true,
+   "gold": 25.0,
+   "got": 25.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-16 dl=21 band",
+   "ok": true,
+   "gold": [
+    1,
+    29
+   ],
+   "got": [
+    1,
+    29
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-16 dl=21 deadline",
+   "ok": true,
+   "gold": "2026-11-26",
+   "got": "2026-11-26"
+  },
+  {
+   "section": "examples",
+   "check": "S6-16 dl=21 attempt 1",
+   "ok": true,
+   "gold": "2026-11-17",
+   "got": "2026-11-17"
+  },
+  {
+   "section": "examples",
+   "check": "S6-16 dl=21 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-16 dl=21 attempts",
+   "ok": true,
+   "gold": 1,
+   "got": 1
+  },
+  {
+   "section": "examples",
+   "check": "S6-16 dl=21 full",
+   "ok": true,
+   "gold": 480.0,
+   "got": 480.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-16 dl=21 floor",
+   "ok": true,
+   "gold": 48.0,
+   "got": 48.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-16 dl=31 band",
+   "ok": true,
+   "gold": [
+    30,
+    59
+   ],
+   "got": [
+    30,
+    59
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-16 dl=31 deadline",
+   "ok": true,
+   "gold": "2026-11-23",
+   "got": "2026-11-23"
+  },
+  {
+   "section": "examples",
+   "check": "S6-16 dl=31 attempt 1",
+   "ok": true,
+   "gold": "2026-11-17",
+   "got": "2026-11-17"
+  },
+  {
+   "section": "examples",
+   "check": "S6-16 dl=31 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-16 dl=31 attempts",
+   "ok": true,
+   "gold": 2,
+   "got": 2
+  },
+  {
+   "section": "examples",
+   "check": "S6-16 dl=31 full",
+   "ok": true,
+   "gold": 1250.0,
+   "got": 1250.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-16 dl=31 floor",
+   "ok": true,
+   "gold": 310.0,
+   "got": 310.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-17 dl=4 band",
+   "ok": true,
+   "gold": [
+    1,
+    29
+   ],
+   "got": [
+    1,
+    29
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-17 dl=4 deadline",
+   "ok": true,
+   "gold": "2026-12-28",
+   "got": "2026-12-28"
+  },
+  {
+   "section": "examples",
+   "check": "S6-17 dl=4 attempt 1",
+   "ok": true,
+   "gold": "2026-12-16",
+   "got": "2026-12-16"
+  },
+  {
+   "section": "examples",
+   "check": "S6-17 dl=4 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-17 dl=4 attempts",
+   "ok": true,
+   "gold": 1,
+   "got": 1
+  },
+  {
+   "section": "examples",
+   "check": "S6-17 dl=4 full",
+   "ok": true,
+   "gold": 130.0,
+   "got": 130.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-17 dl=4 floor",
+   "ok": true,
+   "gold": 25.0,
+   "got": 25.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-17 dl=11 band",
+   "ok": true,
+   "gold": [
+    1,
+    29
+   ],
+   "got": [
+    1,
+    29
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-17 dl=11 deadline",
+   "ok": true,
+   "gold": "2026-12-28",
+   "got": "2026-12-28"
+  },
+  {
+   "section": "examples",
+   "check": "S6-17 dl=11 attempt 1",
+   "ok": true,
+   "gold": "2026-12-16",
+   "got": "2026-12-16"
+  },
+  {
+   "section": "examples",
+   "check": "S6-17 dl=11 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-17 dl=11 attempts",
+   "ok": true,
+   "gold": 1,
+   "got": 1
+  },
+  {
+   "section": "examples",
+   "check": "S6-17 dl=11 full",
+   "ok": true,
+   "gold": 220.0,
+   "got": 220.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-17 dl=11 floor",
+   "ok": true,
+   "gold": 220.0,
+   "got": 220.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-18 dl=52 band",
+   "ok": true,
+   "gold": [
+    30,
+    59
+   ],
+   "got": [
+    30,
+    59
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-18 dl=52 deadline",
+   "ok": true,
+   "gold": "2026-12-22",
+   "got": "2026-12-22"
+  },
+  {
+   "section": "examples",
+   "check": "S6-18 dl=52 attempt 1",
+   "ok": true,
+   "gold": "2026-12-17",
+   "got": "2026-12-17"
+  },
+  {
+   "section": "examples",
+   "check": "S6-18 dl=52 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-18 dl=52 attempts",
+   "ok": true,
+   "gold": 2,
+   "got": 2
+  },
+  {
+   "section": "examples",
+   "check": "S6-18 dl=52 full",
+   "ok": true,
+   "gold": 1600.0,
+   "got": 1600.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-18 dl=52 floor",
+   "ok": true,
+   "gold": 400.0,
+   "got": 400.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-19 dl=9 band",
+   "ok": true,
+   "gold": [
+    1,
+    29
+   ],
+   "got": [
+    1,
+    29
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-19 dl=9 deadline",
+   "ok": true,
+   "gold": "2026-12-01",
+   "got": "2026-12-01"
+  },
+  {
+   "section": "examples",
+   "check": "S6-19 dl=9 attempt 1",
+   "ok": true,
+   "gold": "2026-11-23",
+   "got": "2026-11-23"
+  },
+  {
+   "section": "examples",
+   "check": "S6-19 dl=9 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-19 dl=9 attempts",
+   "ok": true,
+   "gold": 1,
+   "got": 1
+  },
+  {
+   "section": "examples",
+   "check": "S6-19 dl=9 full",
+   "ok": true,
+   "gold": 340.0,
+   "got": 340.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-19 dl=9 floor",
+   "ok": true,
+   "gold": 34.0,
+   "got": 34.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-20 dl=12 band",
+   "ok": true,
+   "gold": [
+    1,
+    29
+   ],
+   "got": [
+    1,
+    29
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-20 dl=12 deadline",
+   "ok": true,
+   "gold": "2026-12-31",
+   "got": "2026-12-31"
+  },
+  {
+   "section": "examples",
+   "check": "S6-20 dl=12 attempt 1",
+   "ok": true,
+   "gold": "2026-12-21",
+   "got": "2026-12-21"
+  },
+  {
+   "section": "examples",
+   "check": "S6-20 dl=12 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-20 dl=12 attempts",
+   "ok": true,
+   "gold": 1,
+   "got": 1
+  },
+  {
+   "section": "examples",
+   "check": "S6-20 dl=12 full",
+   "ok": true,
+   "gold": 200.0,
+   "got": 200.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-20 dl=12 floor",
+   "ok": true,
+   "gold": 25.0,
+   "got": 25.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-20 dl=33 band",
+   "ok": true,
+   "gold": [
+    30,
+    59
+   ],
+   "got": [
+    30,
+    59
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-20 dl=33 deadline",
+   "ok": true,
+   "gold": "2026-12-28",
+   "got": "2026-12-28"
+  },
+  {
+   "section": "examples",
+   "check": "S6-20 dl=33 attempt 1",
+   "ok": true,
+   "gold": "2026-12-21",
+   "got": "2026-12-21"
+  },
+  {
+   "section": "examples",
+   "check": "S6-20 dl=33 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-20 dl=33 attempts",
+   "ok": true,
+   "gold": 2,
+   "got": 2
+  },
+  {
+   "section": "examples",
+   "check": "S6-20 dl=33 full",
+   "ok": true,
+   "gold": 450.0,
+   "got": 450.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-20 dl=33 floor",
+   "ok": true,
+   "gold": 112.5,
+   "got": 112.5
+  },
+  {
+   "section": "examples",
+   "check": "S6-20 dl=8 band",
+   "ok": true,
+   "gold": [
+    1,
+    29
+   ],
+   "got": [
+    1,
+    29
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-20 dl=8 deadline",
+   "ok": true,
+   "gold": "2026-12-31",
+   "got": "2026-12-31"
+  },
+  {
+   "section": "examples",
+   "check": "S6-20 dl=8 attempt 1",
+   "ok": true,
+   "gold": "2026-12-21",
+   "got": "2026-12-21"
+  },
+  {
+   "section": "examples",
+   "check": "S6-20 dl=8 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-20 dl=8 attempts",
+   "ok": true,
+   "gold": 1,
+   "got": 1
+  },
+  {
+   "section": "examples",
+   "check": "S6-20 dl=8 full",
+   "ok": true,
+   "gold": 900.0,
+   "got": 900.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-20 dl=8 floor",
+   "ok": true,
+   "gold": 900.0,
+   "got": 900.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-21 dl=4 band",
+   "ok": true,
+   "gold": [
+    1,
+    29
+   ],
+   "got": [
+    1,
+    29
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-21 dl=4 deadline",
+   "ok": true,
+   "gold": "2026-12-10",
+   "got": "2026-12-10"
+  },
+  {
+   "section": "examples",
+   "check": "S6-21 dl=4 attempt 1",
+   "ok": true,
+   "gold": "2026-12-02",
+   "got": "2026-12-02"
+  },
+  {
+   "section": "examples",
+   "check": "S6-21 dl=4 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-21 dl=4 attempts",
+   "ok": true,
+   "gold": 1,
+   "got": 1
+  },
+  {
+   "section": "examples",
+   "check": "S6-21 dl=4 full",
+   "ok": true,
+   "gold": 300.0,
+   "got": 300.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-21 dl=4 floor",
+   "ok": true,
+   "gold": 30.0,
+   "got": 30.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-21 dl=50 band",
+   "ok": true,
+   "gold": [
+    30,
+    59
+   ],
+   "got": [
+    30,
+    59
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-21 dl=50 deadline",
+   "ok": true,
+   "gold": "2026-12-07",
+   "got": "2026-12-07"
+  },
+  {
+   "section": "examples",
+   "check": "S6-21 dl=50 attempt 1",
+   "ok": true,
+   "gold": "2026-12-02",
+   "got": "2026-12-02"
+  },
+  {
+   "section": "examples",
+   "check": "S6-21 dl=50 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-21 dl=50 attempts",
+   "ok": true,
+   "gold": 2,
+   "got": 2
+  },
+  {
+   "section": "examples",
+   "check": "S6-21 dl=50 full",
+   "ok": true,
+   "gold": 300.0,
+   "got": 300.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-21 dl=50 floor",
+   "ok": true,
+   "gold": 75.0,
+   "got": 75.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-22 dl=29 band",
+   "ok": true,
+   "gold": [
+    1,
+    29
+   ],
+   "got": [
+    1,
+    29
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-22 dl=29 deadline",
+   "ok": true,
+   "gold": "2026-12-03",
+   "got": "2026-12-03"
+  },
+  {
+   "section": "examples",
+   "check": "S6-22 dl=29 attempt 1",
+   "ok": true,
+   "gold": "2026-11-25",
+   "got": "2026-11-25"
+  },
+  {
+   "section": "examples",
+   "check": "S6-22 dl=29 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-22 dl=29 attempts",
+   "ok": true,
+   "gold": 1,
+   "got": 1
+  },
+  {
+   "section": "examples",
+   "check": "S6-22 dl=29 full",
+   "ok": true,
+   "gold": 610.0,
+   "got": 610.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-22 dl=29 floor",
+   "ok": true,
+   "gold": 61.0,
+   "got": 61.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-22 dl=30 band",
+   "ok": true,
+   "gold": [
+    30,
+    59
+   ],
+   "got": [
+    30,
+    59
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-22 dl=30 deadline",
+   "ok": true,
+   "gold": "2026-11-30",
+   "got": "2026-11-30"
+  },
+  {
+   "section": "examples",
+   "check": "S6-22 dl=30 attempt 1",
+   "ok": true,
+   "gold": "2026-11-25",
+   "got": "2026-11-25"
+  },
+  {
+   "section": "examples",
+   "check": "S6-22 dl=30 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-22 dl=30 attempts",
+   "ok": true,
+   "gold": 2,
+   "got": 2
+  },
+  {
+   "section": "examples",
+   "check": "S6-22 dl=30 full",
+   "ok": true,
+   "gold": 880.0,
+   "got": 880.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-22 dl=30 floor",
+   "ok": true,
+   "gold": 220.0,
+   "got": 220.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-23 dl=2 band",
+   "ok": true,
+   "gold": [
+    1,
+    29
+   ],
+   "got": [
+    1,
+    29
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-23 dl=2 deadline",
+   "ok": true,
+   "gold": "2027-01-06",
+   "got": "2027-01-06"
+  },
+  {
+   "section": "examples",
+   "check": "S6-23 dl=2 attempt 1",
+   "ok": true,
+   "gold": "2026-12-28",
+   "got": "2026-12-28"
+  },
+  {
+   "section": "examples",
+   "check": "S6-23 dl=2 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-23 dl=2 attempts",
+   "ok": true,
+   "gold": 1,
+   "got": 1
+  },
+  {
+   "section": "examples",
+   "check": "S6-23 dl=2 full",
+   "ok": true,
+   "gold": 145.0,
+   "got": 145.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-23 dl=2 floor",
+   "ok": true,
+   "gold": 25.0,
+   "got": 25.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-24 dl=26 band",
+   "ok": true,
+   "gold": [
+    1,
+    29
+   ],
+   "got": [
+    1,
+    29
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S6-24 dl=26 deadline",
+   "ok": true,
+   "gold": "2027-01-12",
+   "got": "2027-01-12"
+  },
+  {
+   "section": "examples",
+   "check": "S6-24 dl=26 attempt 1",
+   "ok": true,
+   "gold": "2027-01-04",
+   "got": "2027-01-04"
+  },
+  {
+   "section": "examples",
+   "check": "S6-24 dl=26 attempt 3",
+   "ok": true,
+   "gold": null,
+   "got": null
+  },
+  {
+   "section": "examples",
+   "check": "S6-24 dl=26 attempts",
+   "ok": true,
+   "gold": 1,
+   "got": 1
+  },
+  {
+   "section": "examples",
+   "check": "S6-24 dl=26 full",
+   "ok": true,
+   "gold": 510.0,
+   "got": 510.0
+  },
+  {
+   "section": "examples",
+   "check": "S6-24 dl=26 floor",
+   "ok": true,
+   "gold": 127.5,
+   "got": 127.5
+  },
+  {
+   "section": "callback",
+   "check": "start",
+   "ok": true,
+   "gold": "09:00",
+   "got": "09:00"
+  },
+  {
+   "section": "callback",
+   "check": "end",
+   "ok": true,
+   "gold": "17:30",
+   "got": "17:30"
+  },
+  {
+   "section": "callback",
+   "check": "end_inclusive",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "callback",
+   "check": "must_be_after_now",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "callback",
+   "check": "days",
+   "ok": true,
+   "gold": [
+    "next_business_day",
+    "today"
+   ],
+   "got": [
+    "next_business_day",
+    "today"
+   ]
+  },
+  {
+   "section": "callback",
+   "check": "date 2026-12-31 window",
+   "ok": true,
+   "gold": [
+    "09:00",
+    "12:30"
+   ],
+   "got": [
+    "09:00",
+    "12:30"
+   ]
+  },
+  {
+   "section": "callback",
+   "check": "close ok",
+   "ok": true,
+   "gold": [
+    "CBK",
+    ""
+   ],
+   "got": [
+    "CBK",
+    ""
+   ]
+  },
+  {
+   "section": "callback",
+   "check": "close fail",
+   "ok": true,
+   "gold": [
+    "NCB",
+    ""
+   ],
+   "got": [
+    "NCB",
+    ""
+   ]
+  },
+  {
+   "section": "queues",
+   "check": "restructuring",
+   "ok": true,
+   "gold": "PAYMENT_ARRANGEMENTS",
+   "got": [
+    "ARREARS_SUPPORT",
+    "MEMBER_SERVICES",
+    "PAYMENT_ARRANGEMENTS"
+   ]
+  },
+  {
+   "section": "queues",
+   "check": "human",
+   "ok": true,
+   "gold": "MEMBER_SERVICES",
+   "got": [
+    "ARREARS_SUPPORT",
+    "MEMBER_SERVICES",
+    "PAYMENT_ARRANGEMENTS"
+   ]
+  },
+  {
+   "section": "queues",
+   "check": "hardship",
+   "ok": true,
+   "gold": "ARREARS_SUPPORT",
+   "got": [
+    "ARREARS_SUPPORT",
+    "MEMBER_SERVICES",
+    "PAYMENT_ARRANGEMENTS"
+   ]
+  },
+  {
+   "section": "notes",
+   "check": "tool_reasons",
+   "ok": true,
+   "gold": [
+    "N-DS",
+    "N-HS",
+    "N-PD",
+    "N-PL",
+    "N-RF",
+    "N-TE"
+   ],
+   "got": [
+    "N-DS",
+    "N-HS",
+    "N-PD",
+    "N-PL",
+    "N-RF",
+    "N-TE"
+   ]
+  },
+  {
+   "section": "outcomes",
+   "check": "missing pairs",
+   "ok": true,
+   "gold": [],
+   "got": []
+  },
+  {
+   "section": "outcomes",
+   "check": "extra pairs",
+   "ok": true,
+   "gold": [],
+   "got": []
+  },
+  {
+   "section": "closing",
+   "check": "id_fail",
+   "ok": true,
+   "gold": [
+    "IDF",
+    ""
+   ],
+   "got": [
+    "IDF",
+    ""
+   ]
+  },
+  {
+   "section": "phrases",
+   "check": "robot",
+   "ok": true,
+   "gold": "Yes, I'm Larkspur's digital assistant.",
+   "got": null
+  },
+  {
+   "section": "phrases",
+   "check": "deceased",
+   "ok": true,
+   "gold": "I'm very sorry for your loss.",
+   "got": null
+  },
+  {
+   "section": "phrases",
+   "check": "promise_confirmation",
+   "ok": true,
+   "gold": "You'll get a text message to confirm.",
+   "got": null
+  },
+  {
+   "section": "phrases",
+   "check": "readback_question",
+   "ok": true,
+   "gold": "Shall I put that in place?",
+   "got": null
+  },
+  {
+   "section": "phrases",
+   "check": "today_question",
+   "ok": true,
+   "gold": "Would you be able to clear this today?",
+   "got": null
+  },
+  {
+   "section": "phrases",
+   "check": "today_question_multi",
+   "ok": true,
+   "gold": "Would you be able to clear all of it today?",
+   "got": null
+  },
+  {
+   "section": "phrases",
+   "check": "already_paid",
+   "ok": true,
+   "gold": "payments can take up to three working days to show",
+   "got": null
+  },
+  {
+   "section": "overrides",
+   "check": "count",
+   "ok": true,
+   "gold": 6,
+   "got": 9
+  },
+  {
+   "section": "dates",
+   "check": "next_weekday",
+   "ok": true,
+   "gold": "next_occurrence",
+   "got": "next_occurrence"
+  }
+ ]
+}

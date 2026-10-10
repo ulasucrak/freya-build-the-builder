@@ -417,7 +417,9 @@ class ReviewFixes(unittest.TestCase):
     def test_no_brief_words_in_builder_code(self):
         words = ["wrong number", "wrong_number", "deceased", "restructuring", "hardship", "already paid", "scam",
                  "sympathy", "robot", "credit card", "personal loan", "car loan", "2026-", "10:00", "19:00",
-                 "salary", "minimum_payment", "instalment", "date_of_birth", "phone_last4", "day_month_swapped"]
+                 "salary", "minimum_payment", "instalment", "date_of_birth", "phone_last4", "day_month_swapped",
+                 "corvane", "larkspur", "tidewater", "min_to_pay", "card_ending", "days_in_arrears", "n-lg",
+                 "lgl", "past_due", "overdraft", "08:00", "12:30"]
         for f in (KIT / "builder").glob("*.py"):
             if f.name not in ("extract.py", "llm.py", "__init__.py"):
                 continue
@@ -506,7 +508,7 @@ class EvalScorer(unittest.TestCase):
     def test_saved_holdout_policies_match_gold(self):
         sys.path.insert(0, str(KIT / "tools"))
         import eval_extract
-        for bank in ("S1", "S2", "S3", "S4"):
+        for bank in ("S1", "S2", "S3", "S4", "S5", "S6", "S7"):
             if not (KIT / "policies" / ("%s.policy.json" % bank)).exists():
                 self.skipTest("policies/%s.policy.json not generated" % bank)
             facts, _briefs, _api, cases = eval_extract.bank_inputs(bank)
@@ -514,6 +516,57 @@ class EvalScorer(unittest.TestCase):
             rows = eval_extract.Scorer(bank, facts, policy, cases).run()
             bad = [r for r in rows if not r[2]]
             self.assertEqual(bad, [], bank)
+
+
+class HoldoutClassesS5S7(unittest.TestCase):
+    """Offline checks for the mismatch classes found on the S5-S7 banks (T26)."""
+
+    def test_floor_expr_rounding(self):
+        f = {"m": 10, "p": 2010.05, "q": 687.0}
+        self.assertEqual(extract.eval_amount_expr("max(m, round_half_up(0.10 * p, 2))", f), 201.01)
+        self.assertEqual(extract.eval_amount_expr("round_up(0.25 * q, 0)", f), 172.0)
+        self.assertEqual(extract.eval_amount_expr("ceil(0.25 * q)", f), 172.0)
+        self.assertEqual(extract.eval_amount_expr("round_down(0.25 * q)", f), 171.0)
+        self.assertEqual(extract.eval_amount_expr("min(m, p)", f), 10.0)
+        self.assertIsNone(extract.eval_amount_expr("unknown(p)", f))
+
+    def test_number_formats(self):
+        for raw, want in [("1.234,56", 1234.56), ("1,234.56", 1234.56), ("3 000", 3000), ("12,5", 12.5),
+                          ("3,000", 3000), ("EUR 3.000", 3000), ("12.50", 12.5), ("three thousand", 3000)]:
+            self.assertEqual(extract._number(raw), want, raw)
+
+    def test_calendar_week_start_and_non_holidays(self):
+        w = []
+        cal = extract.normalise_section("calendar", {"weekend": ["Friday", "Saturday"], "holidays": [
+            "24.12.2026", "2026-12-08"], "non_holidays": ["8 December 2026"]}, w)
+        self.assertEqual(cal["weekend"], [5, 6])
+        self.assertEqual(cal["week_starts"], 7)          # derived: first business day after the weekend
+        self.assertEqual(cal["holidays"], ["2026-12-24"])
+        self.assertEqual(cal["non_holidays"], ["2026-12-08"])
+        cal = extract.normalise_section("calendar", {"weekend": [6, 7], "week_starts": None}, w)
+        self.assertEqual(cal["week_starts"], 1)
+        cal = extract.normalise_section("calendar", {"weekend": [6, 7], "week_starts": "Sunday"}, w)
+        self.assertEqual(cal["week_starts"], 7)
+
+    def test_callback_days_windows(self):
+        cb = extract.normalise_section("callback", {
+            "days": ["today (only if today is a business day)", "next business day"], "start": "8", "end": "19:00",
+            "per_weekday": {"Thursday": {"start": "08:00", "end": "14:00", "end_inclusive": "true"}},
+            "per_date": [{"date": "31.12.2026", "start": "9:00", "end": "12.30"}]}, [])
+        self.assertEqual(cb["days"], ["today", "next_business_day"])
+        self.assertTrue(cb["today_requires_business_day"])
+        self.assertEqual(cb["per_weekday"], {"4": {"start": "08:00", "end": "14:00", "end_inclusive": True}})
+        self.assertEqual(cb["per_date"], {"2026-12-31": {"start": "09:00", "end": "12:30"}})
+        cb = extract.normalise_section("callback", {"days": ["today", "business_days:2"]}, [])
+        self.assertEqual(cb["days"], ["today", "business_days:2"])
+        self.assertFalse(cb["today_requires_business_day"])
+
+    def test_no_lower_amount_floor_is_full(self):
+        pr = extract.normalise_section("products", {"types": {
+            "a": {"floor_field": None, "floor_expr": None, "full_field": "due"},
+            "b": {"floor_field": None, "floor_expr": "min(x, due)", "full_field": "due"}}}, [])
+        self.assertEqual(pr["types"]["a"]["floor_field"], "due")
+        self.assertIsNone(pr["types"]["b"]["floor_field"])
 
 
 class TimeBudget(unittest.TestCase):

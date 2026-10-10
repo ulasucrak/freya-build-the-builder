@@ -44,6 +44,45 @@ def _gold_counted(cf_value):
     return "today_is_day_1" if cf_value == "today" else "after_today"
 
 
+def _day_kw(d):
+    """Callback day as its keyword: 'today (only if a business day)' -> 'today'."""
+    return re.sub(r"\s*\(.*$", "", str(d or "")).strip().lower().replace(" ", "_")
+
+
+def _gold_field(fld):
+    """'arrears (no lower amount; ...)' -> 'arrears'; a real expression -> None."""
+    m = re.match(r"^(\w+)(\s+\(.*\))?$", str(fld or "").strip())
+    return m.group(1) if m else None
+
+
+def _tokens_in(phrase, entries):
+    """Every word of `phrase` (minus filler) appears in one of `entries`."""
+    words = [w for w in re.findall(r"[a-z0-9']+", _norm_text(phrase)) if w not in ("the", "a", "an", "any", "of")]
+    for e in entries:
+        ew = set(re.findall(r"[a-z0-9']+", _norm_text(e)))
+        if words and all(w in ew or (w.endswith("s") and w[:-1] in ew) or w + "s" in ew for w in words):
+            return True
+    return False
+
+
+class _WeekStart:
+    """Context manager: make the oracle's week helpers start the week on ISO weekday `ws` (1 = Monday).
+    The oracle only knows Monday weeks; this measures whether the EXTRACTED week start gives the gold dates."""
+
+    def __init__(self, ws):
+        self.ws = ws if isinstance(ws, int) and 1 <= ws <= 7 else 1
+        self.saved = None
+
+    def __enter__(self):
+        self.saved = oracle.week_monday
+        ws = self.ws
+        oracle.week_monday = lambda d: d - oracle.datetime.timedelta(days=(d.isoweekday() - ws) % 7)
+        return self
+
+    def __exit__(self, *a):
+        oracle.week_monday = self.saved
+
+
 def _pairs_from_close_reasons(cr):
     out = set()
     for o, rs in (cr or {}).items():
@@ -98,14 +137,17 @@ class Scorer:
         cal = self.p["calendar"]
         self.chk("calendar", "weekend", sorted(g["weekend"]), sorted(cal["weekend"]))
         self.chk("calendar", "holidays", sorted(g["holidays"]), sorted(cal["holidays"]))
-        for d in g.get("not_holidays") or []:
+        for d in (g.get("not_holidays") or []) + (g.get("non_holidays") or []):
             self.chk("calendar", "not holiday %s" % d, False, d in cal["holidays"])
+        if g.get("week_starts") is not None:
+            self.chk("calendar", "week_starts", g["week_starts"], cal.get("week_starts"))
 
     def opening(self):
         g = self.f.get("opening") or {}
         forb = _norm_text(" | ".join(self.p["opening"]["forbidden_before_verification"]))
+        entries = self.p["opening"]["forbidden_before_verification"]
         for w in g.get("forbidden_before_verification") or []:
-            self.chk("opening", "forbidden %r" % w, True, _norm_text(w) in forb)
+            self.chk("opening", "forbidden %r" % w, True, _norm_text(w) in forb or _tokens_in(w, entries))
         if g.get("confirm_question"):
             self.chk("opening", "confirm_question", g["confirm_question"], None,
                      _norm_text(g["confirm_question"]).rstrip("?") in self.text)
@@ -143,19 +185,23 @@ class Scorer:
         g = self.f["products"]
         pr = self.p["products"]
         self.chk("products", "max_count", g["max_count"], pr["max_count"])
-        for k in ("list_field", "type_field", "days_late_field"):
+        for k in ("list_field", "type_field", "days_late_field", "id_field"):
             if g.get(k):
                 self.chk("products", k, g[k], pr.get(k))
+        if g.get("days_field"):
+            self.chk("products", "days_late_field", g["days_field"], pr.get("days_late_field"))
         for t, fld in (g.get("floor_field") or {}).items():
             got = (pr["types"].get(t) or {})
-            if re.match(r"^\w+$", fld):
-                self.chk("products", "floor %s" % t, fld, got.get("floor_field"))
+            if _gold_field(fld):
+                f = _gold_field(fld)
+                self.chk("products", "floor %s" % t, f, got.get("floor_field") or got.get("floor_expr"))
             else:
                 self.chk("products", "floor %s (expr)" % t, fld, got.get("floor_expr") or got.get("floor_field"),
                          bool(got.get("floor_expr")))
-        if g.get("past_due_field"):
+        full_gold = g.get("past_due_field") or g.get("full_field")
+        if full_gold:
             for t, info in pr["types"].items():
-                self.chk("products", "full %s" % t, g["past_due_field"], info.get("full_field"))
+                self.chk("products", "full %s" % t, full_gold, info.get("full_field"))
         for t, s in (g.get("speak_as") or {}).items():
             got = (pr["types"].get(t) or {}).get("speak_as", "")
             self.chk("products", "speak_as %s" % t, s, got, _norm_text(s).replace("your ", "") in _norm_text(got)
@@ -174,24 +220,48 @@ class Scorer:
                      _counted_semantics(b["deadline"]["counted_from"]))
             self.chk("bands", "%s attempts" % nm, g["attempts"], len(b["attempts"]))
 
+    def _days_late(self, ex):
+        gf = (self.f.get("products") or {}).get("days_field")
+        for k in ("days_late", gf, "days_in_arrears", "days_overdue"):
+            if k and ex.get(k) is not None:
+                return ex[k]
+        return None
+
     def _raw_product(self, ex):
         case = self.cases.get(ex["case"]) or {}
         dl_field = self.p["products"]["days_late_field"]
-        for raw in case.get("products") or []:
-            for k in (dl_field, "days_late", "days_overdue"):
-                if raw.get(k) == ex["days_late"]:
+        dl = self._days_late(ex)
+        prods = case.get("products") or []
+        m = re.match(r"^p(\d+)$", str(ex.get("product") or ""))
+        if m and 0 < int(m.group(1)) <= len(prods):
+            return prods[int(m.group(1)) - 1]
+        for raw in prods:
+            if ex.get("product") is not None and ex.get("product") in raw.values():
+                return raw
+        for raw in prods:
+            for k in (dl_field, "days_late", "days_overdue", "days_in_arrears"):
+                if raw.get(k) == dl:
                     return raw
-        return {dl_field: ex["days_late"]}
+        return {dl_field: dl}
 
     def examples(self):
-        gbands = {b["name"]: b for b in self.f["bands"]}
+        with _WeekStart(self.p["calendar"].get("week_starts")):
+            self._examples()
+
+    def _examples(self):
+        gbands = {}
+        for b in self.f["bands"]:   # band names may repeat (same name, different ranges)
+            gbands.setdefault(b["name"], []).append(b)
         cal = oracle.make_calendar(self.p)
         for ex in self.f.get("deadline_examples") or []:
+            ex = dict(ex, days_late=self._days_late(ex))
             tag = "%s dl=%s" % (ex["case"], ex["days_late"])
             today, _t = oracle.parse_now(ex["now"])
             raw = self._raw_product(ex)
             prod = oracle.build_product(raw, 0, self.p, today, cal)
-            gb = gbands.get(ex["band"]) or {}
+            cands = gbands.get(ex["band"]) or [{}]
+            gb = next((b for b in cands if b.get("min_days_late", 0) <= ex["days_late"] <= b.get("max_days_late", 0)),
+                      cands[0])
             pband = oracle.band_for(ex["days_late"], self.p) or {}
             self.chk("examples", tag + " band", (gb.get("min_days_late"), gb.get("max_days_late")),
                      (pband.get("min_days_late"), pband.get("max_days_late")))
@@ -201,10 +271,15 @@ class Scorer:
             if "attempt_3_date" in ex:
                 self.chk("examples", tag + " attempt 3", ex["attempt_3_date"] or None,
                          (offers.get(3) or {}).get("date") or None)
+            if ex.get("attempts") is not None:
+                self.chk("examples", tag + " attempts", ex["attempts"], len(prod["offers"]))
+            if "full" in ex:
+                self.chk("examples", tag + " full", ex["full"], prod["full"],
+                         prod["full"] is not None and abs(float(prod["full"]) - float(ex["full"])) < 0.005)
             if "floor" in ex:
                 floor = prod["floor"]
                 tinfo = (self.p["products"]["types"].get(prod["type"]) or {})
-                if not tinfo.get("floor_field") and tinfo.get("floor_expr"):
+                if tinfo.get("floor_expr"):
                     # oracle reads floor_field only; the extracted rule is evaluated with the extractor helper
                     floor = extract.eval_amount_expr(tinfo["floor_expr"], raw)
                 self.chk("examples", tag + " floor", ex["floor"], floor,
@@ -215,10 +290,17 @@ class Scorer:
         cb = self.p["callback"]
         for k in ("start", "end", "end_inclusive", "must_be_after_now"):
             self.chk("callback", k, g[k], cb.get(k))
-        self.chk("callback", "days", sorted(g["days"]), sorted(cb["days"]))
+        self.chk("callback", "days", sorted(_day_kw(d) for d in g["days"]), sorted(_day_kw(d) for d in cb["days"]))
         for wd, win in (g.get("per_weekday") or {}).items():
             got = (cb.get("per_weekday") or {}).get(str(wd)) or (cb.get("per_weekday") or {}).get(int(wd)) or {}
             self.chk("callback", "weekday %s window" % wd, (win["start"], win["end"]),
+                     (got.get("start"), got.get("end")))
+            if "end_inclusive" in win:
+                self.chk("callback", "weekday %s end_inclusive" % wd, win["end_inclusive"],
+                         got.get("end_inclusive", cb.get("end_inclusive")))
+        for day, win in (g.get("per_date") or {}).items():
+            got = (cb.get("per_date") or {}).get(day) or {}
+            self.chk("callback", "date %s window" % day, (win["start"], win["end"]),
                      (got.get("start"), got.get("end")))
         if "retry_asks" in g:
             pass  # free-text in notes; not scored

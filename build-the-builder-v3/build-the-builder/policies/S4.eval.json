@@ -1,9 +1,8 @@
 {
  "bank": "S4",
- "seconds": 87.05437421798706,
+ "seconds": 128.7616240978241,
  "warnings": [
-  "resolved calendar; evidence: [\"Weekends are not working days, obviously.\", \"All Saints, which falls on a Sunday this year so we take Monday the 2nd of November off instead\", \"the staff training day on Thursday 3 December\", \"Christmas Day (Friday) plus St Stephen's Day, which is a Saturday this year so it moves to Monday 28 Dece",
-  "resolved triggers; evidence: [\"**BIG BALANCE RULE (new, agreed 9 Oct):** if the past-due amounts of all products added together come to more than three thousand euros\", \"Second one outside too → don't book, close **no_contact / no_callback**.\", \"yes → `transfer_to_agent` queue `welfare`, close **handed_over / welfare**. no → cl"
+  "resolved triggers; evidence: [\"customer died → \\\"I'm very sorry for your loss.\\\" nothing else, close **no_contact / deceased**\", \"not their number → **no_contact / wrong_number**\", \"→ `schedule_callback`, close **no_contact / callback**\", \"Second one outside too → don't book, close **no_contact / no_callback**\", \"still not clea"
  ],
  "passed": 137,
  "total": 137,

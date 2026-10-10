@@ -4,16 +4,15 @@
    "brightwater-collections-notes.md"
   ],
   "overrides_applied": [
-   "Max wrong ID answers: 3 -> 4 total. Struck-through text: \"~~three wrong answers in total and it's over~~ → **four** wrong answers in total (any mix of the two questions) and it's over\"",
-   "New rule agreed 9 Oct adds a big-balance handover: \"if the past-due amounts of all products added together come to more than three thousand euros, do not try to collect at all ... call `transfer_to_agent` with queue `senior_collections` and close **handed_over / high_balance**\"",
-   "All Saints holiday moves from Sunday 2026-11-01 to Monday 2026-11-02: \"falls on a Sunday this year so we take Monday the 2nd of November off instead\"",
-   "St Stephen's Day holiday moves from Saturday 2026-12-26 to Monday 2026-12-28: \"which is a Saturday this year so it moves to Monday 28 December\""
+   "ID failure threshold: three -> four wrong answers in total. Quote: \"~~three wrong answers in total and it's over~~ → **four** wrong answers in total (any mix of the two questions) and it's over\"",
+   "New rule added on 9 Oct: when the past-due total is over three thousand euros, the customer is handed to senior collections and no collection is attempted. Quote: \"**BIG BALANCE RULE (new, agreed 9 Oct):** if the past-due amounts of all products added together come to more than three thousand euros, do not try to collect at all.\"",
+   "Holiday moved: All Saints (Sunday 2026-11-01) -> Monday 2026-11-02. Quote: \"All Saints, which falls on a Sunday this year so we take Monday the 2nd of November off instead\"",
+   "Holiday moved: St Stephen's Day (Saturday 2026-12-26) -> Monday 2026-12-28. Quote: \"St Stephen's Day, which is a Saturday this year so it moves to Monday 28 December\""
   ],
   "notes": [
-   "There is only one document. The overrides listed are inside it: struck-through text and items marked as new or agreed on 9 Oct.",
-   "\"status: agreed in the 9 Oct meeting except where marked. Where a line is struck through it was replaced in that meeting, use the replacement.\"",
-   "Year inferred as 2026/2027 from the example now_local value '21/10/2026 14:05' and from 'New Year's Day 2027'.",
-   "\"<!-- TODO(TO): check with legal if \"specialist\" wording is ok for big balance rule -->\""
+   "Single document. Status: \"agreed in the 9 Oct meeting except where marked. Where a line is struck through it was replaced in that meeting, use the replacement.\"",
+   "The tool API summary already says four wrong answers, which matches the corrected rule.",
+   "<!-- TODO(TO): check with legal if \"specialist\" wording is ok for big balance rule -->"
   ],
   "api_servers": [
    "https://brightwater-mock.example/v0"
@@ -47,7 +46,7 @@
   "date_format": "DD/MM/YYYY HH:MM",
   "notes": [
    "use this for all date stuff, never the server clock!!",
-   "No timezone is given; now_local is local time."
+   "The documents do not state a timezone."
   ]
  },
  "calendar": {
@@ -63,12 +62,14 @@
    "2027-01-01"
   ],
   "roll_rule": "next_business_day",
+  "week_starts": 1,
+  "non_holidays": [
+   "2026-12-08"
+  ],
   "notes": [
-   "Weekends are not working days, obviously.",
-   "Besides those we're closed on: All Saints, which falls on a Sunday this year so we take Monday the 2nd of November off instead; the staff training day on Thursday 3 December; Christmas Day (Friday) plus St Stephen's Day, which is a Saturday this year so it moves to Monday 28 December; and New Year's Day 2027.",
-   "(Someone asked about 8 December — no, we are open that day this year.)",
+   "Weekends are not working days, obviously. Besides those we're closed on: All Saints, which falls on a Sunday this year so we take Monday the 2nd of November off instead; the staff training day on Thursday 3 December; Christmas Day (Friday) plus St Stephen's Day, which is a Saturday this year so it moves to Monday 28 December; and New Year's Day 2027. (Someone asked about 8 December — no, we are open that day this year.)",
    "weekend / closed day, but before the deadline → offer the next working day after it",
-   "Holidays falling on a weekend (All Saints 2026-11-01, St Stephen's Day 2026-12-26) are replaced by their substitute days; only the substitute days are listed."
+   "The documents do not say which day the calendar week starts on."
   ]
  },
  "opening": {
@@ -98,28 +99,21 @@
  "third_party": {
   "cases": [
    {
-    "trigger": "answer to 'Could I speak with {honorific} {surname}' is not a clear yes",
-    "say": "Could I speak with {honorific} {surname}, please?",
-    "action": "ask_again",
-    "outcome": null,
-    "reason": null
-   },
-   {
-    "trigger": "still not clear after the second ask",
+    "trigger": "answer to 'Could I speak with {honorific} {surname}, please?' is not clear after it has been asked twice",
     "say": null,
     "action": "end",
     "outcome": "no_contact",
     "reason": "unclear"
    },
    {
-    "trigger": "wrong person picks up; callback agreed today or next working day, later than now, within 09:30-18:00",
+    "trigger": "wrong person picks up and a callback inside the allowed window is agreed",
     "say": null,
     "action": "callback",
     "outcome": "no_contact",
     "reason": "callback"
    },
    {
-    "trigger": "wrong person picks up; offered callback time is outside the window twice",
+    "trigger": "wrong person picks up and the second callback time offered is also outside the window",
     "say": null,
     "action": "end",
     "outcome": "no_contact",
@@ -171,9 +165,8 @@
   "wrong_counts_rules": [
    "**four** wrong answers in total (any mix of the two questions) and it's over",
    "numbers-only dates are day/month/year",
-   "two questions, one at a time",
    "Tool API: unreadable dates are rejected with ok=false and not counted.",
-   "Tool API response includes wrong_answers_left."
+   "Tool API: the verify_identity response includes wrong_answers_left."
   ],
   "fail": {
    "outcome": "id_fail",
@@ -181,8 +174,10 @@
    "say": "say nothing about the account, point them to online banking or a branch"
   },
   "notes": [
+   "two questions, one at a time",
    "won't answer → explain once it protects them. Refuses again (or keeps asking what it's about) → **id_fail / declined**.",
-   "\"I don't want to talk\" ×2 before ID: id_fail / declined"
+   "\"I don't want to talk\" ×2 before ID → id_fail / declined",
+   "get_account is refused until both questions are passed."
   ]
  },
  "products": {
@@ -213,13 +208,13 @@
   "id_field": "product_id",
   "days_late_field": "days_late",
   "notes": [
-   "Anything 1 - 75 days late gets a call.",
-   "call `get_account`. Say we're calling from Brightwater's payments team about overdue amounts. One sentence per product: \"your credit card ending 1234\" / \"your loan\" / \"your overdraft\", how much is past due, how many days late. ALL products before asking anything.",
+   "Say we're calling from Brightwater's payments team about overdue amounts. One sentence per product: \"your credit card ending 1234\" / \"your loan\" / \"your overdraft\", how much is past due, how many days late. ALL products before asking anything.",
    "**BIG BALANCE RULE (new, agreed 9 Oct):** if the past-due amounts of all products added together come to more than three thousand euros, do not try to collect at all. After stating the products, tell the customer a specialist will help them, call `transfer_to_agent` with queue `senior_collections` and close **handed_over / high_balance**. Exactly three thousand is not \"more than\".",
-   "ask for the whole past-due amount first. never \"how much can you pay\".",
    "overdraft → fifty euros flat; if the overdraft's past-due amount is under fifty euros, the floor is the whole past-due amount",
+   "ask for the whole past-due amount first. never \"how much can you pay\".",
    "full amount too much → offer the floor ONCE, tell them the rest stays overdue. They name an amount between the floor and the full amount (inclusive) → take it. Below the floor → \"I can't record that\", offer the floor once. No to the floor = refusal.",
    "No discounts, waivers, freezes, plans, nothing that isn't in here.",
+   "first: \"Would you be able to pay this today?\" (several products: ask once whether they can pay everything today, then go product by product, in the order `get_account` gives them; don't ask the today question again).",
    "read back product, amount, date (all products together, one confirmation): \"Is that all correct?\" — only after a clear yes call `create_promise`, one per product. Changes during read-back → check again, read back again.",
    "only say it's done when the tool says `ok: true`. failed → try once more. failed again → tell them we couldn't record it; single product → close **no_ptp / system**; several products → keep the recorded ones and note the failed one `system`.",
    "after a recorded promise: \"You'll get a text message with the details.\"",
@@ -239,7 +234,7 @@
  },
  "bands": [
   {
-   "name": "1-15 days late",
+   "name": "up to and incl. fifteen",
    "min_days_late": 1,
    "max_days_late": 15,
    "deadline": {
@@ -250,17 +245,18 @@
    "attempts": [
     {
      "n": 1,
-     "amount": "full",
+     "amount": "full (or floor if they already said the whole thing is too much)",
      "date": "nth_business_day:3",
      "text": "try 1 → whole amount (or the floor if they already said the whole thing is too much) on the **third working day after today**"
     }
    ],
    "notes": [
-    "one try; up to and incl. fifteen; the tenth working day"
+    "tries: one",
+    "Anything 1 - 75 days late gets a call."
    ]
   },
   {
-   "name": "16-45 days late",
+   "name": "sixteen – forty-five",
    "min_days_late": 16,
    "max_days_late": 45,
    "deadline": {
@@ -271,7 +267,7 @@
    "attempts": [
     {
      "n": 1,
-     "amount": "full",
+     "amount": "full (or floor if they already said the whole thing is too much)",
      "date": "nth_business_day:3",
      "text": "try 1 → whole amount (or the floor if they already said the whole thing is too much) on the **third working day after today**"
     },
@@ -283,11 +279,11 @@
     }
    ],
    "notes": [
-    "two tries; sixteen – forty-five; 6th working day"
+    "tries: two"
    ]
   },
   {
-   "name": "46-75 days late",
+   "name": "46 + (we stop at 75)",
    "min_days_late": 46,
    "max_days_late": 75,
    "deadline": {
@@ -298,7 +294,7 @@
    "attempts": [
     {
      "n": 1,
-     "amount": "full",
+     "amount": "full (or floor if they already said the whole thing is too much)",
      "date": "nth_business_day:3",
      "text": "try 1 → whole amount (or the floor if they already said the whole thing is too much) on the **third working day after today**"
     },
@@ -310,14 +306,14 @@
     }
    ],
    "notes": [
-    "two tries; 46 + (we stop at 75); third working day"
+    "tries: two"
    ]
   }
  ],
  "amounts": {
   "min": "floor",
   "max": "full",
-  "below_min": "\"I can't record that\", offer the floor once. No to the floor = refusal.",
+  "below_min": "reject",
   "ask_open_amount": false,
   "rules": [
    "ask for the whole past-due amount first. never \"how much can you pay\".",
@@ -328,8 +324,7 @@
    "No discounts, waivers, freezes, plans, nothing that isn't in here."
   ],
   "notes": [
-   "Overdraft floor in digits: 50 EUR flat, or the whole past_due if past_due < 50.",
-   "Overdrafts have no tool field for the floor; credit card floor = minimum_payment, loan floor = instalment_amount."
+   "Overdraft floor is 50 euros flat, or the whole past-due amount if the overdraft's past-due amount is under 50 euros (overdrafts have no field for the floor in get_account)."
   ]
  },
  "dates": {
@@ -337,21 +332,24 @@
   "vague_date": "vague (\"soon\", \"when I'm paid\", \"end of next week\") → ask once for the exact day. still nothing → propose the deadline.",
   "next_weekday": "next_occurrence",
   "rules": [
-   "`now_local` - the date+time *right now* in the form `DD/MM/YYYY HH:MM` (e.g. `21/10/2026 14:05`). use this for all date stuff, never the server clock!!",
+   "now_local - the date+time *right now* in the form `DD/MM/YYYY HH:MM` (e.g. `21/10/2026 14:05`). use this for all date stuff, never the server clock!!",
    "the deadline counts working days starting tomorrow (tomorrow, if it's a working day, = day 1; today never counts).",
+   "up to and incl. fifteen days late: one try, latest promise date the tenth working day",
+   "sixteen – forty-five days late: two tries, latest promise date 6th working day",
+   "46 + (we stop at 75) days late: two tries, latest promise date third working day",
    "promise date rules: today or later; a working day; not after the deadline.",
    "weekend / closed day, but before the deadline → offer the next working day after it",
    "after the deadline → \"the latest I can put in is <deadline>\", offer it. if they say no to that it's a refusal.",
    "vague (\"soon\", \"when I'm paid\", \"end of next week\") → ask once for the exact day. still nothing → propose the deadline.",
    "\"next Tuesday\" = the first Tuesday after today. \"this Tuesday\" = Tuesday of the current week.",
    "customer gives one date for several products and it's after one product's deadline → that product goes on ITS deadline (say so when reading back), the rest keep the customer's date.",
-   "Weekends are not working days, obviously. Besides those we're closed on: All Saints, which falls on a Sunday this year so we take Monday the 2nd of November off instead; the staff training day on Thursday 3 December; Christmas Day (Friday) plus St Stephen's Day, which is a Saturday this year so it moves to Monday 28 December; and New Year's Day 2027. (Someone asked about 8 December — no, we are open that day this year.)"
+   "Weekends are not working days, obviously. Besides those we're closed on: All Saints, which falls on a Sunday this year so we take Monday the 2nd of November off instead; the staff training day on Thursday 3 December; Christmas Day (Friday) plus St Stephen's Day, which is a Saturday this year so it moves to Monday 28 December; and New Year's Day 2027. (Someone asked about 8 December — no, we are open that day this year.)",
+   "date of birth: numbers-only dates are day/month/year"
   ],
   "notes": [
-   "Closed days (besides weekends): 2026-11-02, 2026-12-03, 2026-12-25, 2026-12-28, 2027-01-01. 2026-12-08 is a working day.",
-   "Deadline table: days_late 1-15 → 10th working day (1 try); 16-45 → 6th working day (2 tries); 46-75 → 3rd working day (2 tries).",
-   "Anything 1 - 75 days late gets a call.",
-   "Date of birth: numbers-only dates are day/month/year; send YYYY-MM-DD."
+   "Closed days (non-working besides weekends): 2026-11-02, 2026-12-03, 2026-12-25, 2026-12-28, 2027-01-01. 2026-12-08 is a working day.",
+   "Deadline table: 1-15 days late → 1 try, deadline = 10th working day; 16-45 → 2 tries, 6th working day; 46-75 → 2 tries, 3rd working day.",
+   "Try 1 after a plain no: whole amount (or the floor if they already said the whole thing is too much) on the third working day after today; try 2 (two-try rows only): the floor on the deadline."
   ]
  },
  "promise": {
@@ -363,14 +361,9 @@
   "per_product": true,
   "notes": [
    "only after a clear yes call `create_promise`, one per product. Changes during read-back → check again, read back again.",
-   "only say it's done when the tool says `ok: true`. failed → try once more. failed again → tell them we couldn't record it; single product → close **no_ptp / system**; several products → keep the recorded ones and note the failed one `system`.",
+   "only say it's done when the tool says `ok: true`. failed → try once more. failed again → tell them we couldn't record it; single product → close no_ptp / system; several products → keep the recorded ones and note the failed one `system`.",
    "one promise per product, can't be changed in this call (they can use online banking).",
-   "first: \"Would you be able to pay this today?\" (several products: ask once whether they can pay everything today, then go product by product, in the order `get_account` gives them; don't ask the today question again).",
-   "if they give a date or an amount, that's not a refusal — use the rules above. A plain no / no answer = one try gone (tries are per product):",
-   "try 1 → whole amount (or the floor if they already said the whole thing is too much) on the **third working day after today**",
-   "try 2 (two-try rows only) → the floor on the deadline",
-   "out of tries → stop, don't repeat what they refused. single product: close **no_ptp / refused**.",
-   "Tries: 1 try for up to and incl. 15 days late; 2 tries for 16-45 and 46-75 days late."
+   "customer gives one date for several products and it's after one product's deadline → that product goes on ITS deadline (say so when reading back), the rest keep the customer's date."
   ]
  },
  "callback": {
@@ -378,52 +371,34 @@
    "today",
    "next_business_day"
   ],
+  "today_requires_business_day": false,
   "start": "09:30",
   "end": "18:00",
   "end_inclusive": true,
   "must_be_after_now": true,
   "per_weekday": {},
+  "per_date": {},
   "max_asks": 2,
   "notes": [
    "callback: today or next working day only, and it has to be later than now. Hours are from half past nine in the morning until six in the evening — both ends ok (so 09:30 and 18:00 are both fine). → `schedule_callback`, close **no_contact / callback**.",
-   "If what they say is outside that: ask one more time. Second one outside too → don't book, close **no_contact / no_callback**."
+   "If what they say is outside that: ask one more time. Second one outside too → don't book, close **no_contact / no_callback**.",
+   "The documents do not say that a callback today requires today to be a working day."
   ]
  },
  "triggers": [
   {
-   "name": "high_balance",
-   "detect": "past-due amounts of all products added together are more than 3000 euros (checked after get_account, after stating the products)",
-   "action": "transfer",
-   "queue": "senior_collections",
-   "outcome": "handed_over",
-   "reason": "high_balance",
-   "note_reason": null,
-   "say": null,
-   "precedence": 1,
-   "condition": {
-    "over": "all_products_sum",
-    "field": "past_due",
-    "op": ">",
-    "value": 3000
-   },
-   "notes": [
-    "if the past-due amounts of all products added together come to more than three thousand euros, do not try to collect at all. After stating the products, tell the customer a specialist will help them, call `transfer_to_agent` with queue `senior_collections` and close **handed_over / high_balance**. Exactly three thousand is not \"more than\".",
-    "any transfer (plan, agent, welfare, senior_collections) → no notes at all."
-   ]
-  },
-  {
    "name": "deceased",
-   "detect": "customer died",
+   "detect": "whoever picks up says the customer has died",
    "action": "close",
    "queue": null,
    "outcome": "no_contact",
    "reason": "deceased",
    "note_reason": null,
    "say": "I'm very sorry for your loss.",
-   "precedence": 2,
+   "precedence": 1,
    "condition": null,
    "notes": [
-    "customer died → \"I'm very sorry for your loss.\" nothing else, close **no_contact / deceased**"
+    "customer died → \"I'm very sorry for your loss.\" nothing else, close no_contact / deceased"
    ]
   },
   {
@@ -435,10 +410,10 @@
    "reason": "wrong_number",
    "note_reason": null,
    "say": null,
-   "precedence": 3,
+   "precedence": 2,
    "condition": null,
    "notes": [
-    "not their number → **no_contact / wrong_number**"
+    "not their number → no_contact / wrong_number"
    ]
   },
   {
@@ -450,42 +425,29 @@
    "reason": "callback",
    "note_reason": null,
    "say": null,
-   "precedence": 4,
+   "precedence": 3,
    "condition": null,
    "notes": [
     "never say why we're calling. Ask when {first_name} is around.",
-    "callback: today or next working day only, and it has to be later than now. Hours are from half past nine in the morning until six in the evening — both ends ok (so 09:30 and 18:00 are both fine). → `schedule_callback`, close **no_contact / callback**.",
+    "callback: today or next working day only, and it has to be later than now. Hours are from half past nine in the morning until six in the evening — both ends ok (so 09:30 and 18:00 are both fine). → `schedule_callback`, close no_contact / callback.",
+    "If what they say is outside that: ask one more time. Second one outside too → don't book, close no_contact / no_callback.",
     "nobody else may do the ID questions, hear about the account or pay for them."
    ]
   },
   {
-   "name": "no_callback",
-   "detect": "the second proposed callback time is also outside the allowed window",
-   "action": "close",
-   "queue": null,
-   "outcome": "no_contact",
-   "reason": "no_callback",
-   "note_reason": null,
-   "say": null,
-   "precedence": 5,
-   "condition": null,
-   "notes": [
-    "If what they say is outside that: ask one more time. Second one outside too → don't book, close **no_contact / no_callback**."
-   ]
-  },
-  {
-   "name": "identity_unclear",
-   "detect": "answer to 'Could I speak with {honorific} {surname}, please?' is not yes / speaking / it's me / their own name, twice",
+   "name": "unclear_identity",
+   "detect": "the answer to \"Could I speak with {honorific} {surname}, please?\" is not yes / speaking / it's me / their own name, two times in a row",
    "action": "close",
    "queue": null,
    "outcome": "no_contact",
    "reason": "unclear",
    "note_reason": null,
    "say": null,
-   "precedence": 6,
+   "precedence": 4,
    "condition": null,
    "notes": [
-    "anything else -> ask once more. still not clear -> close **no_contact / unclear**",
+    "yes / speaking / it's me / their own name = ok",
+    "anything else -> ask once more. still not clear -> close no_contact / unclear",
     "if they asked something first, answer it, and the next ask is the 2nd ask"
    ]
   },
@@ -498,7 +460,7 @@
    "reason": null,
    "note_reason": null,
    "say": null,
-   "precedence": 7,
+   "precedence": 5,
    "condition": null,
    "notes": [
     "\"are you a robot?\" -> say it's Brightwater Mutual's call assistant, carry on."
@@ -513,25 +475,25 @@
    "reason": null,
    "note_reason": null,
    "say": null,
-   "precedence": 8,
+   "precedence": 6,
    "condition": null,
    "notes": [
     "\"is this a scam?\" -> tell them to ring the number printed on their statement to check. carry on."
    ]
   },
   {
-   "name": "id_refused",
-   "detect": "won't answer the ID questions; refuses again after the explanation (or keeps asking what it's about)",
+   "name": "id_declined",
+   "detect": "won't answer the ID questions, then refuses again or keeps asking what it's about",
    "action": "close",
    "queue": null,
    "outcome": "id_fail",
    "reason": "declined",
    "note_reason": null,
    "say": null,
-   "precedence": 9,
+   "precedence": 7,
    "condition": null,
    "notes": [
-    "won't answer → explain once it protects them. Refuses again (or keeps asking what it's about) → **id_fail / declined**."
+    "won't answer → explain once it protects them. Refuses again (or keeps asking what it's about) → id_fail / declined."
    ]
   },
   {
@@ -543,25 +505,46 @@
    "reason": "failed",
    "note_reason": null,
    "say": null,
-   "precedence": 10,
+   "precedence": 8,
    "condition": null,
    "notes": [
-    "~~three wrong answers in total and it's over~~ → **four** wrong answers in total (any mix of the two questions) and it's over. Then: say nothing about the account, point them to online banking or a branch, close **id_fail / failed**."
+    "~~three wrong answers in total and it's over~~ → four wrong answers in total (any mix of the two questions) and it's over. Then: say nothing about the account, point them to online banking or a branch, close id_fail / failed."
    ]
   },
   {
    "name": "dont_want_to_talk",
-   "detect": "\"I don't want to talk\" said twice",
+   "detect": "\"I don't want to talk\" ×2",
    "action": "close",
    "queue": null,
    "outcome": "no_ptp",
    "reason": "refused",
    "note_reason": null,
    "say": null,
-   "precedence": 11,
+   "precedence": 9,
    "condition": null,
    "notes": [
     "\"I don't want to talk\" ×2 → no_ptp / refused (before ID: id_fail / declined)"
+   ]
+  },
+  {
+   "name": "high_balance",
+   "detect": "the past-due amounts of all products added together come to more than 3000 euros",
+   "action": "transfer",
+   "queue": "senior_collections",
+   "outcome": "handed_over",
+   "reason": "high_balance",
+   "note_reason": null,
+   "say": null,
+   "precedence": 10,
+   "condition": {
+    "over": "all_products_sum",
+    "field": "past_due",
+    "op": ">",
+    "value": 3000
+   },
+   "notes": [
+    "BIG BALANCE RULE (new, agreed 9 Oct): if the past-due amounts of all products added together come to more than three thousand euros, do not try to collect at all. After stating the products, tell the customer a specialist will help them, call `transfer_to_agent` with queue `senior_collections` and close handed_over / high_balance. Exactly three thousand is not \"more than\".",
+    "any transfer (plan, agent, welfare, senior_collections) → no notes at all."
    ]
   },
   {
@@ -573,24 +556,23 @@
    "reason": "plan",
    "note_reason": null,
    "say": null,
-   "precedence": 12,
+   "precedence": 11,
    "condition": null,
    "notes": [
     "don't explain any plan → `transfer_to_agent` queue `plans`",
-    "Promises recorded before a plan request stay; agreed-but-not-recorded ones don't get recorded.",
-    "any transfer (plan, agent, welfare, senior_collections) → no notes at all."
+    "Promises recorded before a plan request stay; agreed-but-not-recorded ones don't get recorded."
    ]
   },
   {
    "name": "wants_human",
-   "detect": "wants a human; still insists after being asked once whether the bot can help",
+   "detect": "wants a human",
    "action": "transfer",
    "queue": "agents",
    "outcome": "handed_over",
    "reason": "agent",
    "note_reason": null,
    "say": null,
-   "precedence": 13,
+   "precedence": 12,
    "condition": null,
    "notes": [
     "ask once if you can help; insists → queue `agents`"
@@ -598,45 +580,45 @@
   },
   {
    "name": "hardship",
-   "detect": "hardship (sick, someone died, lost job) and accepts the welfare team",
+   "detect": "hardship (sick, someone died, lost job)",
    "action": "transfer",
    "queue": "welfare",
    "outcome": "handed_over",
    "reason": "welfare",
    "note_reason": null,
    "say": null,
-   "precedence": 14,
+   "precedence": 13,
    "condition": null,
    "notes": [
-    "hardship (sick, someone died, lost job): one sentence of sympathy, no tries. offer the welfare team. yes → `transfer_to_agent` queue `welfare`, close **handed_over / welfare**. no → close **no_ptp / welfare_declined**. (if they still name a date/amount themselves, record it as normal)"
+    "hardship (sick, someone died, lost job): one sentence of sympathy, no tries. offer the welfare team. yes → `transfer_to_agent` queue `welfare`, close handed_over / welfare. no → close no_ptp / welfare_declined. (if they still name a date/amount themselves, record it as normal)"
    ]
   },
   {
    "name": "hardship_welfare_declined",
-   "detect": "hardship and declines the welfare team",
+   "detect": "customer in hardship says no to the welfare team",
    "action": "note",
    "queue": null,
    "outcome": "no_ptp",
    "reason": "welfare_declined",
    "note_reason": "welfare",
    "say": null,
-   "precedence": 15,
+   "precedence": 14,
    "condition": null,
    "notes": [
-    "no → close **no_ptp / welfare_declined**. (if they still name a date/amount themselves, record it as normal)",
-    "note welfare → welfare_declined"
+    "no → close no_ptp / welfare_declined.",
+    "note refused → refused, welfare → welfare_declined, dispute → dispute, system → system"
    ]
   },
   {
    "name": "already_paid",
-   "detect": "already paid",
+   "detect": "says they already paid",
    "action": "note",
    "queue": null,
    "outcome": "already_paid",
    "reason": null,
    "note_reason": "paid",
    "say": null,
-   "precedence": 16,
+   "precedence": 15,
    "condition": null,
    "notes": [
     "payments can take two working days to show up; no promise",
@@ -652,7 +634,7 @@
    "reason": "dispute",
    "note_reason": "dispute",
    "say": null,
-   "precedence": 17,
+   "precedence": 16,
    "condition": null,
    "notes": [
     "don't argue, no promise",
@@ -660,7 +642,25 @@
    ]
   },
   {
-   "name": "unknown_question",
+   "name": "refusal",
+   "detect": "plain no / no answer to the payment ask until no tries are left, or no to the floor / to the deadline",
+   "action": "note",
+   "queue": null,
+   "outcome": "no_ptp",
+   "reason": "refused",
+   "note_reason": "refused",
+   "say": null,
+   "precedence": 17,
+   "condition": null,
+   "notes": [
+    "A plain no / no answer = one try gone (tries are per product)",
+    "out of tries → stop, don't repeat what they refused. single product: close no_ptp / refused.",
+    "No to the floor = refusal.",
+    "if they say no to that it's a refusal."
+   ]
+  },
+  {
+   "name": "unanswerable_question",
    "detect": "something you can't answer",
    "action": "say",
    "queue": null,
@@ -683,11 +683,10 @@
    "paid",
    "system"
   ],
-  "when": "every product that ends without a promise → `add_note` with its `product_id` and one of: `refused`, `welfare`, `dispute`, `paid`, `system`. Already-paid / dispute on one product does NOT end the call.",
+  "when": "every product that ends without a promise → `add_note` with its `product_id` and one of: `refused`, `welfare`, `dispute`, `paid`, `system`.",
   "forbidden_on_transfer": true,
   "notes": [
-   "any transfer (plan, agent, welfare, senior_collections) → no notes at all. Promises recorded before a plan request stay; agreed-but-not-recorded ones don't get recorded.",
-   "several products → keep the recorded ones and note the failed one `system`."
+   "any transfer (plan, agent, welfare, senior_collections) → no notes at all."
   ]
  },
  "outcomes": {
@@ -700,7 +699,7 @@
    {
     "outcome": "already_paid",
     "reason": null,
-    "when": "already paid; no promise & every product noted paid"
+    "when": "no promise & every product noted paid"
    },
    {
     "outcome": "handed_over",
@@ -720,12 +719,12 @@
    {
     "outcome": "handed_over",
     "reason": "high_balance",
-    "when": "sum of past-due over all products > 3000 → queue senior_collections"
+    "when": "past-due sum of all products > 3000 → queue senior_collections"
    },
    {
     "outcome": "no_ptp",
     "reason": "refused",
-    "when": "out of tries / refusal; \"I don't want to talk\" ×2 after ID; first non-paid note refused"
+    "when": "out of tries / no to floor / no to deadline / 'I don't want to talk' ×2 after ID; first non-paid note refused"
    },
    {
     "outcome": "no_ptp",
@@ -740,7 +739,7 @@
    {
     "outcome": "no_ptp",
     "reason": "system",
-    "when": "create_promise failed twice (single product); first non-paid note system"
+    "when": "create_promise failed twice; first non-paid note system"
    },
    {
     "outcome": "id_fail",
@@ -750,12 +749,7 @@
    {
     "outcome": "id_fail",
     "reason": "declined",
-    "when": "refuses ID twice / keeps asking what it's about; \"I don't want to talk\" ×2 before ID"
-   },
-   {
-    "outcome": "no_contact",
-    "reason": "unclear",
-    "when": "identity still not clear after second ask"
+    "when": "refuses ID twice / keeps asking what it's about; 'I don't want to talk' ×2 before ID"
    },
    {
     "outcome": "no_contact",
@@ -765,7 +759,7 @@
    {
     "outcome": "no_contact",
     "reason": "no_callback",
-    "when": "wrong person, second callback time also outside window"
+    "when": "wrong person, second callback time outside allowed window"
    },
    {
     "outcome": "no_contact",
@@ -776,14 +770,19 @@
     "outcome": "no_contact",
     "reason": "deceased",
     "when": "customer died"
+   },
+   {
+    "outcome": "no_contact",
+    "reason": "unclear",
+    "when": "identity still not clear after second ask"
    }
   ],
   "precedence": [
-   "≥1 promise recorded → **ptp** (a transfer wins over this)",
-   "no promise & every product noted paid → **already_paid**",
-   "otherwise **no_ptp** with the reason of the FIRST product (get_account order) whose note isn't `paid`: note refused → refused, welfare → welfare_declined, dispute → dispute, system → system"
+   "≥1 promise recorded → ptp (a transfer wins over this)",
+   "no promise & every product noted paid → already_paid",
+   "otherwise no_ptp with the reason of the FIRST product (get_account order) whose note isn't `paid`: note refused → refused, welfare → welfare_declined, dispute → dispute, system → system"
   ],
-  "multi_product": "≥1 promise recorded → **ptp** (a transfer wins over this); no promise & every product noted paid → **already_paid**; otherwise **no_ptp** with the reason of the FIRST product (get_account order) whose note isn't `paid`: note refused → refused, welfare → welfare_declined, dispute → dispute, system → system",
+  "multi_product": "≥1 promise recorded → ptp (a transfer wins over this); no promise & every product noted paid → already_paid; otherwise no_ptp with the reason of the FIRST product (get_account order) whose note isn't `paid`: note refused → refused, welfare → welfare_declined, dispute → dispute, system → system",
   "notes": [
    "say thanks + goodbye, then exactly one `close_call`, last thing."
   ]
@@ -791,15 +790,15 @@
  "phrases": {
   "opening": "Good day, you're speaking with the Brightwater Mutual call assistant; this call is being recorded.",
   "ask_for_customer": "Could I speak with {honorific} {surname}, please?",
-  "condolence": "I'm very sorry for your loss.",
-  "ask_pay_today": "Would you be able to pay this today?",
-  "readback_confirm": "Is that all correct?",
-  "text_message": "You'll get a text message with the details.",
-  "below_floor": "I can't record that",
-  "latest_date": "the latest I can put in is <deadline>",
+  "deceased": "I'm very sorry for your loss.",
   "product_credit_card": "your credit card ending 1234",
   "product_loan": "your loan",
-  "product_overdraft": "your overdraft"
+  "product_overdraft": "your overdraft",
+  "pay_today": "Would you be able to pay this today?",
+  "readback_confirm": "Is that all correct?",
+  "latest_date": "the latest I can put in is <deadline>",
+  "below_floor": "I can't record that",
+  "promise_recorded": "You'll get a text message with the details."
  },
  "tools": {
   "verify_identity": {
@@ -1196,10 +1195,6 @@
  },
  "rules": [
   {
-   "id": "brightwater-collections-notes.status.1",
-   "text": "status: agreed in the 9 Oct meeting except where marked. Where a line is struck through it was replaced in that meeting, use the replacement."
-  },
-  {
    "id": "brightwater-collections-notes.start.1",
    "text": "we pass five things in the call:"
   },
@@ -1221,11 +1216,7 @@
   },
   {
    "id": "brightwater-collections-notes.start.6",
-   "text": "customers can have up to three late products: credit card, loan, overdraft."
-  },
-  {
-   "id": "brightwater-collections-notes.start.7",
-   "text": "Anything 1 - 75 days late gets a call."
+   "text": "customers can have up to three late products: credit card, loan, overdraft. Anything 1 - 75 days late gets a call."
   },
   {
    "id": "brightwater-collections-notes.opening.1",
@@ -1245,34 +1236,26 @@
   },
   {
    "id": "brightwater-collections-notes.wrong-person.1",
-   "text": "never say why we're calling."
+   "text": "never say why we're calling. Ask when {first_name} is around."
   },
   {
    "id": "brightwater-collections-notes.wrong-person.2",
-   "text": "Ask when {first_name} is around."
+   "text": "callback: today or next working day only, and it has to be later than now. Hours are from half past nine in the morning until six in the evening — both ends ok (so 09:30 and 18:00 are both fine). → `schedule_callback`, close no_contact / callback."
   },
   {
    "id": "brightwater-collections-notes.wrong-person.3",
-   "text": "callback: today or next working day only, and it has to be later than now."
-  },
-  {
-   "id": "brightwater-collections-notes.wrong-person.4",
-   "text": "Hours are from half past nine in the morning until six in the evening — both ends ok (so 09:30 and 18:00 are both fine). → `schedule_callback`, close no_contact / callback."
-  },
-  {
-   "id": "brightwater-collections-notes.wrong-person.5",
    "text": "If what they say is outside that: ask one more time. Second one outside too → don't book, close no_contact / no_callback."
   },
   {
-   "id": "brightwater-collections-notes.wrong-person.6",
+   "id": "brightwater-collections-notes.wrong-person.4",
    "text": "not their number → no_contact / wrong_number"
   },
   {
-   "id": "brightwater-collections-notes.wrong-person.7",
+   "id": "brightwater-collections-notes.wrong-person.5",
    "text": "customer died → \"I'm very sorry for your loss.\" nothing else, close no_contact / deceased"
   },
   {
-   "id": "brightwater-collections-notes.wrong-person.8",
+   "id": "brightwater-collections-notes.wrong-person.6",
    "text": "nobody else may do the ID questions, hear about the account or pay for them."
   },
   {
@@ -1301,27 +1284,11 @@
   },
   {
    "id": "brightwater-collections-notes.after-id.1",
-   "text": "call `get_account`."
+   "text": "call `get_account`. Say we're calling from Brightwater's payments team about overdue amounts. One sentence per product: \"your credit card ending 1234\" / \"your loan\" / \"your overdraft\", how much is past due, how many days late. ALL products before asking anything."
   },
   {
    "id": "brightwater-collections-notes.after-id.2",
-   "text": "Say we're calling from Brightwater's payments team about overdue amounts."
-  },
-  {
-   "id": "brightwater-collections-notes.after-id.3",
-   "text": "One sentence per product: \"your credit card ending 1234\" / \"your loan\" / \"your overdraft\", how much is past due, how many days late."
-  },
-  {
-   "id": "brightwater-collections-notes.after-id.4",
-   "text": "ALL products before asking anything."
-  },
-  {
-   "id": "brightwater-collections-notes.big-balance.1",
-   "text": "BIG BALANCE RULE (new, agreed 9 Oct): if the past-due amounts of all products added together come to more than three thousand euros, do not try to collect at all. After stating the products, tell the customer a specialist will help them, call `transfer_to_agent` with queue `senior_collections` and close handed_over / high_balance."
-  },
-  {
-   "id": "brightwater-collections-notes.big-balance.2",
-   "text": "Exactly three thousand is not \"more than\"."
+   "text": "BIG BALANCE RULE (new, agreed 9 Oct): if the past-due amounts of all products added together come to more than three thousand euros, do not try to collect at all. After stating the products, tell the customer a specialist will help them, call `transfer_to_agent` with queue `senior_collections` and close handed_over / high_balance. Exactly three thousand is not \"more than\"."
   },
   {
    "id": "brightwater-collections-notes.working-days.1",
@@ -1329,26 +1296,22 @@
   },
   {
    "id": "brightwater-collections-notes.working-days.2",
-   "text": "Besides those we're closed on: All Saints, which falls on a Sunday this year so we take Monday the 2nd of November off instead; the staff training day on Thursday 3 December; Christmas Day (Friday) plus St Stephen's Day, which is a Saturday this year so it moves to Monday 28 December; and New Year's Day 2027."
-  },
-  {
-   "id": "brightwater-collections-notes.working-days.3",
-   "text": "(Someone asked about 8 December — no, we are open that day this year.)"
+   "text": "Besides those we're closed on: All Saints, which falls on a Sunday this year so we take Monday the 2nd of November off instead; the staff training day on Thursday 3 December; Christmas Day (Friday) plus St Stephen's Day, which is a Saturday this year so it moves to Monday 28 December; and New Year's Day 2027. (Someone asked about 8 December — no, we are open that day this year.)"
   },
   {
    "id": "brightwater-collections-notes.deadline.1",
    "text": "the deadline counts working days starting tomorrow (tomorrow, if it's a working day, = day 1; today never counts)."
   },
   {
-   "id": "brightwater-collections-notes.tries-table.1",
+   "id": "brightwater-collections-notes.deadline.2",
    "text": "tries: one | days late: up to and incl. fifteen | latest promise date: the tenth working day"
   },
   {
-   "id": "brightwater-collections-notes.tries-table.2",
+   "id": "brightwater-collections-notes.deadline.3",
    "text": "tries: two | days late: sixteen – forty-five | latest promise date: 6th working day"
   },
   {
-   "id": "brightwater-collections-notes.tries-table.3",
+   "id": "brightwater-collections-notes.deadline.4",
    "text": "tries: two | days late: 46 + (we stop at 75) | latest promise date: third working day"
   },
   {
@@ -1357,102 +1320,74 @@
   },
   {
    "id": "brightwater-collections-notes.money.1",
-   "text": "ask for the whole past-due amount first."
+   "text": "ask for the whole past-due amount first. never \"how much can you pay\"."
   },
   {
    "id": "brightwater-collections-notes.money.2",
-   "text": "never \"how much can you pay\"."
-  },
-  {
-   "id": "brightwater-collections-notes.money.3",
    "text": "floor (lowest we accept), per product:\n  * credit card → `minimum_payment`\n  * loan → `instalment_amount`\n  * overdraft → fifty euros flat; if the overdraft's past-due amount is under fifty euros, the floor is the whole past-due amount"
   },
   {
+   "id": "brightwater-collections-notes.money.3",
+   "text": "full amount too much → offer the floor ONCE, tell them the rest stays overdue. They name an amount between the floor and the full amount (inclusive) → take it. Below the floor → \"I can't record that\", offer the floor once. No to the floor = refusal."
+  },
+  {
    "id": "brightwater-collections-notes.money.4",
-   "text": "full amount too much → offer the floor ONCE, tell them the rest stays overdue."
-  },
-  {
-   "id": "brightwater-collections-notes.money.5",
-   "text": "They name an amount between the floor and the full amount (inclusive) → take it."
-  },
-  {
-   "id": "brightwater-collections-notes.money.6",
-   "text": "Below the floor → \"I can't record that\", offer the floor once."
-  },
-  {
-   "id": "brightwater-collections-notes.money.7",
-   "text": "No to the floor = refusal."
-  },
-  {
-   "id": "brightwater-collections-notes.money.8",
    "text": "No discounts, waivers, freezes, plans, nothing that isn't in here."
   },
   {
-   "id": "brightwater-collections-notes.ask.1",
+   "id": "brightwater-collections-notes.ask-tries.1",
    "text": "first: \"Would you be able to pay this today?\" (several products: ask once whether they can pay everything today, then go product by product, in the order `get_account` gives them; don't ask the today question again)."
   },
   {
-   "id": "brightwater-collections-notes.ask.2",
-   "text": "if they give a date or an amount, that's not a refusal — use the rules above."
+   "id": "brightwater-collections-notes.ask-tries.2",
+   "text": "if they give a date or an amount, that's not a refusal — use the rules above. A plain no / no answer = one try gone (tries are per product):\n  - try 1 → whole amount (or the floor if they already said the whole thing is too much) on the third working day after today\n  - try 2 (two-try rows only) → the floor on the deadline"
   },
   {
-   "id": "brightwater-collections-notes.ask.3",
-   "text": "A plain no / no answer = one try gone (tries are per product):\n  - try 1 → whole amount (or the floor if they already said the whole thing is too much) on the third working day after today\n  - try 2 (two-try rows only) → the floor on the deadline"
-  },
-  {
-   "id": "brightwater-collections-notes.ask.4",
+   "id": "brightwater-collections-notes.ask-tries.3",
    "text": "out of tries → stop, don't repeat what they refused. single product: close no_ptp / refused."
   },
   {
-   "id": "brightwater-collections-notes.ask.5",
+   "id": "brightwater-collections-notes.ask-tries.4",
    "text": "hardship (sick, someone died, lost job): one sentence of sympathy, no tries. offer the welfare team. yes → `transfer_to_agent` queue `welfare`, close handed_over / welfare. no → close no_ptp / welfare_declined. (if they still name a date/amount themselves, record it as normal)"
   },
   {
    "id": "brightwater-collections-notes.confirm.1",
-   "text": "read back product, amount, date (all products together, one confirmation): \"Is that all correct?\" — only after a clear yes call `create_promise`, one per product."
+   "text": "read back product, amount, date (all products together, one confirmation): \"Is that all correct?\" — only after a clear yes call `create_promise`, one per product. Changes during read-back → check again, read back again."
   },
   {
    "id": "brightwater-collections-notes.confirm.2",
-   "text": "Changes during read-back → check again, read back again."
+   "text": "only say it's done when the tool says `ok: true`. failed → try once more. failed again → tell them we couldn't record it; single product → close no_ptp / system; several products → keep the recorded ones and note the failed one `system`."
   },
   {
    "id": "brightwater-collections-notes.confirm.3",
-   "text": "only say it's done when the tool says `ok: true`."
-  },
-  {
-   "id": "brightwater-collections-notes.confirm.4",
-   "text": "failed → try once more. failed again → tell them we couldn't record it; single product → close no_ptp / system; several products → keep the recorded ones and note the failed one `system`."
-  },
-  {
-   "id": "brightwater-collections-notes.confirm.5",
    "text": "after a recorded promise: \"You'll get a text message with the details.\""
   },
   {
-   "id": "brightwater-collections-notes.confirm.6",
+   "id": "brightwater-collections-notes.confirm.4",
    "text": "one promise per product, can't be changed in this call (they can use online banking)."
   },
   {
-   "id": "brightwater-collections-notes.other-table.1",
+   "id": "brightwater-collections-notes.other.1",
    "text": "they say: already paid | we do: payments can take two working days to show up; no promise | close: already_paid"
   },
   {
-   "id": "brightwater-collections-notes.other-table.2",
+   "id": "brightwater-collections-notes.other.2",
    "text": "they say: not mine / never had it / closed it long ago | we do: don't argue, no promise | close: no_ptp / dispute"
   },
   {
-   "id": "brightwater-collections-notes.other-table.3",
+   "id": "brightwater-collections-notes.other.3",
    "text": "they say: wants a payment plan / lower instalments | we do: don't explain any plan → `transfer_to_agent` queue `plans` | close: handed_over / plan"
   },
   {
-   "id": "brightwater-collections-notes.other-table.4",
+   "id": "brightwater-collections-notes.other.4",
    "text": "they say: wants a human | we do: ask once if you can help; insists → queue `agents` | close: handed_over / agent"
   },
   {
-   "id": "brightwater-collections-notes.other-table.5",
+   "id": "brightwater-collections-notes.other.5",
    "text": "they say: \"I don't want to talk\" ×2 | we do: — | close: no_ptp / refused (before ID: id_fail / declined)"
   },
   {
-   "id": "brightwater-collections-notes.other-table.6",
+   "id": "brightwater-collections-notes.other.6",
    "text": "they say: something you can't answer | we do: say you don't have that info, don't make things up | close: —"
   },
   {
@@ -1516,6 +1451,10 @@
    }
   },
   "note_map": {
+   "paid": {
+    "outcome": "already_paid",
+    "reason": null
+   },
    "refused": {
     "outcome": "no_ptp",
     "reason": "refused"
@@ -1531,10 +1470,6 @@
    "system": {
     "outcome": "no_ptp",
     "reason": "system"
-   },
-   "paid": {
-    "outcome": "already_paid",
-    "reason": null
    }
   },
   "transfer_overrides_promise": true,
@@ -1543,10 +1478,9 @@
    "already_paid"
   ],
   "notes": [
-   "ID refusal (or \"I don't want to talk\" ×2 before ID) closes id_fail / declined.",
-   "Override: ~~three wrong answers in total and it's over~~ replaced by **four** wrong answers in total (any mix of the two questions).",
    "say thanks + goodbye, then exactly one `close_call`, last thing.",
-   "`cust_ref` - the customer id; it goes into `customer_id` on EVERY tool call"
+   "ID refusal closes id_fail / declined; 'I don't want to talk' ×2 before ID: id_fail / declined.",
+   "already_paid applies only when no promise & every product noted paid."
   ]
  }
 }

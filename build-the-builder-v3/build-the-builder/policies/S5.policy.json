@@ -1,0 +1,1626 @@
+{
+ "source": {
+  "briefs": [
+   "brief.md"
+  ],
+  "overrides_applied": [],
+  "notes": [
+   "Single document; no later document, memo or correction, so no overrides were applied.",
+   "Amounts in the document use a dot for thousands and a comma for decimals ('1.234,56 €'). The tools use plain numbers ('1234.56')."
+  ],
+  "api_servers": [
+   "https://freya-bank-mock.freyavoice.workers.dev/v1"
+  ]
+ },
+ "variables": [
+  {
+   "name": "customer_id",
+   "meaning": "Customer identifier; pass it to every tool call"
+  },
+  {
+   "name": "first_name",
+   "meaning": "Customer's first name"
+  },
+  {
+   "name": "last_name",
+   "meaning": "Customer's last name"
+  },
+  {
+   "name": "title",
+   "meaning": "Customer's title: `Mr`, `Ms` or `Mx`"
+  },
+  {
+   "name": "now",
+   "meaning": "The current local date and time as `YYYY-MM-DDTHH:MM`. Every date rule uses `now`, never the real clock."
+  }
+ ],
+ "clock": {
+  "now_variable": "now",
+  "timezone": "local",
+  "date_format": "YYYY-MM-DDTHH:MM",
+  "notes": [
+   "Every date rule uses `now`, never the real clock.",
+   "No named timezone is given; the documents only say 'the current local date and time'."
+  ]
+ },
+ "calendar": {
+  "weekend": [
+   5,
+   6
+  ],
+  "holidays": [
+   "2026-11-22",
+   "2026-11-23",
+   "2026-12-24",
+   "2026-12-25",
+   "2026-12-27",
+   "2026-12-28",
+   "2026-12-31",
+   "2027-01-01",
+   "2027-01-03"
+  ],
+  "roll_rule": "next_business_day",
+  "week_starts": 7,
+  "non_holidays": [
+   "2026-12-08"
+  ],
+  "notes": [
+   "Corvane Bank operates in a market where the working week runs from **Sunday to Thursday**.",
+   "**Business days are Sunday, Monday, Tuesday, Wednesday and Thursday.** Friday and Saturday are the weekend. A **week** runs from Sunday to Saturday.",
+   "Tuesday 8 December 2026 is a public holiday in some regions, but **Corvane Bank is open**: it is a normal business day.",
+   "If the customer wants to pay today and today is not a business day, the promise is recorded for the next business day; tell the customer so.",
+   "If the customer names a day that is not a business day and is not after the deadline, offer the next business day after it.",
+   "If the customer names a day after the deadline (also when that day is a closed day or a weekend day), say the latest possible date is the deadline and offer the deadline. A refusal of the deadline is a flat refusal.",
+   "Relative dates: \"tomorrow\" and \"the day after tomorrow\" are calendar days. \"This <weekday>\" is that day in the current week (Sunday to Saturday). \"Next <weekday>\" is that day in the following week. \"The <weekday> after next\" is that day in the week after the following week. A date without a year is the next such date on or after today. A date that has already passed: ask for another date.",
+   "Vague dates (\"end of the month\", \"after payday\", \"around New Year\"): ask once for the exact day; if none comes, propose the deadline."
+  ]
+ },
+ "opening": {
+  "text": "Good day, this is the Corvane Bank digital assistant. This call is recorded.",
+  "disclosures": [
+   "this is the Corvane Bank digital assistant",
+   "This call is recorded."
+  ],
+  "forbidden_before_verification": [
+   "late",
+   "overdue",
+   "debt",
+   "arrears",
+   "payment",
+   "the name of a product"
+  ],
+  "notes": [
+   "Ask \"Am I speaking with {title} {last_name}?\". Only a clear yes or the customer saying their own name counts. Otherwise ask once more; if it is still unclear, close as `not_reached` / `unconfirmed`.",
+   "Asked whether this is a robot: \"Yes, I am Corvane Bank's digital assistant.\" Then continue."
+  ]
+ },
+ "third_party": {
+  "cases": [
+   {
+    "trigger": "Someone else answers (customer not on the line); a valid callback time is given",
+    "say": null,
+    "action": "callback",
+    "outcome": "not_reached",
+    "reason": "callback"
+   },
+   {
+    "trigger": "Someone else answers; the offered day or time is not allowed, asked once for another, and the second offer is also not allowed",
+    "say": null,
+    "action": "end",
+    "outcome": "not_reached",
+    "reason": "no_callback"
+   },
+   {
+    "trigger": "Identity of the person on the line still unclear after asking 'Am I speaking with {title} {last_name}?' twice",
+    "say": null,
+    "action": "end",
+    "outcome": "not_reached",
+    "reason": "unconfirmed"
+   },
+   {
+    "trigger": "Wrong number",
+    "say": null,
+    "action": "end",
+    "outcome": "not_reached",
+    "reason": "wrong_number"
+   },
+   {
+    "trigger": "Customer deceased",
+    "say": "Please accept our deepest sympathy.",
+    "action": "end",
+    "outcome": "not_reached",
+    "reason": "deceased"
+   }
+  ],
+  "rules": [
+   "Do not say why you are calling. Ask when the customer can be reached.",
+   "A callback may be booked for today (only if today is a business day) or for the next business day, and only for a time later than `now`. Hours: Sunday to Wednesday from 08:00 up to but not including 19:00; Thursday from 08:00 to 14:00, both included. Book with `schedule_callback` and close as `not_reached` / `callback`.",
+   "If the person offers a day or a time that is not allowed, ask once for another. If the second offer is also not allowed, book nothing and close as `not_reached` / `no_callback`.",
+   "Wrong number: close as `not_reached` / `wrong_number`. Customer deceased: say \"Please accept our deepest sympathy.\", ask nothing else, close as `not_reached` / `deceased`.",
+   "Only a clear yes or the customer saying their own name counts. Otherwise ask once more; if it is still unclear, close as `not_reached` / `unconfirmed`."
+  ],
+  "notes": []
+ },
+ "identity": {
+  "questions": [
+   {
+    "order": 1,
+    "tool_field": "date_of_birth",
+    "ask": "Ask for the customer's date of birth.",
+    "answer_format": "date",
+    "normalise": "dmy_to_iso",
+    "tool_format": "YYYY-MM-DD"
+   },
+   {
+    "order": 2,
+    "tool_field": "phone_last4",
+    "ask": "Ask for the last four digits of the registered phone number.",
+    "answer_format": "digits",
+    "normalise": "digits_only",
+    "tool_format": "four digits"
+   }
+  ],
+  "max_wrong": 3,
+  "max_wrong_scope": "total",
+  "wrong_counts_rules": [
+   "Three wrong answers in total, over both questions, end the check.",
+   "If `verify_identity` returns `hint: \"day_month_swapped\"`, ask for the month as a word; that retry is not a wrong answer.",
+   "Send the date of birth as `YYYY-MM-DD`; a date said only in numbers is day, month, year.",
+   "Tool API: An unreadable value is rejected with ok=false and is not counted as a wrong answer."
+  ],
+  "fail": {
+   "outcome": "not_verified",
+   "reason": "id_failed",
+   "say": "Say nothing about the account and tell the customer to visit a branch."
+  },
+  "notes": [
+   "Two questions, one at a time: first the date of birth, then the last four digits of the registered phone number. Check each with `verify_identity` (`field` = `date_of_birth` or `phone_last4`).",
+   "A customer who refuses twice to answer is closed as `not_verified` / `id_refused`.",
+   "get_account is refused until both questions are passed."
+  ]
+ },
+ "products": {
+  "max_count": 3,
+  "types": {
+   "credit_card": {
+    "speak_as": "credit card",
+    "floor_field": null,
+    "floor_expr": "max(minimum_payment, round_half_up(0.1 * past_due, 2))",
+    "full_field": "past_due"
+   },
+   "personal_loan": {
+    "speak_as": "personal loan",
+    "floor_field": null,
+    "floor_expr": "min(instalment_amount, past_due)",
+    "full_field": "past_due"
+   },
+   "car_loan": {
+    "speak_as": "car loan",
+    "floor_field": null,
+    "floor_expr": "round_up(0.25 * past_due, 0)",
+    "full_field": "past_due"
+   }
+  },
+  "order": "as_returned",
+  "list_field": "products",
+  "type_field": "type",
+  "id_field": "product_id",
+  "days_late_field": "days_late",
+  "notes": [
+   "The documents give no verbatim spoken names; speak_as is taken from rule 1 ('credit card, personal loan, car loan'). The response field card_last4 exists for credit cards only.",
+   "credit card: the larger of `minimum_payment` and 10 % of `past_due`, rounded to the cent (half a cent rounds up);",
+   "personal loan: `instalment_amount`, but never more than `past_due` (that is, the smaller of the two);",
+   "car loan: 25 % of `past_due`, rounded **up** to the next whole euro. The `instalment_amount` returned for car loans is not used.",
+   "Always propose the full past-due amount first. Never ask how much the customer can pay.",
+   "If the customer says the full amount is too much, offer the floor once and say the rest stays overdue. A customer amount between the floor and the full amount, both included, is accepted. Below the floor: say it cannot be recorded and offer the floor once. Not accepting the floor is a flat refusal.",
+   "Customers say amounts in words or in figures, with or without cents (\"twelve fifty\", \"two hundred and forty comma five\" = `240.50`)."
+  ]
+ },
+ "bands": [
+  {
+   "name": "early",
+   "min_days_late": 1,
+   "max_days_late": 15,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 12,
+    "counted_from": "today"
+   },
+   "attempts": [
+    {
+     "n": 1,
+     "amount": "full (or floor if the customer already said the full amount is too much)",
+     "date": "end_of_week_business_day; if today is that day or later, end_of_next_week_business_day; if that date is after the product's deadline, deadline",
+     "text": "Attempt 1: the full amount (or the floor, if the customer already said the full amount is too much) on the last business day of the current week. If today is that day or later, use the last business day of the following week. If that date is after the product's deadline, use the deadline instead."
+    }
+   ],
+   "notes": [
+    "after today: today never counts",
+    "Persuasion attempts: 1"
+   ]
+  },
+  {
+   "name": "mid",
+   "min_days_late": 16,
+   "max_days_late": 45,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 7,
+    "counted_from": "today_inclusive"
+   },
+   "attempts": [
+    {
+     "n": 1,
+     "amount": "full (or floor if the customer already said the full amount is too much)",
+     "date": "end_of_week_business_day; if today is that day or later, end_of_next_week_business_day; if that date is after the product's deadline, deadline",
+     "text": "Attempt 1: the full amount (or the floor, if the customer already said the full amount is too much) on the last business day of the current week. If today is that day or later, use the last business day of the following week. If that date is after the product's deadline, use the deadline instead."
+    },
+    {
+     "n": 2,
+     "amount": "floor",
+     "date": "deadline",
+     "text": "Attempt 2 (mid and late bands): the floor on the deadline."
+    }
+   ],
+   "notes": [
+    "today is day 1 if today is a business day; otherwise day 1 is the next business day",
+    "Persuasion attempts: 2"
+   ]
+  },
+  {
+   "name": "late",
+   "min_days_late": 46,
+   "max_days_late": 90,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 3,
+    "counted_from": "today_inclusive"
+   },
+   "attempts": [
+    {
+     "n": 1,
+     "amount": "full (or floor if the customer already said the full amount is too much)",
+     "date": "end_of_week_business_day; if today is that day or later, end_of_next_week_business_day; if that date is after the product's deadline, deadline",
+     "text": "Attempt 1: the full amount (or the floor, if the customer already said the full amount is too much) on the last business day of the current week. If today is that day or later, use the last business day of the following week. If that date is after the product's deadline, use the deadline instead."
+    },
+    {
+     "n": 2,
+     "amount": "floor",
+     "date": "deadline",
+     "text": "Attempt 2 (mid and late bands): the floor on the deadline."
+    }
+   ],
+   "notes": [
+    "as for mid: today is day 1 if today is a business day; otherwise day 1 is the next business day",
+    "Persuasion attempts: 2"
+   ]
+  }
+ ],
+ "amounts": {
+  "min": "floor",
+  "max": "full",
+  "below_min": "Below the floor: say it cannot be recorded and offer the floor once. Not accepting the floor is a flat refusal.",
+  "ask_open_amount": false,
+  "rules": [
+   "In this document amounts are written the local way, with a dot for thousands and a comma for decimals: `1.234,56 €` means one thousand two hundred thirty-four euros and fifty-six cents. The tools use plain numbers (`1234.56`). Customers say amounts in words or in figures, with or without cents (\"twelve fifty\", \"two hundred and forty comma five\" = `240.50`).",
+   "Always propose the full past-due amount first. Never ask how much the customer can pay.",
+   "The **floor** (the lowest amount that can be recorded) depends on the product:",
+   "credit card: the larger of `minimum_payment` and 10 % of `past_due`, rounded to the cent (half a cent rounds up);",
+   "personal loan: `instalment_amount`, but never more than `past_due` (that is, the smaller of the two);",
+   "car loan: 25 % of `past_due`, rounded **up** to the next whole euro. The `instalment_amount` returned for car loans is not used.",
+   "If the customer says the full amount is too much, offer the floor once and say the rest stays overdue. A customer amount between the floor and the full amount, both included, is accepted. Below the floor: say it cannot be recorded and offer the floor once. Not accepting the floor is a flat refusal.",
+   "Never offer a discount, a waiver, a payment plan or any term not in this specification."
+  ],
+  "notes": [
+   "Floor per product type: credit_card = max(minimum_payment, round_half_up(0.10 * past_due, 2)); personal_loan = min(instalment_amount, past_due); car_loan = ceil(0.25 * past_due) to whole euro.",
+   "A date or an amount from the customer is never a refusal."
+  ]
+ },
+ "dates": {
+  "customer_date_after_deadline": "If the customer names a day after the deadline (also when that day is a closed day or a weekend day), say the latest possible date is the deadline and offer the deadline. A refusal of the deadline is a flat refusal.",
+  "vague_date": "Vague dates (\"end of the month\", \"after payday\", \"around New Year\"): ask once for the exact day; if none comes, propose the deadline.",
+  "next_weekday": "following_week",
+  "rules": [
+   "Every date rule uses `now`, never the real clock.",
+   "**Business days are Sunday, Monday, Tuesday, Wednesday and Thursday.** Friday and Saturday are the weekend. A **week** runs from Sunday to Saturday.",
+   "Corvane Bank is closed on these days, which are not business days: 2026-11-22 (Sunday, bridging day before Founders' Day), 2026-11-23 (Monday, Founders' Day), 2026-12-24 (Thursday, Christmas Eve), 2026-12-25 (Friday, Christmas Day (weekend anyway)), 2026-12-27 (Sunday, Christmas closure), 2026-12-28 (Monday, Christmas closure), 2026-12-31 (Thursday, New Year's Eve), 2027-01-01 (Friday, New Year's Day (weekend anyway)), 2027-01-03 (Sunday, New Year's Day, observed)",
+   "Tuesday 8 December 2026 is a public holiday in some regions, but **Corvane Bank is open**: it is a normal business day.",
+   "Each product has its own band and deadline, from its `days_late`. Two different counting methods are used; read the table carefully.",
+   "days_late 1 to 15: band early, deadline 12th business day, how to count: after today: today never counts, persuasion attempts 1",
+   "days_late 16 to 45: band mid, deadline 7th business day, how to count: today is day 1 if today is a business day; otherwise day 1 is the next business day, persuasion attempts 2",
+   "days_late 46 to 90: band late, deadline 3rd business day, how to count: as for mid, persuasion attempts 2",
+   "A promise date must be today or later, a business day, and on or before the product's deadline.",
+   "If the customer wants to pay today and today is not a business day, the promise is recorded for the next business day; tell the customer so.",
+   "If the customer names a day that is not a business day and is not after the deadline, offer the next business day after it.",
+   "If the customer names a day after the deadline (also when that day is a closed day or a weekend day), say the latest possible date is the deadline and offer the deadline. A refusal of the deadline is a flat refusal.",
+   "Relative dates: \"tomorrow\" and \"the day after tomorrow\" are calendar days. \"This <weekday>\" is that day in the current week (Sunday to Saturday). \"Next <weekday>\" is that day in the following week. \"The <weekday> after next\" is that day in the week after the following week. A date without a year is the next such date on or after today. A date that has already passed: ask for another date.",
+   "Vague dates (\"end of the month\", \"after payday\", \"around New Year\"): ask once for the exact day; if none comes, propose the deadline."
+  ],
+  "notes": [
+   "Holiday dates converted from DD.MM.YYYY to YYYY-MM-DD.",
+   "Weeks run Sunday to Saturday, so \"this\"/\"next\" weekday are computed on Sunday-start weeks."
+  ]
+ },
+ "promise": {
+  "readback": "Read all agreed promises back together (product, amount with cents, date as weekday and date) and ask \"Shall I record that?\".",
+  "confirm_required": true,
+  "retry_on_failure": 1,
+  "success_say": "You will receive a text message confirming this.",
+  "failure_say": "If it fails again, tell the customer, keep the other promises and note that product `service_error`.",
+  "per_product": true,
+  "notes": [
+   "After one clear yes, call `create_promise` once per product in `get_account` order.",
+   "A change during the read-back is checked again under sections 6 and 7 and read back again.",
+   "If one date is named for several products and it is after one product's deadline, that product is recorded on its own deadline; say so in the read-back. The others keep the customer's date.",
+   "Say a promise is recorded only after `ok: true`. A failed `create_promise` is tried once more. If it fails again, tell the customer, keep the other promises and note that product `service_error`.",
+   "After at least one recorded promise say: \"You will receive a text message confirming this.\"",
+   "First ask once: \"Could you pay the full amount today?\" (several products: \"Could you pay everything today?\"). If not, take the products one by one in `get_account` order. A date or an amount from the customer is never a refusal.",
+   "A flat refusal or no answer uses one attempt. Attempts are counted per product.",
+   "Attempt 1: the full amount (or the floor, if the customer already said the full amount is too much) on the last business day of the current week. If today is that day or later, use the last business day of the following week. If that date is after the product's deadline, use the deadline instead.",
+   "Attempt 2 (mid and late bands): the floor on the deadline.",
+   "When the attempts are used up, stop for that product and do not repeat a refused offer.",
+   "Never offer a discount, a waiver, a payment plan or any term not in this specification."
+  ]
+ },
+ "callback": {
+  "days": [
+   "today",
+   "next_business_day"
+  ],
+  "today_requires_business_day": true,
+  "start": "08:00",
+  "end": "19:00",
+  "end_inclusive": false,
+  "must_be_after_now": true,
+  "per_weekday": {
+   "4": {
+    "start": "08:00",
+    "end": "14:00",
+    "end_inclusive": true
+   }
+  },
+  "per_date": {},
+  "max_asks": 2,
+  "notes": [
+   "A callback may be booked for today (only if today is a business day) or for the next business day, and only for a time later than `now`. Hours: Sunday to Wednesday from 08:00 up to but not including 19:00; Thursday from 08:00 to 14:00, both included. Book with `schedule_callback` and close as `not_reached` / `callback`.",
+   "If the person offers a day or a time that is not allowed, ask once for another. If the second offer is also not allowed, book nothing and close as `not_reached` / `no_callback`."
+  ]
+ },
+ "triggers": [
+  {
+   "name": "deceased",
+   "detect": "The person who answers says the customer is deceased",
+   "action": "close",
+   "queue": null,
+   "outcome": "not_reached",
+   "reason": "deceased",
+   "note_reason": null,
+   "say": "Please accept our deepest sympathy.",
+   "precedence": 1,
+   "condition": null,
+   "notes": [
+    "Customer deceased: say \"Please accept our deepest sympathy.\", ask nothing else, close as `not_reached` / `deceased`."
+   ]
+  },
+  {
+   "name": "wrong_number",
+   "detect": "The person says it is a wrong number",
+   "action": "close",
+   "queue": null,
+   "outcome": "not_reached",
+   "reason": "wrong_number",
+   "note_reason": null,
+   "say": null,
+   "precedence": 2,
+   "condition": null,
+   "notes": [
+    "Wrong number: close as `not_reached` / `wrong_number`."
+   ]
+  },
+  {
+   "name": "someone_else_answers",
+   "detect": "Someone other than the customer answers",
+   "action": "callback",
+   "queue": null,
+   "outcome": "not_reached",
+   "reason": "callback",
+   "note_reason": null,
+   "say": null,
+   "precedence": 3,
+   "condition": null,
+   "notes": [
+    "Do not say why you are calling. Ask when the customer can be reached.",
+    "A callback may be booked for today (only if today is a business day) or for the next business day, and only for a time later than `now`. Hours: Sunday to Wednesday from 08:00 up to but not including 19:00; Thursday from 08:00 to 14:00, both included. Book with `schedule_callback` and close as `not_reached` / `callback`."
+   ]
+  },
+  {
+   "name": "callback_not_possible",
+   "detect": "The person offers a callback day or time that is not allowed, and the second offer is also not allowed",
+   "action": "close",
+   "queue": null,
+   "outcome": "not_reached",
+   "reason": "no_callback",
+   "note_reason": null,
+   "say": null,
+   "precedence": 4,
+   "condition": null,
+   "notes": [
+    "If the person offers a day or a time that is not allowed, ask once for another. If the second offer is also not allowed, book nothing and close as `not_reached` / `no_callback`."
+   ]
+  },
+  {
+   "name": "identity_unconfirmed",
+   "detect": "No clear yes and the customer does not say their own name to \"Am I speaking with {title} {last_name}?\", also after asking once more",
+   "action": "close",
+   "queue": null,
+   "outcome": "not_reached",
+   "reason": "unconfirmed",
+   "note_reason": null,
+   "say": null,
+   "precedence": 5,
+   "condition": null,
+   "notes": [
+    "Ask \"Am I speaking with {title} {last_name}?\". Only a clear yes or the customer saying their own name counts. Otherwise ask once more; if it is still unclear, close as `not_reached` / `unconfirmed`."
+   ]
+  },
+  {
+   "name": "robot_question",
+   "detect": "Customer asks whether this is a robot",
+   "action": "say",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": null,
+   "say": "Yes, I am Corvane Bank's digital assistant.",
+   "precedence": 6,
+   "condition": null,
+   "notes": [
+    "Asked whether this is a robot: \"Yes, I am Corvane Bank's digital assistant.\" Then continue."
+   ]
+  },
+  {
+   "name": "day_month_swapped",
+   "detect": "verify_identity returns hint: \"day_month_swapped\"",
+   "action": "continue",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 7,
+   "condition": null,
+   "notes": [
+    "If `verify_identity` returns `hint: \"day_month_swapped\"`, ask for the month as a word; that retry is not a wrong answer."
+   ]
+  },
+  {
+   "name": "identity_failed",
+   "detect": "Three wrong answers in total over both identity questions",
+   "action": "close",
+   "queue": null,
+   "outcome": "not_verified",
+   "reason": "id_failed",
+   "note_reason": null,
+   "say": null,
+   "precedence": 8,
+   "condition": null,
+   "notes": [
+    "Three wrong answers in total, over both questions, end the check.",
+    "When the check ends, say nothing about the account, tell the customer to visit a branch, and close as `not_verified` / `id_failed`."
+   ]
+  },
+  {
+   "name": "identity_refused",
+   "detect": "Customer refuses twice to answer the identity questions",
+   "action": "close",
+   "queue": null,
+   "outcome": "not_verified",
+   "reason": "id_refused",
+   "note_reason": null,
+   "say": null,
+   "precedence": 9,
+   "condition": null,
+   "notes": [
+    "A customer who refuses twice to answer is closed as `not_verified` / `id_refused`."
+   ]
+  },
+  {
+   "name": "payment_plan_request",
+   "detect": "A request for a payment plan or lower instalments",
+   "action": "transfer",
+   "queue": "restructuring",
+   "outcome": "transferred",
+   "reason": "restructuring",
+   "note_reason": null,
+   "say": null,
+   "precedence": 10,
+   "condition": null,
+   "notes": [
+    "A request for a payment plan or lower instalments: do not discuss terms; `transfer_to_agent` with queue `restructuring`; close as `transferred` / `restructuring`. Promises recorded before stay; agreed but unrecorded promises are not recorded.",
+    "On a transfer add no notes at all."
+   ]
+  },
+  {
+   "name": "request_person",
+   "detect": "Customer asks for a person and insists after being asked once whether the agent can help",
+   "action": "transfer",
+   "queue": "general",
+   "outcome": "transferred",
+   "reason": "person",
+   "note_reason": null,
+   "say": null,
+   "precedence": 11,
+   "condition": null,
+   "notes": [
+    "A request for a person: ask once whether you can help; if they insist, `transfer_to_agent` with queue `general`, close as `transferred` / `person`.",
+    "On a transfer add no notes at all."
+   ]
+  },
+  {
+   "name": "hardship",
+   "detect": "Customer mentions hardship (illness, bereavement, job loss) and accepts the offered support team",
+   "action": "transfer",
+   "queue": "support",
+   "outcome": "transferred",
+   "reason": "hardship",
+   "note_reason": null,
+   "say": null,
+   "precedence": 12,
+   "condition": null,
+   "notes": [
+    "Hardship (illness, bereavement, job loss): one sentence of sympathy, no persuasion. Offer the support team. Accepted: `transfer_to_agent` with queue `support`, close as `transferred` / `hardship`.",
+    "On a transfer add no notes at all."
+   ]
+  },
+  {
+   "name": "hardship_declined_support",
+   "detect": "Customer mentions hardship (illness, bereavement, job loss) and declines the offered support team",
+   "action": "note",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": "hardship",
+   "say": null,
+   "precedence": 13,
+   "condition": null,
+   "notes": [
+    "Declined: note every product without a promise `hardship` and close by section 11. If the customer still names a date or an amount, record it under sections 6 and 7."
+   ]
+  },
+  {
+   "name": "already_paid",
+   "detect": "Customer says the product is already paid",
+   "action": "note",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": "paid",
+   "say": null,
+   "precedence": 14,
+   "condition": null,
+   "notes": [
+    "Already paid: say payments can take two business days to show; note the product `paid`; continue with the other products."
+   ]
+  },
+  {
+   "name": "dispute",
+   "detect": "Customer disputes the product (\"not mine\", \"never had it\")",
+   "action": "note",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": "dispute",
+   "say": null,
+   "precedence": 15,
+   "condition": null,
+   "notes": [
+    "Dispute (\"not mine\", \"never had it\"): do not argue; note the product `dispute`; continue."
+   ]
+  },
+  {
+   "name": "scam_question",
+   "detect": "Customer asks \"Is this a scam?\"",
+   "action": "say",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 16,
+   "condition": null,
+   "notes": [
+    "\"Is this a scam?\": they can call the number on the back of their card to check."
+   ]
+  },
+  {
+   "name": "unknown_information",
+   "detect": "Customer asks for information the agent does not have",
+   "action": "say",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 17,
+   "condition": null,
+   "notes": [
+    "Unknown information: say you do not have it; never invent figures."
+   ]
+  },
+  {
+   "name": "full_amount_too_much",
+   "detect": "Customer says the full amount is too much",
+   "action": "continue",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 18,
+   "condition": null,
+   "notes": [
+    "If the customer says the full amount is too much, offer the floor once and say the rest stays overdue."
+   ]
+  },
+  {
+   "name": "amount_below_floor",
+   "detect": "Customer offers an amount below the floor",
+   "action": "continue",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 19,
+   "condition": null,
+   "notes": [
+    "A customer amount between the floor and the full amount, both included, is accepted. Below the floor: say it cannot be recorded and offer the floor once. Not accepting the floor is a flat refusal."
+   ]
+  },
+  {
+   "name": "date_after_deadline",
+   "detect": "Customer names a day after the product's deadline",
+   "action": "continue",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 20,
+   "condition": null,
+   "notes": [
+    "If the customer names a day after the deadline (also when that day is a closed day or a weekend day), say the latest possible date is the deadline and offer the deadline. A refusal of the deadline is a flat refusal.",
+    "If one date is named for several products and it is after one product's deadline, that product is recorded on its own deadline; say so in the read-back. The others keep the customer's date."
+   ]
+  },
+  {
+   "name": "non_business_day",
+   "detect": "Customer names a day that is not a business day and is not after the deadline, or wants to pay today when today is not a business day",
+   "action": "continue",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 21,
+   "condition": null,
+   "notes": [
+    "If the customer wants to pay today and today is not a business day, the promise is recorded for the next business day; tell the customer so.",
+    "If the customer names a day that is not a business day and is not after the deadline, offer the next business day after it."
+   ]
+  },
+  {
+   "name": "vague_date",
+   "detect": "Customer gives a vague date (\"end of the month\", \"after payday\", \"around New Year\")",
+   "action": "continue",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 22,
+   "condition": null,
+   "notes": [
+    "Vague dates (\"end of the month\", \"after payday\", \"around New Year\"): ask once for the exact day; if none comes, propose the deadline."
+   ]
+  },
+  {
+   "name": "past_date",
+   "detect": "Customer names a date that has already passed",
+   "action": "continue",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 23,
+   "condition": null,
+   "notes": [
+    "A date that has already passed: ask for another date."
+   ]
+  },
+  {
+   "name": "change_during_readback",
+   "detect": "Customer changes a promise during the read-back",
+   "action": "continue",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 24,
+   "condition": null,
+   "notes": [
+    "A change during the read-back is checked again under sections 6 and 7 and read back again."
+   ]
+  },
+  {
+   "name": "create_promise_failed",
+   "detect": "create_promise fails, and fails again on the one retry",
+   "action": "note",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": "service_error",
+   "say": null,
+   "precedence": 25,
+   "condition": null,
+   "notes": [
+    "Say a promise is recorded only after `ok: true`. A failed `create_promise` is tried once more. If it fails again, tell the customer, keep the other promises and note that product `service_error`."
+   ]
+  },
+  {
+   "name": "refusal",
+   "detect": "A flat refusal or no answer to an offer; attempts used up or no wish to talk",
+   "action": "note",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": "refused",
+   "say": null,
+   "precedence": 26,
+   "condition": null,
+   "notes": [
+    "A date or an amount from the customer is never a refusal.",
+    "A flat refusal or no answer uses one attempt. Attempts are counted per product.",
+    "When the attempts are used up, stop for that product and do not repeat a refused offer.",
+    "`refused` (attempts used up or no wish to talk)"
+   ]
+  }
+ ],
+ "notes": {
+  "tool_reasons": [
+   "refused",
+   "hardship",
+   "dispute",
+   "paid",
+   "service_error"
+  ],
+  "when": "Every product that ends without a recorded promise gets exactly one `add_note` with its `product_id` and one reason: `refused` (attempts used up or no wish to talk), `hardship`, `dispute`, `paid` or `service_error`. This also applies with a single product. On a transfer add no notes at all.",
+  "forbidden_on_transfer": true,
+  "notes": [
+   "A failed `create_promise` is tried once more. If it fails again, tell the customer, keep the other promises and note that product `service_error`."
+  ]
+ },
+ "outcomes": {
+  "table": [
+   {
+    "outcome": "transferred",
+    "reason": "restructuring",
+    "when": "Order 1; rule 39: payment plan or lower instalments request, transfer to queue restructuring"
+   },
+   {
+    "outcome": "transferred",
+    "reason": "person",
+    "when": "Order 1; rule 40: customer insists on a person, transfer to queue general"
+   },
+   {
+    "outcome": "transferred",
+    "reason": "hardship",
+    "when": "Order 1; rule 38: hardship, support team accepted, transfer to queue support"
+   },
+   {
+    "outcome": "promise",
+    "reason": null,
+    "when": "Order 2; at least one promise recorded"
+   },
+   {
+    "outcome": "paid",
+    "reason": null,
+    "when": "Order 3; every product noted paid"
+   },
+   {
+    "outcome": "no_promise",
+    "reason": "refused",
+    "when": "Order 4; otherwise, after verification; rule 44: first non-paid note is refused"
+   },
+   {
+    "outcome": "no_promise",
+    "reason": "hardship",
+    "when": "Order 4; rule 44: first non-paid note is hardship"
+   },
+   {
+    "outcome": "no_promise",
+    "reason": "disputed",
+    "when": "Order 4; rule 44: first non-paid note is dispute"
+   },
+   {
+    "outcome": "no_promise",
+    "reason": "technical",
+    "when": "Order 4; rule 44: first non-paid note is service_error"
+   },
+   {
+    "outcome": "not_verified",
+    "reason": "id_failed",
+    "when": "Rule 13: three wrong identity answers in total"
+   },
+   {
+    "outcome": "not_verified",
+    "reason": "id_refused",
+    "when": "Rule 13: customer refuses twice to answer"
+   },
+   {
+    "outcome": "not_reached",
+    "reason": "callback",
+    "when": "Rule 8: callback booked"
+   },
+   {
+    "outcome": "not_reached",
+    "reason": "no_callback",
+    "when": "Rule 9: second callback offer also not allowed"
+   },
+   {
+    "outcome": "not_reached",
+    "reason": "wrong_number",
+    "when": "Rule 10: wrong number"
+   },
+   {
+    "outcome": "not_reached",
+    "reason": "deceased",
+    "when": "Rule 10: customer deceased"
+   },
+   {
+    "outcome": "not_reached",
+    "reason": "unconfirmed",
+    "when": "Rule 5: still unclear after asking once more"
+   }
+  ],
+  "precedence": [
+   "Thank the customer and say goodbye, then call `close_call` exactly once as the last tool call. Use the first row that applies:",
+   "1: `transferred` / `restructuring`, `person`, `hardship` (rules 39, 40, 38); 2: `promise` / none (at least one promise recorded); 3: `paid` / none (every product noted `paid`); 4: `no_promise` / see rule 44 (otherwise, after verification)",
+   "For `no_promise`, take the note of the first product in `get_account` order whose note is not `paid`, and map it: `refused` -> `refused`, `hardship` -> `hardship`, `dispute` -> `disputed`, `service_error` -> `technical`."
+  ],
+  "multi_product": "For `no_promise`, take the note of the first product in `get_account` order whose note is not `paid`, and map it: `refused` -> `refused`, `hardship` -> `hardship`, `dispute` -> `disputed`, `service_error` -> `technical`.",
+  "notes": []
+ },
+ "phrases": {
+  "opening": "Good day, this is the Corvane Bank digital assistant. This call is recorded.",
+  "identity_question": "Am I speaking with {title} {last_name}?",
+  "robot_answer": "Yes, I am Corvane Bank's digital assistant.",
+  "deceased_sympathy": "Please accept our deepest sympathy.",
+  "pay_full_today": "Could you pay the full amount today?",
+  "pay_everything_today": "Could you pay everything today?",
+  "readback_confirm": "Shall I record that?",
+  "text_confirmation": "You will receive a text message confirming this."
+ },
+ "tools": {
+  "verify_identity": {
+   "fields": {
+    "customer_id": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "field": {
+     "type": "string",
+     "enum": [
+      "date_of_birth",
+      "phone_last4"
+     ],
+     "required": true
+    },
+    "answer": {
+     "type": "string",
+     "enum": null,
+     "required": true,
+     "description": "For date_of_birth: the date as YYYY-MM-DD. Callers say dates in words, the agent converts. An unreadable value is rejected with ok=false and is not counted as a wrong answer. For phone_last4: four digits."
+    }
+   },
+   "notes": "Check one security answer. Three wrong answers in total end the check.",
+   "method": "POST",
+   "path": "/verify_identity",
+   "url": "https://freya-bank-mock.freyavoice.workers.dev/v1/verify_identity",
+   "summary": "Check one security answer. Three wrong answers in total end the check.",
+   "response_fields": {
+    "ok": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "error": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    },
+    "verified": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "wrong_answers_left": {
+     "type": "integer",
+     "enum": null,
+     "required": false
+    },
+    "all_verified": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "hint": {
+     "type": "string",
+     "enum": [
+      "day_month_swapped"
+     ],
+     "required": false
+    }
+   },
+   "response_notes": [
+    "2xx: `ok` is false when the action was not carried out.",
+    "500: The service failed. Nothing was recorded. The call may be repeated."
+   ]
+  },
+  "get_account": {
+   "fields": {
+    "customer_id": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    }
+   },
+   "notes": "The late products. Refused until both questions are passed.",
+   "method": "POST",
+   "path": "/get_account",
+   "url": "https://freya-bank-mock.freyavoice.workers.dev/v1/get_account",
+   "summary": "The late products. Refused until both questions are passed.",
+   "response_fields": {
+    "ok": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "error": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    },
+    "products": {
+     "type": "array",
+     "enum": null,
+     "required": false,
+     "items": {
+      "type": "object",
+      "enum": null,
+      "required": false,
+      "properties": {
+       "product_id": {
+        "type": "string",
+        "enum": null,
+        "required": false
+       },
+       "type": {
+        "type": "string",
+        "enum": [
+         "credit_card",
+         "personal_loan",
+         "car_loan"
+        ],
+        "required": false
+       },
+       "card_last4": {
+        "type": "string",
+        "enum": null,
+        "required": false,
+        "description": "credit cards only"
+       },
+       "past_due": {
+        "type": "number",
+        "enum": null,
+        "required": false
+       },
+       "days_late": {
+        "type": "integer",
+        "enum": null,
+        "required": false
+       },
+       "minimum_payment": {
+        "type": "number",
+        "enum": null,
+        "required": false,
+        "description": "credit cards only"
+       },
+       "instalment_amount": {
+        "type": "number",
+        "enum": null,
+        "required": false,
+        "description": "loans only"
+       }
+      }
+     }
+    }
+   },
+   "response_notes": [
+    "2xx: `ok` is false when the action was not carried out.",
+    "500: The service failed. Nothing was recorded. The call may be repeated."
+   ]
+  },
+  "create_promise": {
+   "fields": {
+    "customer_id": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "product_id": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "amount": {
+     "type": "number",
+     "enum": null,
+     "required": true
+    },
+    "date": {
+     "type": "string",
+     "enum": null,
+     "required": true,
+     "format": "date"
+    }
+   },
+   "notes": "Record a payment promise. One per product.",
+   "method": "POST",
+   "path": "/create_promise",
+   "url": "https://freya-bank-mock.freyavoice.workers.dev/v1/create_promise",
+   "summary": "Record a payment promise. One per product.",
+   "response_fields": {
+    "ok": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "error": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    },
+    "promise_id": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    }
+   },
+   "response_notes": [
+    "2xx: `ok` is false when the action was not carried out.",
+    "500: The service failed. Nothing was recorded. The call may be repeated."
+   ]
+  },
+  "add_note": {
+   "fields": {
+    "customer_id": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "product_id": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "reason": {
+     "type": "string",
+     "enum": [
+      "refused",
+      "hardship",
+      "dispute",
+      "paid",
+      "service_error"
+     ],
+     "required": true
+    },
+    "text": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    }
+   },
+   "notes": "Brief B: record why a product ended without a promise.",
+   "method": "POST",
+   "path": "/add_note",
+   "url": "https://freya-bank-mock.freyavoice.workers.dev/v1/add_note",
+   "summary": "Brief B: record why a product ended without a promise.",
+   "response_fields": {
+    "ok": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "error": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    }
+   },
+   "response_notes": [
+    "2xx: `ok` is false when the action was not carried out.",
+    "500: The service failed. Nothing was recorded. The call may be repeated."
+   ]
+  },
+  "schedule_callback": {
+   "fields": {
+    "customer_id": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "date": {
+     "type": "string",
+     "enum": null,
+     "required": true,
+     "format": "date"
+    },
+    "time": {
+     "type": "string",
+     "enum": null,
+     "required": true,
+     "description": "HH:MM"
+    }
+   },
+   "notes": "Book a callback.",
+   "method": "POST",
+   "path": "/schedule_callback",
+   "url": "https://freya-bank-mock.freyavoice.workers.dev/v1/schedule_callback",
+   "summary": "Book a callback.",
+   "response_fields": {
+    "ok": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "error": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    }
+   },
+   "response_notes": [
+    "2xx: `ok` is false when the action was not carried out.",
+    "500: The service failed. Nothing was recorded. The call may be repeated."
+   ]
+  },
+  "transfer_to_agent": {
+   "fields": {
+    "customer_id": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "queue": {
+     "type": "string",
+     "enum": [
+      "restructuring",
+      "general",
+      "support"
+     ],
+     "required": true
+    }
+   },
+   "notes": "Hand the call to a person.",
+   "method": "POST",
+   "path": "/transfer_to_agent",
+   "url": "https://freya-bank-mock.freyavoice.workers.dev/v1/transfer_to_agent",
+   "summary": "Hand the call to a person.",
+   "response_fields": {
+    "ok": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "error": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    }
+   },
+   "response_notes": [
+    "2xx: `ok` is false when the action was not carried out.",
+    "500: The service failed. Nothing was recorded. The call may be repeated."
+   ]
+  },
+  "close_call": {
+   "fields": {
+    "customer_id": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "outcome": {
+     "type": "string",
+     "enum": [
+      "promise",
+      "paid",
+      "transferred",
+      "no_promise",
+      "not_verified",
+      "not_reached"
+     ],
+     "required": true
+    },
+    "reason": {
+     "type": "string",
+     "enum": null,
+     "required": false,
+     "description": "Required for every outcome except promise and paid. See the table in the brief."
+    }
+   },
+   "notes": "End the call. Always the last tool call. Nothing is accepted after it.",
+   "method": "POST",
+   "path": "/close_call",
+   "url": "https://freya-bank-mock.freyavoice.workers.dev/v1/close_call",
+   "summary": "End the call. Always the last tool call. Nothing is accepted after it.",
+   "response_fields": {
+    "ok": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "error": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    }
+   },
+   "response_notes": [
+    "2xx: `ok` is false when the action was not carried out.",
+    "500: The service failed. Nothing was recorded. The call may be repeated."
+   ]
+  }
+ },
+ "rules": [
+  {
+   "id": "brief.intro.1",
+   "text": "Corvane Bank operates in a market where the working week runs from **Sunday to Thursday**."
+  },
+  {
+   "id": "brief.intro.2",
+   "text": "Every numbered rule applies."
+  },
+  {
+   "id": "brief.intro.3",
+   "text": "Read the calendar and amount rules carefully: they differ from what most banks use."
+  },
+  {
+   "id": "brief.1",
+   "text": "Corvane Bank calls customers who are 1 to 90 days late on one to three products: credit card, personal loan, car loan."
+  },
+  {
+   "id": "brief.2",
+   "text": "Call variables: `customer_id` (pass it to every tool call), `first_name`, `last_name`, `title` (`Mr`, `Ms` or `Mx`), `now` (the current local date and time as `YYYY-MM-DDTHH:MM`). Every date rule uses `now`, never the real clock."
+  },
+  {
+   "id": "brief.3",
+   "text": "In this document amounts are written the local way, with a dot for thousands and a comma for decimals: `1.234,56 €` means one thousand two hundred thirty-four euros and fifty-six cents. The tools use plain numbers (`1234.56`). Customers say amounts in words or in figures, with or without cents (\"twelve fifty\", \"two hundred and forty comma five\" = `240.50`)."
+  },
+  {
+   "id": "brief.4",
+   "text": "First sentence: \"Good day, this is the Corvane Bank digital assistant. This call is recorded.\" Before identity is verified do not say \"late\", \"overdue\", \"debt\", \"arrears\", \"payment\" or the name of a product."
+  },
+  {
+   "id": "brief.5",
+   "text": "Ask \"Am I speaking with {title} {last_name}?\". Only a clear yes or the customer saying their own name counts. Otherwise ask once more; if it is still unclear, close as `not_reached` / `unconfirmed`."
+  },
+  {
+   "id": "brief.6",
+   "text": "Asked whether this is a robot: \"Yes, I am Corvane Bank's digital assistant.\" Then continue."
+  },
+  {
+   "id": "brief.7",
+   "text": "Do not say why you are calling. Ask when the customer can be reached."
+  },
+  {
+   "id": "brief.8",
+   "text": "A callback may be booked for today (only if today is a business day) or for the next business day, and only for a time later than `now`. Hours: Sunday to Wednesday from 08:00 up to but not including 19:00; Thursday from 08:00 to 14:00, both included. Book with `schedule_callback` and close as `not_reached` / `callback`."
+  },
+  {
+   "id": "brief.9",
+   "text": "If the person offers a day or a time that is not allowed, ask once for another. If the second offer is also not allowed, book nothing and close as `not_reached` / `no_callback`."
+  },
+  {
+   "id": "brief.10",
+   "text": "Wrong number: close as `not_reached` / `wrong_number`. Customer deceased: say \"Please accept our deepest sympathy.\", ask nothing else, close as `not_reached` / `deceased`."
+  },
+  {
+   "id": "brief.11",
+   "text": "Two questions, one at a time: first the date of birth, then the last four digits of the registered phone number. Check each with `verify_identity` (`field` = `date_of_birth` or `phone_last4`). Send the date of birth as `YYYY-MM-DD`; a date said only in numbers is day, month, year."
+  },
+  {
+   "id": "brief.12",
+   "text": "Three wrong answers in total, over both questions, end the check. If `verify_identity` returns `hint: \"day_month_swapped\"`, ask for the month as a word; that retry is not a wrong answer."
+  },
+  {
+   "id": "brief.13",
+   "text": "When the check ends, say nothing about the account, tell the customer to visit a branch, and close as `not_verified` / `id_failed`. A customer who refuses twice to answer is closed as `not_verified` / `id_refused`."
+  },
+  {
+   "id": "brief.14",
+   "text": "**Business days are Sunday, Monday, Tuesday, Wednesday and Thursday.** Friday and Saturday are the weekend. A **week** runs from Sunday to Saturday."
+  },
+  {
+   "id": "brief.15",
+   "text": "Corvane Bank is closed on these days, which are not business days:"
+  },
+  {
+   "id": "brief.15.table.1",
+   "text": "Date: 22.11.2026 | Day: Sunday | Occasion: bridging day before Founders' Day"
+  },
+  {
+   "id": "brief.15.table.2",
+   "text": "Date: 23.11.2026 | Day: Monday | Occasion: Founders' Day"
+  },
+  {
+   "id": "brief.15.table.3",
+   "text": "Date: 24.12.2026 | Day: Thursday | Occasion: Christmas Eve"
+  },
+  {
+   "id": "brief.15.table.4",
+   "text": "Date: 25.12.2026 | Day: Friday | Occasion: Christmas Day (weekend anyway)"
+  },
+  {
+   "id": "brief.15.table.5",
+   "text": "Date: 27.12.2026 | Day: Sunday | Occasion: Christmas closure"
+  },
+  {
+   "id": "brief.15.table.6",
+   "text": "Date: 28.12.2026 | Day: Monday | Occasion: Christmas closure"
+  },
+  {
+   "id": "brief.15.table.7",
+   "text": "Date: 31.12.2026 | Day: Thursday | Occasion: New Year's Eve"
+  },
+  {
+   "id": "brief.15.table.8",
+   "text": "Date: 01.01.2027 | Day: Friday | Occasion: New Year's Day (weekend anyway)"
+  },
+  {
+   "id": "brief.15.table.9",
+   "text": "Date: 03.01.2027 | Day: Sunday | Occasion: New Year's Day, observed"
+  },
+  {
+   "id": "brief.16",
+   "text": "Tuesday 8 December 2026 is a public holiday in some regions, but **Corvane Bank is open**: it is a normal business day."
+  },
+  {
+   "id": "brief.17",
+   "text": "Each product has its own band and deadline, from its `days_late`. Two different counting methods are used; read the table carefully."
+  },
+  {
+   "id": "brief.17.table.1",
+   "text": "`days_late`: 1 to 15 | Band: early | Deadline: 12th business day | How to count: after today: today never counts | Persuasion attempts: 1"
+  },
+  {
+   "id": "brief.17.table.2",
+   "text": "`days_late`: 16 to 45 | Band: mid | Deadline: 7th business day | How to count: today is day 1 if today is a business day; otherwise day 1 is the next business day | Persuasion attempts: 2"
+  },
+  {
+   "id": "brief.17.table.3",
+   "text": "`days_late`: 46 to 90 | Band: late | Deadline: 3rd business day | How to count: as for mid | Persuasion attempts: 2"
+  },
+  {
+   "id": "brief.18",
+   "text": "A promise date must be today or later, a business day, and on or before the product's deadline."
+  },
+  {
+   "id": "brief.19",
+   "text": "If the customer wants to pay today and today is not a business day, the promise is recorded for the next business day; tell the customer so."
+  },
+  {
+   "id": "brief.20",
+   "text": "If the customer names a day that is not a business day and is not after the deadline, offer the next business day after it."
+  },
+  {
+   "id": "brief.21",
+   "text": "If the customer names a day after the deadline (also when that day is a closed day or a weekend day), say the latest possible date is the deadline and offer the deadline. A refusal of the deadline is a flat refusal."
+  },
+  {
+   "id": "brief.22",
+   "text": "Relative dates: \"tomorrow\" and \"the day after tomorrow\" are calendar days. \"This <weekday>\" is that day in the current week (Sunday to Saturday). \"Next <weekday>\" is that day in the following week. \"The <weekday> after next\" is that day in the week after the following week. A date without a year is the next such date on or after today. A date that has already passed: ask for another date."
+  },
+  {
+   "id": "brief.23",
+   "text": "Vague dates (\"end of the month\", \"after payday\", \"around New Year\"): ask once for the exact day; if none comes, propose the deadline."
+  },
+  {
+   "id": "brief.24",
+   "text": "Always propose the full past-due amount first. Never ask how much the customer can pay."
+  },
+  {
+   "id": "brief.25",
+   "text": "The **floor** (the lowest amount that can be recorded) depends on the product:\n- credit card: the larger of `minimum_payment` and 10 % of `past_due`, rounded to the cent (half a cent rounds up);\n- personal loan: `instalment_amount`, but never more than `past_due` (that is, the smaller of the two);\n- car loan: 25 % of `past_due`, rounded **up** to the next whole euro. The `instalment_amount` returned for car loans is not used."
+  },
+  {
+   "id": "brief.26",
+   "text": "If the customer says the full amount is too much, offer the floor once and say the rest stays overdue. A customer amount between the floor and the full amount, both included, is accepted. Below the floor: say it cannot be recorded and offer the floor once. Not accepting the floor is a flat refusal."
+  },
+  {
+   "id": "brief.27",
+   "text": "First ask once: \"Could you pay the full amount today?\" (several products: \"Could you pay everything today?\"). If not, take the products one by one in `get_account` order. A date or an amount from the customer is never a refusal."
+  },
+  {
+   "id": "brief.28",
+   "text": "A flat refusal or no answer uses one attempt. Attempts are counted per product.\n- Attempt 1: the full amount (or the floor, if the customer already said the full amount is too much) on the last business day of the current week. If today is that day or later, use the last business day of the following week. If that date is after the product's deadline, use the deadline instead.\n- Attempt 2 (mid and late bands): the floor on the deadline."
+  },
+  {
+   "id": "brief.29",
+   "text": "When the attempts are used up, stop for that product and do not repeat a refused offer."
+  },
+  {
+   "id": "brief.30",
+   "text": "Never offer a discount, a waiver, a payment plan or any term not in this specification."
+  },
+  {
+   "id": "brief.31",
+   "text": "Read all agreed promises back together (product, amount with cents, date as weekday and date) and ask \"Shall I record that?\". After one clear yes, call `create_promise` once per product in `get_account` order."
+  },
+  {
+   "id": "brief.32",
+   "text": "A change during the read-back is checked again under sections 6 and 7 and read back again."
+  },
+  {
+   "id": "brief.33",
+   "text": "If one date is named for several products and it is after one product's deadline, that product is recorded on its own deadline; say so in the read-back. The others keep the customer's date."
+  },
+  {
+   "id": "brief.34",
+   "text": "Say a promise is recorded only after `ok: true`. A failed `create_promise` is tried once more. If it fails again, tell the customer, keep the other promises and note that product `service_error`."
+  },
+  {
+   "id": "brief.35",
+   "text": "After at least one recorded promise say: \"You will receive a text message confirming this.\""
+  },
+  {
+   "id": "brief.36",
+   "text": "Already paid: say payments can take two business days to show; note the product `paid`; continue with the other products."
+  },
+  {
+   "id": "brief.37",
+   "text": "Dispute (\"not mine\", \"never had it\"): do not argue; note the product `dispute`; continue."
+  },
+  {
+   "id": "brief.38",
+   "text": "Hardship (illness, bereavement, job loss): one sentence of sympathy, no persuasion. Offer the support team. Accepted: `transfer_to_agent` with queue `support`, close as `transferred` / `hardship`. Declined: note every product without a promise `hardship` and close by section 11. If the customer still names a date or an amount, record it under sections 6 and 7."
+  },
+  {
+   "id": "brief.39",
+   "text": "A request for a payment plan or lower instalments: do not discuss terms; `transfer_to_agent` with queue `restructuring`; close as `transferred` / `restructuring`. Promises recorded before stay; agreed but unrecorded promises are not recorded."
+  },
+  {
+   "id": "brief.40",
+   "text": "A request for a person: ask once whether you can help; if they insist, `transfer_to_agent` with queue `general`, close as `transferred` / `person`."
+  },
+  {
+   "id": "brief.41",
+   "text": "\"Is this a scam?\": they can call the number on the back of their card to check. Unknown information: say you do not have it; never invent figures."
+  },
+  {
+   "id": "brief.42",
+   "text": "Every product that ends without a recorded promise gets exactly one `add_note` with its `product_id` and one reason: `refused` (attempts used up or no wish to talk), `hardship`, `dispute`, `paid` or `service_error`. This also applies with a single product. On a transfer add no notes at all."
+  },
+  {
+   "id": "brief.43",
+   "text": "Thank the customer and say goodbye, then call `close_call` exactly once as the last tool call. Use the first row that applies:"
+  },
+  {
+   "id": "brief.43.table.1",
+   "text": "Order: 1 | Outcome: `transferred` | Reason: `restructuring`, `person`, `hardship` | When: rules 39, 40, 38"
+  },
+  {
+   "id": "brief.43.table.2",
+   "text": "Order: 2 | Outcome: `promise` | Reason: none | When: at least one promise recorded"
+  },
+  {
+   "id": "brief.43.table.3",
+   "text": "Order: 3 | Outcome: `paid` | Reason: none | When: every product noted `paid`"
+  },
+  {
+   "id": "brief.43.table.4",
+   "text": "Order: 4 | Outcome: `no_promise` | Reason: see rule 44 | When: otherwise, after verification"
+  },
+  {
+   "id": "brief.43.table.5",
+   "text": "Order: - | Outcome: `not_verified` | Reason: `id_failed`, `id_refused` | When: rule 13"
+  },
+  {
+   "id": "brief.43.table.6",
+   "text": "Order: - | Outcome: `not_reached` | Reason: `callback`, `no_callback`, `wrong_number`, `deceased`, `unconfirmed` | When: rules 5, 8, 9, 10"
+  },
+  {
+   "id": "brief.44",
+   "text": "For `no_promise`, take the note of the first product in `get_account` order whose note is not `paid`, and map it: `refused` -> `refused`, `hardship` -> `hardship`, `dispute` -> `disputed`, `service_error` -> `technical`."
+  }
+ ],
+ "closing": {
+  "promise": {
+   "outcome": "promise",
+   "reason": null
+  },
+  "id_fail": {
+   "outcome": "not_verified",
+   "reason": "id_failed"
+  },
+  "callback": {
+   "outcome": "not_reached",
+   "reason": "callback"
+  },
+  "no_callback": {
+   "outcome": "not_reached",
+   "reason": "no_callback"
+  },
+  "refused": {
+   "outcome": "no_promise",
+   "reason": "refused"
+  },
+  "service_error": {
+   "outcome": "no_promise",
+   "reason": "technical"
+  },
+  "transfer": {
+   "restructuring": {
+    "outcome": "transferred",
+    "reason": "restructuring"
+   },
+   "general": {
+    "outcome": "transferred",
+    "reason": "person"
+   },
+   "support": {
+    "outcome": "transferred",
+    "reason": "hardship"
+   }
+  },
+  "note_map": {
+   "refused": {
+    "outcome": "no_promise",
+    "reason": "refused"
+   },
+   "hardship": {
+    "outcome": "no_promise",
+    "reason": "hardship"
+   },
+   "dispute": {
+    "outcome": "no_promise",
+    "reason": "disputed"
+   },
+   "service_error": {
+    "outcome": "no_promise",
+    "reason": "technical"
+   },
+   "paid": {
+    "outcome": "paid",
+    "reason": null
+   }
+  },
+  "transfer_overrides_promise": true,
+  "no_reason_outcomes": [
+   "promise",
+   "paid"
+  ],
+  "notes": [
+   "Thank the customer and say goodbye, then call `close_call` exactly once as the last tool call.",
+   "A customer who refuses twice to answer is closed as `not_verified` / `id_refused`.",
+   "Wrong number: close as `not_reached` / `wrong_number`. Customer deceased: say \"Please accept our deepest sympathy.\", ask nothing else, close as `not_reached` / `deceased`.",
+   "If it is still unclear, close as `not_reached` / `unconfirmed`.",
+   "`paid` applies only when every product is noted `paid`; paid notes are skipped when choosing the no_promise reason.",
+   "service_error closing applies when a recording failure note decides the outcome (no promise recorded at all); otherwise a recorded promise gives `promise`."
+  ]
+ }
+}

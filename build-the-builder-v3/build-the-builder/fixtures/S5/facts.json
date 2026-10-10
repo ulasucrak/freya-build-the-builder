@@ -1,0 +1,738 @@
+{
+ "bank": "Corvane Bank",
+ "form": "clean specification stressing calendar and amounts (Sunday-Thursday week, mixed deadline counting, formula floors, European number format)",
+ "brief_files": [
+  "brief.md"
+ ],
+ "openapi": "openapi.json",
+ "live_compatible": true,
+ "variables": [
+  "customer_id",
+  "first_name",
+  "last_name",
+  "title",
+  "now"
+ ],
+ "clock": {
+  "now_variable": "now",
+  "date_format": "YYYY-MM-DDTHH:MM"
+ },
+ "calendar": {
+  "weekend": [
+   5,
+   6
+  ],
+  "week_starts": 7,
+  "holidays": [
+   "2026-11-22",
+   "2026-11-23",
+   "2026-12-24",
+   "2026-12-25",
+   "2026-12-27",
+   "2026-12-28",
+   "2026-12-31",
+   "2027-01-01",
+   "2027-01-03"
+  ],
+  "non_holidays": [
+   "2026-12-08"
+  ],
+  "roll_rule": "next_business_day"
+ },
+ "opening": {
+  "text": "Good day, this is the Corvane Bank digital assistant. This call is recorded.",
+  "forbidden_before_verification": [
+   "late",
+   "overdue",
+   "debt",
+   "arrears",
+   "payment"
+  ],
+  "confirm_question": "Am I speaking with {title} {last_name}?",
+  "unclear_asks": 2,
+  "unclear_outcome": [
+   "not_reached",
+   "unconfirmed"
+  ]
+ },
+ "identity": {
+  "questions": [
+   {
+    "order": 1,
+    "tool_field": "date_of_birth",
+    "answer_format": "date",
+    "normalise": "dmy_to_iso"
+   },
+   {
+    "order": 2,
+    "tool_field": "phone_last4",
+    "answer_format": "digits",
+    "normalise": "digits_only"
+   }
+  ],
+  "max_wrong": 3,
+  "max_wrong_scope": "total over both questions",
+  "swap_hint": "day_month_swapped",
+  "fail": {
+   "outcome": "not_verified",
+   "reason": "id_failed"
+  },
+  "declined": {
+   "outcome": "not_verified",
+   "reason": "id_refused"
+  }
+ },
+ "products": {
+  "max_count": 3,
+  "floor_field": {
+   "credit_card": "max(minimum_payment, round_half_up(0.10 * past_due, 2))",
+   "personal_loan": "min(instalment_amount, past_due)",
+   "car_loan": "ceil(0.25 * past_due) (instalment_amount ignored)"
+  },
+  "speak_as": {
+   "credit_card": "credit card ending {card_last4}",
+   "personal_loan": "personal loan",
+   "car_loan": "car loan"
+  }
+ },
+ "amount_format": "brief uses 1.234,56 (dot thousands, comma decimals); tools use 1234.56",
+ "bands": [
+  {
+   "name": "early",
+   "min_days_late": 1,
+   "max_days_late": 15,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 12,
+    "counted_from": "tomorrow"
+   },
+   "attempts": 1
+  },
+  {
+   "name": "mid",
+   "min_days_late": 16,
+   "max_days_late": 45,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 7,
+    "counted_from": "today"
+   },
+   "attempts": 2
+  },
+  {
+   "name": "late",
+   "min_days_late": 46,
+   "max_days_late": 90,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 3,
+    "counted_from": "today"
+   },
+   "attempts": 2
+  }
+ ],
+ "attempts": [
+  {
+   "n": 1,
+   "amount": "full (or floor if full already said too much)",
+   "date": "last business day of the current Sunday-Saturday week; if today is that day or later, last business day of next week; capped at the product deadline"
+  },
+  {
+   "n": 2,
+   "bands": [
+    "mid",
+    "late"
+   ],
+   "amount": "floor",
+   "date": "deadline"
+  }
+ ],
+ "today_on_non_business_day": "promise recorded on the next business day",
+ "next_weekday_rule": "'this X' = current Sunday-Saturday week; 'next X' = following week; 'X after next' = the week after that; date without year = next such date on or after today; past date -> ask again",
+ "vague_date": "ask once for exact day, then propose the deadline",
+ "customer_date_after_deadline": "offer the deadline, even when the named day is a closed or weekend day",
+ "deadline_examples": [
+  {
+   "case": "S5-01",
+   "now": "2026-11-01T10:00",
+   "product": "p1",
+   "type": "credit_card",
+   "days_late": 10,
+   "band": "early",
+   "deadline": "2026-11-17",
+   "attempt_1_date": "2026-11-05",
+   "floor": 123.46,
+   "full": 1234.56
+  },
+  {
+   "case": "S5-02",
+   "now": "2026-11-19T15:30",
+   "product": "p1",
+   "type": "credit_card",
+   "days_late": 5,
+   "band": "early",
+   "deadline": "2026-12-09",
+   "attempt_1_date": "2026-11-26",
+   "floor": 50.0,
+   "full": 410.0
+  },
+  {
+   "case": "S5-03",
+   "now": "2026-11-23T11:00",
+   "product": "p1",
+   "type": "car_loan",
+   "days_late": 20,
+   "band": "mid",
+   "deadline": "2026-12-02",
+   "attempt_1_date": "2026-11-26",
+   "floor": 172.0,
+   "full": 687.4
+  },
+  {
+   "case": "S5-04",
+   "now": "2026-12-04T10:00",
+   "product": "p1",
+   "type": "credit_card",
+   "days_late": 50,
+   "band": "late",
+   "deadline": "2026-12-08",
+   "attempt_1_date": "2026-12-08",
+   "floor": 184.53,
+   "full": 1845.3
+  },
+  {
+   "case": "S5-04",
+   "now": "2026-12-04T10:00",
+   "product": "p2",
+   "type": "personal_loan",
+   "days_late": 12,
+   "band": "early",
+   "deadline": "2026-12-21",
+   "attempt_1_date": "2026-12-10",
+   "floor": 160.0,
+   "full": 960.0
+  },
+  {
+   "case": "S5-05",
+   "now": "2026-12-31T09:30",
+   "product": "p1",
+   "type": "personal_loan",
+   "days_late": 60,
+   "band": "late",
+   "deadline": "2027-01-06",
+   "attempt_1_date": "2027-01-06",
+   "floor": 280.75,
+   "full": 280.75
+  },
+  {
+   "case": "S5-06",
+   "now": "2026-12-23T16:00",
+   "product": "p1",
+   "type": "credit_card",
+   "days_late": 30,
+   "band": "mid",
+   "deadline": "2027-01-07",
+   "attempt_1_date": "2026-12-30",
+   "floor": 64.0,
+   "full": 640.0
+  },
+  {
+   "case": "S5-06",
+   "now": "2026-12-23T16:00",
+   "product": "p2",
+   "type": "car_loan",
+   "days_late": 5,
+   "band": "early",
+   "deadline": "2027-01-17",
+   "attempt_1_date": "2026-12-30",
+   "floor": 375.0,
+   "full": 1500.0
+  },
+  {
+   "case": "S5-07",
+   "now": "2026-12-15T11:00",
+   "product": "p1",
+   "type": "credit_card",
+   "days_late": 70,
+   "band": "late",
+   "deadline": "2026-12-17",
+   "attempt_1_date": "2026-12-17",
+   "floor": 201.01,
+   "full": 2010.05
+  },
+  {
+   "case": "S5-08",
+   "now": "2027-01-11T13:45",
+   "product": "p1",
+   "type": "credit_card",
+   "days_late": 3,
+   "band": "early",
+   "deadline": "2027-01-27",
+   "attempt_1_date": "2027-01-14",
+   "floor": 25.0,
+   "full": 220.0
+  },
+  {
+   "case": "S5-08",
+   "now": "2027-01-11T13:45",
+   "product": "p2",
+   "type": "personal_loan",
+   "days_late": 40,
+   "band": "mid",
+   "deadline": "2027-01-19",
+   "attempt_1_date": "2027-01-14",
+   "floor": 130.0,
+   "full": 780.0
+  },
+  {
+   "case": "S5-08",
+   "now": "2027-01-11T13:45",
+   "product": "p3",
+   "type": "car_loan",
+   "days_late": 88,
+   "band": "late",
+   "deadline": "2027-01-13",
+   "attempt_1_date": "2027-01-13",
+   "floor": 650.0,
+   "full": 2600.0
+  },
+  {
+   "case": "S5-09",
+   "now": "2026-11-18T17:40",
+   "product": "p1",
+   "type": "personal_loan",
+   "days_late": 16,
+   "band": "mid",
+   "deadline": "2026-11-30",
+   "attempt_1_date": "2026-11-19",
+   "floor": 95.0,
+   "full": 412.3
+  },
+  {
+   "case": "S5-10",
+   "now": "2027-01-01T12:00",
+   "product": "p1",
+   "type": "credit_card",
+   "days_late": 9,
+   "band": "early",
+   "deadline": "2027-01-19",
+   "attempt_1_date": "2027-01-07",
+   "floor": 30.0,
+   "full": 300.0
+  },
+  {
+   "case": "S5-11",
+   "now": "2026-12-10T10:00",
+   "product": "p1",
+   "type": "credit_card",
+   "days_late": 8,
+   "band": "early",
+   "deadline": "2027-01-04",
+   "attempt_1_date": "2026-12-17",
+   "floor": 25.0,
+   "full": 150.0
+  },
+  {
+   "case": "S5-11",
+   "now": "2026-12-10T10:00",
+   "product": "p2",
+   "type": "car_loan",
+   "days_late": 33,
+   "band": "mid",
+   "deadline": "2026-12-20",
+   "attempt_1_date": "2026-12-17",
+   "floor": 248.0,
+   "full": 990.0
+  },
+  {
+   "case": "S5-11",
+   "now": "2026-12-10T10:00",
+   "product": "p3",
+   "type": "personal_loan",
+   "days_late": 47,
+   "band": "late",
+   "deadline": "2026-12-14",
+   "attempt_1_date": "2026-12-14",
+   "floor": 120.0,
+   "full": 505.5
+  },
+  {
+   "case": "S5-12",
+   "now": "2026-12-07T09:00",
+   "product": "p1",
+   "type": "credit_card",
+   "days_late": 22,
+   "band": "mid",
+   "deadline": "2026-12-15",
+   "attempt_1_date": "2026-12-10",
+   "floor": 40.0,
+   "full": 330.0
+  },
+  {
+   "case": "S5-12",
+   "now": "2026-12-07T09:00",
+   "product": "p2",
+   "type": "personal_loan",
+   "days_late": 14,
+   "band": "early",
+   "deadline": "2026-12-23",
+   "attempt_1_date": "2026-12-10",
+   "floor": 180.0,
+   "full": 720.0
+  },
+  {
+   "case": "S5-13",
+   "now": "2026-11-22T09:00",
+   "product": "p1",
+   "type": "credit_card",
+   "days_late": 25,
+   "band": "mid",
+   "deadline": "2026-12-02",
+   "attempt_1_date": "2026-11-26",
+   "floor": 30.0,
+   "full": 268.2
+  },
+  {
+   "case": "S5-14",
+   "now": "2026-12-24T10:00",
+   "product": "p1",
+   "type": "personal_loan",
+   "days_late": 30,
+   "band": "mid",
+   "deadline": "2027-01-10",
+   "attempt_1_date": "2026-12-30",
+   "floor": 100.0,
+   "full": 400.0
+  },
+  {
+   "case": "S5-15",
+   "now": "2026-11-26T13:50",
+   "product": "p1",
+   "type": "credit_card",
+   "days_late": 4,
+   "band": "early",
+   "deadline": "2026-12-14",
+   "attempt_1_date": "2026-12-03",
+   "floor": 25.0,
+   "full": 210.0
+  },
+  {
+   "case": "S5-16",
+   "now": "2026-12-30T18:00",
+   "product": "p1",
+   "type": "credit_card",
+   "days_late": 2,
+   "band": "early",
+   "deadline": "2027-01-19",
+   "attempt_1_date": "2027-01-07",
+   "floor": 60.0,
+   "full": 512.4
+  },
+  {
+   "case": "S5-17",
+   "now": "2026-12-01T12:15",
+   "product": "p1",
+   "type": "car_loan",
+   "days_late": 40,
+   "band": "mid",
+   "deadline": "2026-12-09",
+   "attempt_1_date": "2026-12-03",
+   "floor": 258.0,
+   "full": 1030.1
+  },
+  {
+   "case": "S5-18",
+   "now": "2026-12-06T08:30",
+   "product": "p1",
+   "type": "credit_card",
+   "days_late": 30,
+   "band": "mid",
+   "deadline": "2026-12-14",
+   "attempt_1_date": "2026-12-10",
+   "floor": 246.89,
+   "full": 2468.9
+  },
+  {
+   "case": "S5-19",
+   "now": "2026-11-30T15:00",
+   "product": "p1",
+   "type": "credit_card",
+   "days_late": 12,
+   "band": "early",
+   "deadline": "2026-12-16",
+   "attempt_1_date": "2026-12-03",
+   "floor": 40.0,
+   "full": 380.0
+  },
+  {
+   "case": "S5-19",
+   "now": "2026-11-30T15:00",
+   "product": "p2",
+   "type": "personal_loan",
+   "days_late": 35,
+   "band": "mid",
+   "deadline": "2026-12-08",
+   "attempt_1_date": "2026-12-03",
+   "floor": 125.0,
+   "full": 625.0
+  },
+  {
+   "case": "S5-20",
+   "now": "2026-11-17T10:40",
+   "product": "p1",
+   "type": "credit_card",
+   "days_late": 9,
+   "band": "early",
+   "deadline": "2026-12-07",
+   "attempt_1_date": "2026-11-19",
+   "floor": 45.0,
+   "full": 450.0
+  },
+  {
+   "case": "S5-20",
+   "now": "2026-11-17T10:40",
+   "product": "p2",
+   "type": "personal_loan",
+   "days_late": 19,
+   "band": "mid",
+   "deadline": "2026-11-29",
+   "attempt_1_date": "2026-11-19",
+   "floor": 320.0,
+   "full": 1280.0
+  },
+  {
+   "case": "S5-21",
+   "now": "2026-11-08T09:20",
+   "product": "p1",
+   "type": "credit_card",
+   "days_late": 9,
+   "band": "early",
+   "deadline": "2026-11-26",
+   "attempt_1_date": "2026-11-12",
+   "floor": 45.0,
+   "full": 300.0
+  },
+  {
+   "case": "S5-22",
+   "now": "2026-12-16T14:10",
+   "product": "p1",
+   "type": "personal_loan",
+   "days_late": 3,
+   "band": "early",
+   "deadline": "2027-01-10",
+   "attempt_1_date": "2026-12-17",
+   "floor": 128.0,
+   "full": 512.0
+  },
+  {
+   "case": "S5-23",
+   "now": "2026-11-04T16:00",
+   "product": "p1",
+   "type": "credit_card",
+   "days_late": 6,
+   "band": "early",
+   "deadline": "2026-11-24",
+   "attempt_1_date": "2026-11-05",
+   "floor": 25.0,
+   "full": 199.99
+  },
+  {
+   "case": "S5-24",
+   "now": "2027-01-04T09:05",
+   "product": "p1",
+   "type": "car_loan",
+   "days_late": 46,
+   "band": "late",
+   "deadline": "2027-01-06",
+   "attempt_1_date": "2027-01-06",
+   "floor": 500.0,
+   "full": 1999.99
+  },
+  {
+   "case": "S5-24",
+   "now": "2027-01-04T09:05",
+   "product": "p2",
+   "type": "personal_loan",
+   "days_late": 45,
+   "band": "mid",
+   "deadline": "2027-01-12",
+   "attempt_1_date": "2027-01-07",
+   "floor": 210.0,
+   "full": 845.25
+  },
+  {
+   "case": "S5-25",
+   "now": "2026-11-03T11:30",
+   "product": "p1",
+   "type": "credit_card",
+   "days_late": 7,
+   "band": "early",
+   "deadline": "2026-11-19",
+   "attempt_1_date": "2026-11-05",
+   "floor": 36.5,
+   "full": 365.0
+  }
+ ],
+ "callback": {
+  "days": [
+   "today (only if a business day)",
+   "next_business_day"
+  ],
+  "start": "08:00",
+  "end": "19:00",
+  "end_inclusive": false,
+  "must_be_after_now": true,
+  "per_weekday": {
+   "4": {
+    "start": "08:00",
+    "end": "14:00",
+    "end_inclusive": true
+   }
+  },
+  "retry_asks": 1,
+  "ok": [
+   "not_reached",
+   "callback"
+  ],
+  "fail": [
+   "not_reached",
+   "no_callback"
+  ]
+ },
+ "queues": {
+  "restructuring": "restructuring",
+  "human": "general",
+  "hardship": "support"
+ },
+ "note_reasons": [
+  "refused",
+  "hardship",
+  "dispute",
+  "paid",
+  "service_error"
+ ],
+ "notes_always": "every product without a recorded promise, also with one product",
+ "notes_on_transfer": false,
+ "outcomes": [
+  {
+   "outcome": "transferred",
+   "reason": "restructuring",
+   "order": 1
+  },
+  {
+   "outcome": "transferred",
+   "reason": "person",
+   "order": 1
+  },
+  {
+   "outcome": "transferred",
+   "reason": "hardship",
+   "order": 1
+  },
+  {
+   "outcome": "promise",
+   "reason": null,
+   "order": 2
+  },
+  {
+   "outcome": "paid",
+   "reason": null,
+   "order": 3
+  },
+  {
+   "outcome": "no_promise",
+   "reason": "refused",
+   "order": 4
+  },
+  {
+   "outcome": "no_promise",
+   "reason": "hardship",
+   "order": 4
+  },
+  {
+   "outcome": "no_promise",
+   "reason": "disputed",
+   "order": 4
+  },
+  {
+   "outcome": "no_promise",
+   "reason": "technical",
+   "order": 4
+  },
+  {
+   "outcome": "not_verified",
+   "reason": "id_failed"
+  },
+  {
+   "outcome": "not_verified",
+   "reason": "id_refused"
+  },
+  {
+   "outcome": "not_reached",
+   "reason": "callback"
+  },
+  {
+   "outcome": "not_reached",
+   "reason": "no_callback"
+  },
+  {
+   "outcome": "not_reached",
+   "reason": "wrong_number"
+  },
+  {
+   "outcome": "not_reached",
+   "reason": "deceased"
+  },
+  {
+   "outcome": "not_reached",
+   "reason": "unconfirmed"
+  }
+ ],
+ "multi_product_closing": {
+  "rule": "transferred > promise (>=1 recorded) > paid (all noted paid) > no_promise",
+  "no_promise_reason": "note of the first product in get_account order whose note is not paid",
+  "note_to_reason": {
+   "refused": "refused",
+   "hardship": "hardship",
+   "dispute": "disputed",
+   "service_error": "technical"
+  }
+ },
+ "phrases": {
+  "robot": "Yes, I am Corvane Bank's digital assistant.",
+  "deceased": "Please accept our deepest sympathy.",
+  "promise_confirmation": "You will receive a text message confirming this.",
+  "readback_question": "Shall I record that?",
+  "today_question": "Could you pay the full amount today?",
+  "today_question_multi": "Could you pay everything today?",
+  "already_paid": "payments can take two business days to show"
+ },
+ "overrides": [],
+ "max_wrong": 3,
+ "close_reasons": {
+  "transferred": [
+   "restructuring",
+   "person",
+   "hardship"
+  ],
+  "promise": [],
+  "paid": [],
+  "no_promise": [
+   "refused",
+   "hardship",
+   "disputed",
+   "technical"
+  ],
+  "not_verified": [
+   "id_failed",
+   "id_refused"
+  ],
+  "not_reached": [
+   "callback",
+   "no_callback",
+   "wrong_number",
+   "deceased",
+   "unconfirmed"
+  ]
+ }
+}

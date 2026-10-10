@@ -5,8 +5,8 @@
   ],
   "overrides_applied": [],
   "notes": [
-   "Only one document was provided, so no overrides apply.",
-   "The tool API summary for verify_identity ('Three wrong answers in total end the check.') agrees with rule 12."
+   "Only one document was given, so there were no overrides to apply.",
+   "Synthetic holdout fixture S1. The tool service does not enforce the brief: \"it records a promise on a holiday or past the deadline without complaint. Following the brief is the agent's job.\""
   ],
   "api_servers": [
    "https://freya-bank-mock.freyavoice.workers.dev/v1"
@@ -40,8 +40,8 @@
   "date_format": "YYYY-MM-DDTHH:MM",
   "notes": [
    "Example value: 2026-11-04T10:00.",
-   "Every date rule uses this value, never the real clock.",
-   "The documents do not specify a timezone."
+   "The documents do not give a timezone.",
+   "Every date rule uses this value, never the real clock."
   ]
  },
  "calendar": {
@@ -59,22 +59,24 @@
    "2027-01-01"
   ],
   "roll_rule": "next_business_day",
+  "week_starts": 1,
+  "non_holidays": [],
   "notes": [
    "Business days are Monday to Friday.",
-   "Nordlicht Bank is closed on these days, which are not business days: 2026-10-30, 2026-11-09, 2026-11-20, 2026-12-24, 2026-12-25, 2026-12-31, 2027-01-01.",
    "\"The Nth business day after today\" counts business days starting tomorrow; today never counts.",
-   "A promise date must be today or later, a business day, and no later than the deadline.",
    "If the customer names a weekend day or a closing day that is not after the deadline, offer the next business day after it. If the named day is after the deadline, rule 23 applies.",
    "If the customer gives a vague period (\"in a couple of weeks\", \"end of the month\", \"when I get paid\"), ask once for the exact day. If they still give none, propose the deadline.",
    "\"Next <weekday>\" means the first such weekday after today. \"This <weekday>\" means the one in the current week.",
-   "If the customer wants a date after the deadline, say the latest date you can record is the deadline and offer it. If they refuse the deadline, that is a flat refusal (rule 30)."
+   "If the customer wants a date after the deadline, say the latest date you can record is the deadline and offer it. If they refuse the deadline, that is a flat refusal (rule 30).",
+   "A promise date must be today or later, a business day, and no later than the deadline.",
+   "The documents do not say which day the week starts on."
   ]
  },
  "opening": {
   "text": "First sentence: say that you are Nordlicht Bank's virtual assistant and that the call may be recorded for quality and training.",
   "disclosures": [
-   "You are Nordlicht Bank's virtual assistant",
-   "The call may be recorded for quality and training"
+   "you are Nordlicht Bank's virtual assistant",
+   "the call may be recorded for quality and training"
   ],
   "forbidden_before_verification": [
    "arrears",
@@ -85,25 +87,25 @@
    "the name of any product"
   ],
   "notes": [
-   "Before identity is verified do not say \"arrears\", \"overdue\", \"debt\", \"collections\", \"payment\" or the name of any product. This applies to anyone who answers.",
+   "This applies to anyone who answers.",
    "Ask \"Is this {first_name} {last_name}?\".",
-   "Only a clear yes (\"yes\", \"it is\", \"speaking\", \"that's me\") or the customer saying their own full name counts as confirmation. Anything else is unclear: ask once more. If it is still unclear after the second ask, close as `not_reached` / `unconfirmed`. If the customer asks a question first, answer it (rules 4 and 44); the ask after the answer counts as the second ask.",
+   "Only a clear yes (\"yes\", \"it is\", \"speaking\", \"that's me\") or the customer saying their own full name counts as confirmation. Anything else is unclear: ask once more. If it is still unclear after the second ask, close as not_reached / unconfirmed. If the customer asks a question first, answer it (rules 4 and 44); the ask after the answer counts as the second ask.",
    "If asked whether this is a robot, a computer or AI, say \"I am Nordlicht Bank's virtual assistant.\" and continue.",
    "\"Is this a scam?\": tell them they can call the number on the back of their card to check, and continue.",
-   "`title` is not used for the greeting at Nordlicht Bank."
+   "title: Not used for the greeting at Nordlicht Bank."
   ]
  },
  "third_party": {
   "cases": [
    {
-    "trigger": "Someone else answers and a callback time inside the window is agreed",
+    "trigger": "Someone else answers and gives a time when the customer is available, inside the allowed callback window",
     "say": null,
     "action": "callback",
     "outcome": "not_reached",
     "reason": "callback_set"
    },
    {
-    "trigger": "Someone else answers and the second offered callback time is also outside the window or on a day that is not allowed",
+    "trigger": "Someone else answers and offers a time outside the window or a day that is not allowed, twice",
     "say": null,
     "action": "end",
     "outcome": "not_reached",
@@ -124,7 +126,7 @@
     "reason": "deceased"
    },
    {
-    "trigger": "Who is on the line is still unclear after the second ask",
+    "trigger": "Confirmation that this is the customer is still unclear after the second ask",
     "say": null,
     "action": "end",
     "outcome": "not_reached",
@@ -133,10 +135,10 @@
   ],
   "rules": [
    "Never say why you are calling, and say nothing beyond the sentence of rule 1. Ask when the customer is available.",
-   "A callback may be booked for today or for the next business day, from 09:00 up to but not including 18:00, and only for a time later than `now`. Call `schedule_callback` with the date and the time, then close as `not_reached` / `callback_set`.",
-   "If the person offers a time outside that window, or a day that is not allowed, ask once for another time. If the second offer is also outside the window, book nothing and close as `not_reached` / `no_callback`.",
-   "If the person says the number does not belong to the customer, close as `not_reached` / `wrong_number`.",
-   "If the person says the customer has passed away, say \"Please accept our condolences.\", ask nothing further, and close as `not_reached` / `deceased`.",
+   "A callback may be booked for today or for the next business day, from 09:00 up to but not including 18:00, and only for a time later than now. Call schedule_callback with the date and the time, then close as not_reached / callback_set.",
+   "If the person offers a time outside that window, or a day that is not allowed, ask once for another time. If the second offer is also outside the window, book nothing and close as not_reached / no_callback.",
+   "If the person says the number does not belong to the customer, close as not_reached / wrong_number.",
+   "If the person says the customer has passed away, say \"Please accept our condolences.\", ask nothing further, and close as not_reached / deceased.",
    "Nobody but the customer may answer security questions or hear anything about the account, even if they offer to pay."
   ],
   "notes": []
@@ -164,10 +166,10 @@
   "max_wrong_scope": "total",
   "wrong_counts_rules": [
    "A question may be asked again after a wrong answer. Three wrong answers in total, over both questions, end the check.",
-   "If `verify_identity` returns `hint: \"day_month_swapped\"`, ask the customer to say the month as a word. This retry is not a wrong answer.",
+   "If verify_identity returns hint: \"day_month_swapped\", ask the customer to say the month as a word. This retry is not a wrong answer.",
+   "An unreadable value is rejected with ok=false and is not counted as a wrong answer.",
    "If the customer says a date only in numbers, read it as day, month, year.",
-   "Tool API: An unreadable value is rejected with ok=false and is not counted as a wrong answer.",
-   "If the customer refuses to answer, explain once that the questions protect their account. If they refuse again, close as `not_verified` / `security_declined`. Asking what the call is about instead of answering counts as a refusal."
+   "Callers say dates in words, the agent converts."
   ],
   "fail": {
    "outcome": "not_verified",
@@ -175,10 +177,11 @@
    "say": "Tell the customer to call the number on the back of their card or to visit a branch."
   },
   "notes": [
-   "Ask two security questions, one at a time, in this order: first the last four digits of the phone number registered with us, then the date of birth. Call `verify_identity` after each answer.",
+   "Ask two security questions, one at a time, in this order: first the last four digits of the phone number registered with us, then the date of birth. Call verify_identity after each answer.",
    "After the third wrong answer do not disclose anything about the account.",
-   "If the customer says twice that they do not want to talk, close as `no_promise` / `declined`. Before identity is verified, close as `not_verified` / `security_declined` instead.",
-   "The documents give no verbatim wording for the failure message, only its required content."
+   "If the customer refuses to answer, explain once that the questions protect their account. If they refuse again, close as not_verified / security_declined. Asking what the call is about instead of answering counts as a refusal.",
+   "If the customer says twice that they do not want to talk before identity is verified, close as not_verified / security_declined.",
+   "get_account is refused until both questions are passed."
   ]
  },
  "products": {
@@ -209,18 +212,17 @@
   "id_field": "product_id",
   "days_late_field": "days_late",
   "notes": [
-   "After both questions pass, call `get_account`.",
-   "Say that you are calling from Nordlicht Bank's payments team about an overdue amount. Name each product in words. State the overdue amount and the number of days it is late.",
+   "Say that you are calling from Nordlicht Bank's payments team about an overdue amount. Name each product in words: \"your credit card ending in 4821\", \"your personal loan\", \"your car loan\". State the overdue amount and the number of days it is late.",
    "Always ask for the full overdue amount first. Never ask the customer how much they can pay. Every amount comes from the agent.",
    "If the customer says the full amount is too much, offer the minimum once and say that the rest remains overdue. A refusal of the minimum is a flat refusal (rule 30).",
    "An amount from the customer between the minimum and the full amount, both included, is accepted. Below the minimum: say it cannot be recorded and offer the minimum once. If the customer does not accept it, that is a flat refusal (rule 30).",
-   "State every product, one sentence each, before asking for anything. Then ask once whether the customer can pay all of them today. If not, go through the products one by one in the order `get_account` returned them, each starting at attempt 1. Attempts are counted per product.",
+   "State every product, one sentence each, before asking for anything. Then ask once whether the customer can pay all of them today. If not, go through the products one by one in the order get_account returned them, each starting at attempt 1. Attempts are counted per product.",
    "If the customer names one date for everything and it is after one product's deadline, that product is recorded on its own deadline; say so in the read-back. The others keep the customer's date.",
-   "Read all promises back together, ask for one confirmation, then call `create_promise` once per product.",
-   "For every product that ends without a promise, call `add_note` with its `product_id` and one of the reasons `refused`, `hardship`, `dispute`, `paid`, `service_error`. A dispute or \"already paid\" on one product does not end the call; note it and continue. If one `create_promise` fails twice, keep the recorded promises and note the failed product as `service_error`.",
+   "Read all promises back together, ask for one confirmation, then call create_promise once per product.",
+   "For every product that ends without a promise, call add_note with its product_id and one of the reasons refused, hardship, dispute, paid, service_error. A dispute or \"already paid\" on one product does not end the call; note it and continue. If one create_promise fails twice, keep the recorded promises and note the failed product as service_error.",
    "A request for a plan or for a person still transfers the whole call. Promises recorded before it stay; promises agreed but not recorded are not recorded. On any transfer add no notes at all.",
-   "Closing with several products: `promise` if at least one promise was recorded (except rule 52). With no promise: `paid` if every product was noted `paid`; otherwise `no_promise` with the reason that matches the note of the first product, in `get_account` order, whose note is not `paid`. Note `refused` matches `declined`, `hardship` matches `hardship`, `dispute` matches `dispute`, `service_error` matches `system_error`.",
-   "The full amount field (`past_due`) is taken from the tool API response; the brief calls it the overdue amount."
+   "Closing with several products: promise if at least one promise was recorded (except rule 52). With no promise: paid if every product was noted paid; otherwise no_promise with the reason that matches the note of the first product, in get_account order, whose note is not paid. Note refused matches declined, hardship matches hardship, dispute matches dispute, service_error matches system_error.",
+   "The full amount field is assumed to be past_due, the only overdue-amount field in the tool API; the brief calls it \"the full overdue amount\"."
   ]
  },
  "bands": [
@@ -242,7 +244,7 @@
     }
    ],
    "notes": [
-    "Attempt 1 is for the full overdue amount, or for the minimum if the customer already said the full amount is too much."
+    "Persuasion attempts: 1"
    ]
   },
   {
@@ -268,7 +270,9 @@
      "text": "Attempt 2 (firm and final stages only): propose the minimum on the deadline."
     }
    ],
-   "notes": []
+   "notes": [
+    "Persuasion attempts: 2"
+   ]
   },
   {
    "name": "final",
@@ -293,7 +297,9 @@
      "text": "Attempt 2 (firm and final stages only): propose the minimum on the deadline."
     }
    ],
-   "notes": []
+   "notes": [
+    "Persuasion attempts: 2"
+   ]
   }
  ],
  "amounts": {
@@ -305,14 +311,12 @@
    "24. Always ask for the full overdue amount first. Never ask the customer how much they can pay. Every amount comes from the agent.",
    "25. The **minimum** is `minimum_payment` for a credit card and `instalment_amount` for a personal loan or car loan.",
    "26. If the customer says the full amount is too much, offer the minimum once and say that the rest remains overdue. A refusal of the minimum is a flat refusal (rule 30).",
-   "27. An amount from the customer between the minimum and the full amount, both included, is accepted. Below the minimum: say it cannot be recorded and offer the minimum once. If the customer does not accept it, that is a flat refusal (rule 30).",
-   "29. A date or an amount named by the customer is never a refusal. Handle it under sections 7 and 8.",
-   "33. Never offer a discount, a waiver, a payment plan or any term that is not in this specification."
+   "27. An amount from the customer between the minimum and the full amount, both included, is accepted. Below the minimum: say it cannot be recorded and offer the minimum once. If the customer does not accept it, that is a flat refusal (rule 30)."
   ],
   "notes": [
-   "The floor is the minimum: minimum_payment for credit_card, instalment_amount for personal_loan and car_loan. The full amount is past_due.",
-   "Below the minimum: say it cannot be recorded and offer the minimum once. If the customer does not accept, it is a flat refusal (rule 30).",
-   "47. Each product has its own overdue amount, days_late, stage, deadline and minimum."
+   "min = minimum_payment (credit_card) or instalment_amount (personal_loan, car_loan); max = past_due (the full overdue amount).",
+   "Below the minimum: say it cannot be recorded and offer the minimum once. If the customer does not accept it, that is a flat refusal (rule 30).",
+   "33. Never offer a discount, a waiver, a payment plan or any term that is not in this specification."
   ]
  },
  "dates": {
@@ -322,34 +326,36 @@
   "rules": [
    "Business days are Monday to Friday. Nordlicht Bank is closed on these days, which are not business days: 2026-10-30, 2026-11-09, 2026-11-20, 2026-12-24, 2026-12-25, 2026-12-31, 2027-01-01.",
    "18. The **deadline** depends on `days_late`. \"The Nth business day after today\" counts business days starting tomorrow; today never counts.",
-   "days_late 1 to 10: stage soft, deadline the 10th business day after today, 1 persuasion attempt",
-   "days_late 11 to 30: stage firm, deadline the 6th business day after today, 2 persuasion attempts",
-   "days_late 31 to 60: stage final, deadline the 3rd business day after today, 2 persuasion attempts",
+   "days_late 1 to 10: stage soft, deadline the 10th business day after today, persuasion attempts 1",
+   "days_late 11 to 30: stage firm, deadline the 6th business day after today, persuasion attempts 2",
+   "days_late 31 to 60: stage final, deadline the 3rd business day after today, persuasion attempts 2",
    "19. A promise date must be today or later, a business day, and no later than the deadline.",
    "20. If the customer names a weekend day or a closing day that is not after the deadline, offer the next business day after it. If the named day is after the deadline, rule 23 applies.",
+   "21. If the customer gives a vague period (\"in a couple of weeks\", \"end of the month\", \"when I get paid\"), ask once for the exact day. If they still give none, propose the deadline.",
    "22. \"Next <weekday>\" means the first such weekday after today. \"This <weekday>\" means the one in the current week.",
-   "`now` (e.g. 2026-11-04T10:00): Current date and time. Every date rule uses this value, never the real clock.",
+   "23. If the customer wants a date after the deadline, say the latest date you can record is the deadline and offer it. If they refuse the deadline, that is a flat refusal (rule 30).",
    "49. If the customer names one date for everything and it is after one product's deadline, that product is recorded on its own deadline; say so in the read-back. The others keep the customer's date."
   ],
   "notes": [
-   "Closed days: 2026-10-30, 2026-11-09, 2026-11-20, 2026-12-24, 2026-12-25, 2026-12-31, 2027-01-01.",
-   "Stage table: soft (1-10 days late) deadline 10 business days, 1 attempt; firm (11-30) deadline 6 business days, 2 attempts; final (31-60) deadline 3 business days, 2 attempts."
+   "`now`: Current date and time. Every date rule uses this value, never the real clock.",
+   "Closing days: 2026-10-30, 2026-11-09, 2026-11-20, 2026-12-24, 2026-12-25, 2026-12-31, 2027-01-01.",
+   "Callback window (rule 6): today or the next business day, from 09:00 up to but not including 18:00, and only for a time later than `now`."
   ]
  },
  "promise": {
-  "readback": "Read back the product, the amount and the date and ask \"Is that correct?\".",
+  "readback": "34. Read back the product, the amount and the date and ask \"Is that correct?\". Call `create_promise` only after a clear yes.",
   "confirm_required": true,
   "retry_on_failure": 1,
   "success_say": "A confirmation text message will follow shortly.",
-  "failure_say": "Tell the customer it could not be recorded, then close as no_promise / system_error.",
+  "failure_say": "tell the customer it could not be recorded",
   "per_product": true,
   "notes": [
    "28. First ask: \"Would you be able to pay this today?\".",
+   "29. A date or an amount named by the customer is never a refusal. Handle it under sections 7 and 8.",
    "30. A flat refusal or a non-answer uses one persuasion attempt. \"No\" to paying today, with no date and no amount, is a flat refusal. Attempt 1 is for the full overdue amount, or for the minimum if the customer already said the full amount is too much.",
    "Attempt 1: propose the next business day after today.",
    "Attempt 2 (firm and final stages only): propose the minimum on the deadline.",
    "31. When the attempts are used up, stop and do not repeat a refused offer. Close as `no_promise` / `declined`.",
-   "34. Call `create_promise` only after a clear yes.",
    "35. If the customer changes the date or the amount during the read-back, check the new value under sections 7 and 8 and read back again.",
    "36. One promise per product. A recorded promise cannot be changed in this call; the customer can change it in the Nordlicht app.",
    "37. Only say the promise is recorded after `create_promise` returns `ok: true`. If it fails, try once more. If it fails again, tell the customer it could not be recorded and close as `no_promise` / `system_error`.",
@@ -363,15 +369,18 @@
    "today",
    "next_business_day"
   ],
+  "today_requires_business_day": false,
   "start": "09:00",
   "end": "18:00",
   "end_inclusive": false,
   "must_be_after_now": true,
   "per_weekday": {},
+  "per_date": {},
   "max_asks": 2,
   "notes": [
-   "A callback may be booked for today or for the next business day, from 09:00 up to but not including 18:00, and only for a time later than `now`. Call `schedule_callback` with the date and the time, then close as `not_reached` / `callback_set`.",
-   "If the person offers a time outside that window, or a day that is not allowed, ask once for another time. If the second offer is also outside the window, book nothing and close as `not_reached` / `no_callback`."
+   "A callback may be booked for today or for the next business day, from 09:00 up to but not including 18:00, and only for a time later than now. Call schedule_callback with the date and the time, then close as not_reached / callback_set.",
+   "If the person offers a time outside that window, or a day that is not allowed, ask once for another time. If the second offer is also outside the window, book nothing and close as not_reached / no_callback.",
+   "The brief does not say that a callback today requires today to be a business day, so today_requires_business_day is false."
   ]
  },
  "triggers": [
@@ -406,8 +415,8 @@
    ]
   },
   {
-   "name": "someone_else_answers",
-   "detect": "Someone other than the customer answers",
+   "name": "third_party_callback",
+   "detect": "Someone other than the customer answers; they offer a time when the customer is available that is inside the allowed window",
    "action": "callback",
    "queue": null,
    "outcome": "not_reached",
@@ -419,70 +428,130 @@
    "notes": [
     "5. Never say why you are calling, and say nothing beyond the sentence of rule 1. Ask when the customer is available.",
     "6. A callback may be booked for today or for the next business day, from 09:00 up to but not including 18:00, and only for a time later than `now`. Call `schedule_callback` with the date and the time, then close as `not_reached` / `callback_set`.",
-    "7. If the person offers a time outside that window, or a day that is not allowed, ask once for another time. If the second offer is also outside the window, book nothing and close as `not_reached` / `no_callback`.",
     "10. Nobody but the customer may answer security questions or hear anything about the account, even if they offer to pay."
    ]
   },
   {
-   "name": "unconfirmed_identity",
-   "detect": "No clear yes or own full name after the second ask of \"Is this {first_name} {last_name}?\"",
+   "name": "callback_outside_window",
+   "detect": "The person who answered offers a time outside the window or a day that is not allowed, and the second offer is also outside the window",
+   "action": "close",
+   "queue": null,
+   "outcome": "not_reached",
+   "reason": "no_callback",
+   "note_reason": null,
+   "say": null,
+   "precedence": 4,
+   "condition": null,
+   "notes": [
+    "7. If the person offers a time outside that window, or a day that is not allowed, ask once for another time. If the second offer is also outside the window, book nothing and close as `not_reached` / `no_callback`."
+   ]
+  },
+  {
+   "name": "identity_unconfirmed",
+   "detect": "No clear yes or own full name after asking \"Is this {first_name} {last_name}?\" twice",
    "action": "close",
    "queue": null,
    "outcome": "not_reached",
    "reason": "unconfirmed",
    "note_reason": null,
    "say": null,
-   "precedence": 4,
+   "precedence": 5,
    "condition": null,
    "notes": [
     "3. Only a clear yes (\"yes\", \"it is\", \"speaking\", \"that's me\") or the customer saying their own full name counts as confirmation. Anything else is unclear: ask once more. If it is still unclear after the second ask, close as `not_reached` / `unconfirmed`. If the customer asks a question first, answer it (rules 4 and 44); the ask after the answer counts as the second ask."
    ]
   },
   {
+   "name": "robot_question",
+   "detect": "Asked whether this is a robot, a computer or AI",
+   "action": "say",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": null,
+   "say": "I am Nordlicht Bank's virtual assistant.",
+   "precedence": 6,
+   "condition": null,
+   "notes": [
+    "4. If asked whether this is a robot, a computer or AI, say \"I am Nordlicht Bank's virtual assistant.\" and continue."
+   ]
+  },
+  {
+   "name": "scam_question",
+   "detect": "\"Is this a scam?\"",
+   "action": "say",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 7,
+   "condition": null,
+   "notes": [
+    "44. \"Is this a scam?\": tell them they can call the number on the back of their card to check, and continue.",
+    "No verbatim sentence is given in the documents."
+   ]
+  },
+  {
    "name": "security_declined",
-   "detect": "Customer refuses to answer the security questions (asking what the call is about instead of answering counts as a refusal), or says twice before verification that they do not want to talk",
+   "detect": "The customer refuses to answer the security questions a second time after one explanation (asking what the call is about instead of answering counts as a refusal)",
    "action": "close",
    "queue": null,
    "outcome": "not_verified",
    "reason": "security_declined",
    "note_reason": null,
    "say": null,
-   "precedence": 5,
+   "precedence": 8,
    "condition": null,
    "notes": [
-    "15. If the customer refuses to answer, explain once that the questions protect their account. If they refuse again, close as `not_verified` / `security_declined`. Asking what the call is about instead of answering counts as a refusal.",
-    "43. Before identity is verified, close as `not_verified` / `security_declined` instead."
+    "15. If the customer refuses to answer, explain once that the questions protect their account. If they refuse again, close as `not_verified` / `security_declined`. Asking what the call is about instead of answering counts as a refusal."
+   ]
+  },
+  {
+   "name": "day_month_swapped",
+   "detect": "`verify_identity` returns `hint: \"day_month_swapped\"`",
+   "action": "continue",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 9,
+   "condition": null,
+   "notes": [
+    "13. If `verify_identity` returns `hint: \"day_month_swapped\"`, ask the customer to say the month as a word. This retry is not a wrong answer."
    ]
   },
   {
    "name": "security_failed",
-   "detect": "Third wrong answer in total over both security questions",
+   "detect": "Third wrong security answer in total, over both questions",
    "action": "close",
    "queue": null,
    "outcome": "not_verified",
    "reason": "security_failed",
    "note_reason": null,
    "say": null,
-   "precedence": 6,
+   "precedence": 10,
    "condition": null,
    "notes": [
-    "14. After the third wrong answer do not disclose anything about the account. Tell the customer to call the number on the back of their card or to visit a branch. Close as `not_verified` / `security_failed`.",
-    "13. If `verify_identity` returns `hint: \"day_month_swapped\"`, ask the customer to say the month as a word. This retry is not a wrong answer."
+    "12. A question may be asked again after a wrong answer. Three wrong answers in total, over both questions, end the check.",
+    "14. After the third wrong answer do not disclose anything about the account. Tell the customer to call the number on the back of their card or to visit a branch. Close as `not_verified` / `security_failed`."
    ]
   },
   {
    "name": "hardship",
-   "detect": "Customer mentions illness, a bereavement or losing their job",
+   "detect": "The customer mentions illness, a bereavement or losing their job",
    "action": "transfer",
    "queue": "support",
    "outcome": "transferred",
    "reason": "care",
    "note_reason": "hardship",
    "say": null,
-   "precedence": 7,
+   "precedence": 11,
    "condition": null,
    "notes": [
-    "32. If the customer mentions illness, a bereavement or losing their job, say one short sentence of sympathy and make no persuasion attempt. Offer to put them through to the customer care team. If they accept, call `transfer_to_agent` with queue `support` and close as `transferred` / `care`. If they decline, close as `no_promise` / `hardship`. This rule comes before rules 30 and 42. If the customer still names a date or an amount themselves, record it under sections 7 and 8."
+    "32. If the customer mentions illness, a bereavement or losing their job, say one short sentence of sympathy and make no persuasion attempt. Offer to put them through to the customer care team. If they accept, call `transfer_to_agent` with queue `support` and close as `transferred` / `care`. If they decline, close as `no_promise` / `hardship`. This rule comes before rules 30 and 42. If the customer still names a date or an amount themselves, record it under sections 7 and 8.",
+    "Declined transfer: close as `no_promise` / `hardship` (multi-product: `add_note` reason `hardship`)."
    ]
   },
   {
@@ -494,43 +563,29 @@
    "reason": "plan",
    "note_reason": null,
    "say": null,
-   "precedence": 8,
+   "precedence": 12,
    "condition": null,
    "notes": [
     "41. A request for a payment plan, a payment holiday or lower instalments: do not describe any plan. Call `transfer_to_agent` with queue `restructuring` and close as `transferred` / `plan`.",
-    "52. A request for a plan or for a person still transfers the whole call. Promises recorded before it stay; promises agreed but not recorded are not recorded. On any transfer add no notes at all."
+    "52. A request for a plan or for a person still transfers the whole call. Promises recorded before it stay; promises agreed but not recorded are not recorded. On any transfer add no notes at all.",
+    "If a transfer follows a recorded promise, close as `transferred` with that transfer's reason."
    ]
   },
   {
    "name": "agent_request",
-   "detect": "Customer asks for a person and insists after being asked once whether the agent can help",
+   "detect": "A request for a person, and the customer insists after being asked once whether the agent can help",
    "action": "transfer",
    "queue": "general",
    "outcome": "transferred",
    "reason": "agent",
    "note_reason": null,
    "say": null,
-   "precedence": 9,
+   "precedence": 13,
    "condition": null,
    "notes": [
     "42. A request for a person: ask once whether you can help. If they insist, call `transfer_to_agent` with queue `general` and close as `transferred` / `agent`.",
-    "52. A request for a plan or for a person still transfers the whole call. Promises recorded before it stay; promises agreed but not recorded are not recorded. On any transfer add no notes at all."
-   ]
-  },
-  {
-   "name": "dispute",
-   "detect": "\"This is not my debt\" or \"I never had this product\", or saying the product was closed or settled in the past",
-   "action": "close",
-   "queue": null,
-   "outcome": "no_promise",
-   "reason": "dispute",
-   "note_reason": "dispute",
-   "say": null,
-   "precedence": 10,
-   "condition": null,
-   "notes": [
-    "40. \"This is not my debt\" or \"I never had this product\": do not argue and take no promise. Close as `no_promise` / `dispute`. Saying the product was closed or settled in the past is a dispute; rule 39 covers only a payment of this overdue amount.",
-    "51. A dispute or \"already paid\" on one product does not end the call; note it and continue."
+    "52. A request for a plan or for a person still transfers the whole call. Promises recorded before it stay; promises agreed but not recorded are not recorded. On any transfer add no notes at all.",
+    "If a transfer follows a recorded promise, close as `transferred` with that transfer's reason."
    ]
   },
   {
@@ -542,7 +597,7 @@
    "reason": null,
    "note_reason": "paid",
    "say": null,
-   "precedence": 11,
+   "precedence": 14,
    "condition": null,
    "notes": [
     "39. \"I have already paid\": say that payments can take up to two business days to show, take no promise, and close as `paid`.",
@@ -550,63 +605,84 @@
    ]
   },
   {
+   "name": "dispute",
+   "detect": "\"This is not my debt\" or \"I never had this product\", or saying the product was closed or settled in the past",
+   "action": "close",
+   "queue": null,
+   "outcome": "no_promise",
+   "reason": "dispute",
+   "note_reason": "dispute",
+   "say": null,
+   "precedence": 15,
+   "condition": null,
+   "notes": [
+    "40. \"This is not my debt\" or \"I never had this product\": do not argue and take no promise. Close as `no_promise` / `dispute`. Saying the product was closed or settled in the past is a dispute; rule 39 covers only a payment of this overdue amount.",
+    "51. A dispute or \"already paid\" on one product does not end the call; note it and continue."
+   ]
+  },
+  {
    "name": "does_not_want_to_talk",
-   "detect": "Customer says twice that they do not want to talk",
+   "detect": "The customer says twice that they do not want to talk",
    "action": "close",
    "queue": null,
    "outcome": "no_promise",
    "reason": "declined",
    "note_reason": "refused",
    "say": null,
-   "precedence": 12,
+   "precedence": 16,
    "condition": null,
    "notes": [
-    "43. If the customer says twice that they do not want to talk, close as `no_promise` / `declined`. Before identity is verified, close as `not_verified` / `security_declined` instead."
+    "43. If the customer says twice that they do not want to talk, close as `no_promise` / `declined`. Before identity is verified, close as `not_verified` / `security_declined` instead.",
+    "53. Note `refused` matches `declined`."
    ]
   },
   {
-   "name": "robot_question",
-   "detect": "Customer asks whether this is a robot, a computer or AI",
-   "action": "say",
+   "name": "flat_refusal",
+   "detect": "A flat refusal or a non-answer; \"No\" to paying today, with no date and no amount; refusing the deadline, the minimum, or the minimum offered after an amount below it",
+   "action": "continue",
    "queue": null,
-   "outcome": null,
-   "reason": null,
-   "note_reason": null,
-   "say": "I am Nordlicht Bank's virtual assistant.",
-   "precedence": 13,
-   "condition": null,
-   "notes": [
-    "4. If asked whether this is a robot, a computer or AI, say \"I am Nordlicht Bank's virtual assistant.\" and continue."
-   ]
-  },
-  {
-   "name": "scam_question",
-   "detect": "Customer asks \"Is this a scam?\"",
-   "action": "say",
-   "queue": null,
-   "outcome": null,
-   "reason": null,
-   "note_reason": null,
+   "outcome": "no_promise",
+   "reason": "declined",
+   "note_reason": "refused",
    "say": null,
-   "precedence": 14,
+   "precedence": 17,
    "condition": null,
    "notes": [
-    "44. \"Is this a scam?\": tell them they can call the number on the back of their card to check, and continue."
+    "30. A flat refusal or a non-answer uses one persuasion attempt. \"No\" to paying today, with no date and no amount, is a flat refusal.",
+    "31. When the attempts are used up, stop and do not repeat a refused offer. Close as `no_promise` / `declined`.",
+    "29. A date or an amount named by the customer is never a refusal."
+   ]
+  },
+  {
+   "name": "promise_recording_failed",
+   "detect": "`create_promise` fails twice",
+   "action": "close",
+   "queue": null,
+   "outcome": "no_promise",
+   "reason": "system_error",
+   "note_reason": "service_error",
+   "say": null,
+   "precedence": 18,
+   "condition": null,
+   "notes": [
+    "37. Only say the promise is recorded after `create_promise` returns `ok: true`. If it fails, try once more. If it fails again, tell the customer it could not be recorded and close as `no_promise` / `system_error`.",
+    "51. If one `create_promise` fails twice, keep the recorded promises and note the failed product as `service_error`."
    ]
   },
   {
    "name": "unanswerable_question",
-   "detect": "Questions the agent cannot answer from the tools",
+   "detect": "Questions you cannot answer from the tools",
    "action": "say",
    "queue": null,
    "outcome": null,
    "reason": null,
    "note_reason": null,
    "say": null,
-   "precedence": 15,
+   "precedence": 19,
    "condition": null,
    "notes": [
-    "45. Questions you cannot answer from the tools: say you do not have that information. Never invent figures, dates or reasons."
+    "45. Questions you cannot answer from the tools: say you do not have that information. Never invent figures, dates or reasons.",
+    "No verbatim sentence is given in the documents."
    ]
   }
  ],
@@ -622,7 +698,7 @@
   "forbidden_on_transfer": true,
   "notes": [
    "52. On any transfer add no notes at all.",
-   "add_note tool summary: Record why a product ended without a promise (multi-product customers)."
+   "add_note is for multi-product customers (tool API summary)."
   ]
  },
  "outcomes": {
@@ -635,7 +711,7 @@
    {
     "outcome": "paid",
     "reason": null,
-    "when": "rule 39"
+    "when": "rule 39; multi-product: every product was noted paid (rule 53)"
    },
    {
     "outcome": "transferred",
@@ -719,13 +795,12 @@
   ]
  },
  "phrases": {
-  "opening": "say that you are Nordlicht Bank's virtual assistant and that the call may be recorded for quality and training",
-  "identity_confirm": "Is this {first_name} {last_name}?",
+  "confirm_identity": "Is this {first_name} {last_name}?",
   "robot_answer": "I am Nordlicht Bank's virtual assistant.",
   "condolences": "Please accept our condolences.",
   "pay_today": "Would you be able to pay this today?",
-  "readback_confirm": "Is that correct?",
-  "confirmation_text": "A confirmation text message will follow shortly.",
+  "readback_question": "Is that correct?",
+  "promise_confirmation": "A confirmation text message will follow shortly.",
   "product_credit_card": "your credit card ending in 4821",
   "product_personal_loan": "your personal loan",
   "product_car_loan": "your car loan"
@@ -1115,20 +1190,8 @@
  },
  "rules": [
   {
-   "id": "brief.intro.1",
-   "text": "Nordlicht Bank is fictional. Every customer, debt and payment here is synthetic."
-  },
-  {
-   "id": "brief.intro.2",
-   "text": "This is the full specification for the phone agent. Every numbered rule applies. Section 13 covers customers who are late on more than one product."
-  },
-  {
    "id": "brief.purpose.1",
-   "text": "Nordlicht Bank calls customers who are 1 to 60 days late on one to three products."
-  },
-  {
-   "id": "brief.purpose.2",
-   "text": "The agent confirms it is talking to the customer, checks identity, explains what is overdue, tries to agree a payment promise and ends the call with the right outcome code."
+   "text": "Nordlicht Bank calls customers who are 1 to 60 days late on one to three products. The agent confirms it is talking to the customer, checks identity, explains what is overdue, tries to agree a payment promise and ends the call with the right outcome code."
   },
   {
    "id": "brief.call-variables.1",
@@ -1216,11 +1279,7 @@
   },
   {
    "id": "brief.dates.1",
-   "text": "Business days are Monday to Friday."
-  },
-  {
-   "id": "brief.dates.2",
-   "text": "Nordlicht Bank is closed on these days, which are not business days: 2026-10-30, 2026-11-09, 2026-11-20, 2026-12-24, 2026-12-25, 2026-12-31, 2027-01-01."
+   "text": "Business days are Monday to Friday. Nordlicht Bank is closed on these days, which are not business days: 2026-10-30, 2026-11-09, 2026-11-20, 2026-12-24, 2026-12-25, 2026-12-31, 2027-01-01."
   },
   {
    "id": "brief.18",
@@ -1459,13 +1518,13 @@
     "outcome": "no_promise",
     "reason": "dispute"
    },
-   "service_error": {
-    "outcome": "no_promise",
-    "reason": "system_error"
-   },
    "paid": {
     "outcome": "paid",
     "reason": null
+   },
+   "service_error": {
+    "outcome": "no_promise",
+    "reason": "system_error"
    }
   },
   "transfer_overrides_promise": true,
@@ -1474,9 +1533,10 @@
    "paid"
   ],
   "notes": [
-   "46. Every call ends with exactly one `close_call`, with the outcome and, where the table lists one, the reason. It is the last tool call. Thank the customer and say goodbye before it.",
    "If a transfer follows a recorded promise, close as `transferred` with that transfer's reason.",
-   "paid applies only if every product was noted `paid` (rule 53)."
+   "46. Every call ends with exactly one `close_call`, with the outcome and, where the table lists one, the reason. It is the last tool call. Thank the customer and say goodbye before it.",
+   "Refusal to talk before identity is verified: close as `not_verified` / `security_declined` (rule 43).",
+   "note_map paid applies only if every product was noted `paid` (rule 53)."
   ]
  }
 }

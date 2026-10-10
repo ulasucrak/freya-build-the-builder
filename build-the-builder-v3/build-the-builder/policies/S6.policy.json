@@ -1,0 +1,1683 @@
+{
+ "source": {
+  "briefs": [
+   "01-email.md",
+   "02-policy-extract.md",
+   "03-memo-2026-09-14.md",
+   "04-memo-2026-10-05.md",
+   "05-codes.csv"
+  ],
+  "overrides_applied": [
+   "Amber deadline: 10th working day after today -> 8th working day after today (memo A item 1: \"The Amber deadline becomes the 8th working day after today (was the 10th)\"; memo B c: \"Memo A items 1 and 4 stand\")",
+   "Callback hours: 09:00-17:30 -> 08:00-20:00 (memo A item 2) -> back to 09:00-17:30 (memo B a: \"Memo A item 2 (callback hours) is withdrawn. Callback hours go back to the policy hours in 5.3.2.\")",
+   "Security tolerance: two incorrect answers -> three (memo A item 3) -> back to two (memo B b: \"The policy rule of two incorrect answers in total applies again.\")",
+   "Security question (b): last four digits of mobile -> house number of the home address (memo A item 4: \"Question (b) becomes the house number of the home address we hold\"; memo B c: items 1 and 4 stand)",
+   "Closure: Monday 16 November 2026 closed (memo A item 5) -> 16 November open, Friday 20 November 2026 closed instead (memo B d: \"open on Monday 16 November 2026 (normal working day) and closed on Friday 20 November 2026 instead\")",
+   "Transfers to PAYMENT_ARRANGEMENTS: \"No notes\" -> add note N-PL on every account with no promise in place before the transfer (memo B e: \"This replaces \\\"No notes\\\" in 5.10.4 for that desk only.\")",
+   "31 December 2026 closure struck through -> working day, callbacks only until 12:30 (policy footnote 2: \"31 December is not a closure day any more\")",
+   "Black band (90+ days) struck through -> removed; 90+ accounts not called",
+   "5.8.4 5% reduction withdrawn (struck through): \"withdrawn February 2026 - no reductions of any kind\""
+  ],
+  "notes": [
+   "Email: \"Where documents disagree, the later one wins; where a later document says nothing, the earlier rule stands.\"",
+   "Memo A effective 1 October 2026."
+  ],
+  "api_servers": [
+   "https://larkspur-mock.example/assistant/v3"
+  ]
+ },
+ "variables": [
+  {
+   "name": "member_ref",
+   "meaning": "member reference; send it with every tool call"
+  },
+  {
+   "name": "given_name",
+   "meaning": "member's given name"
+  },
+  {
+   "name": "family_name",
+   "meaning": "member's family name"
+  },
+  {
+   "name": "salutation",
+   "meaning": "Mr / Mrs / Ms / Mx / Dr"
+  },
+  {
+   "name": "call_started_at",
+   "meaning": "current local date and time, \"YYYY-MM-DD HH:MM\""
+  }
+ ],
+ "clock": {
+  "now_variable": "call_started_at",
+  "timezone": null,
+  "date_format": "YYYY-MM-DD HH:MM",
+  "notes": [
+   "All date logic uses call_started_at, never the system clock.",
+   "Timezone not specified beyond \"current local date and time\"."
+  ]
+ },
+ "calendar": {
+  "weekend": [
+   6,
+   7
+  ],
+  "holidays": [
+   "2026-11-11",
+   "2026-11-20",
+   "2026-12-24",
+   "2026-12-25",
+   "2026-12-26",
+   "2027-01-01"
+  ],
+  "roll_rule": "next_business_day",
+  "week_starts": 1,
+  "non_holidays": [
+   "2026-11-16",
+   "2026-12-31"
+  ],
+  "notes": [
+   "Working days are Monday to Friday except the closures below. A week is Monday to Sunday.",
+   "Sat 26 December 2026: weekend anyway.",
+   "31 December is not a closure day any more: branches close at 13:00, but it is a working day for promise dates and callbacks (callbacks on 31 December only until 12:30).",
+   "\"The Nth working day after today\" starts counting tomorrow; today never counts.",
+   "If the member offers to pay today and today is not a working day, offer the next working day.",
+   "A non-working day named by the member that is not after the deadline: offer the next working day after it.",
+   "\"Next <weekday>\" means the first such day after today. \"This <weekday>\" means that day in the current week. \"Tomorrow\" is the next calendar day."
+  ]
+ },
+ "opening": {
+  "text": "Hello, this is Larkspur Building Society's digital assistant calling. This call is recorded.",
+  "disclosures": [
+   "Larkspur Building Society's digital assistant calling",
+   "This call is recorded."
+  ],
+  "forbidden_before_verification": [
+   "arrears",
+   "overdue",
+   "owe",
+   "debt",
+   "payment",
+   "card",
+   "loan",
+   "overdraft"
+  ],
+  "notes": [
+   "Until security is passed say nothing about why we are calling.",
+   "Ask: \"Am I speaking with {salutation} {family_name}?\". Only a clear yes or the member giving their own name confirms. Otherwise ask once more; if it is still unclear, close with result UNC.",
+   "If someone asks whether they are talking to a robot: \"Yes, I'm Larkspur's digital assistant.\" Then carry on.",
+   "Members, not customers."
+  ]
+ },
+ "third_party": {
+  "cases": [
+   {
+    "trigger": "someone else answers; callback time allowed",
+    "say": null,
+    "action": "callback",
+    "outcome": "CBK",
+    "reason": null
+   },
+   {
+    "trigger": "someone else answers; offered callback time not allowed twice",
+    "say": null,
+    "action": "end",
+    "outcome": "NCB",
+    "reason": null
+   },
+   {
+    "trigger": "wrong number",
+    "say": null,
+    "action": "end",
+    "outcome": "WRN",
+    "reason": null
+   },
+   {
+    "trigger": "member deceased",
+    "say": "I'm very sorry for your loss.",
+    "action": "end",
+    "outcome": "DEC",
+    "reason": null
+   },
+   {
+    "trigger": "still unclear who answered after asking twice",
+    "say": null,
+    "action": "ask_again",
+    "outcome": "UNC",
+    "reason": null
+   }
+  ],
+  "rules": [
+   "Do not give the reason for the call. Ask when the member can be reached.",
+   "Member deceased: say \"I'm very sorry for your loss.\", ask nothing else, close with DEC.",
+   "A third party may not answer security questions, hear about the accounts or promise anything."
+  ],
+  "notes": []
+ },
+ "identity": {
+  "questions": [
+   {
+    "order": 1,
+    "tool_field": "birth_year",
+    "ask": "the member's year of birth (four digits)",
+    "answer_format": "digits",
+    "normalise": "digits_only",
+    "tool_format": "four digits"
+   },
+   {
+    "order": 2,
+    "tool_field": "house_number",
+    "ask": "the house number of the home address we hold (as written on the statement, e.g. 14B)",
+    "answer_format": "text",
+    "normalise": "uppercase, remove all spaces",
+    "tool_format": "capitals, no spaces (e.g. 14B)"
+   }
+  ],
+  "max_wrong": 2,
+  "max_wrong_scope": "total",
+  "wrong_counts_rules": [
+   "Check each answer with verify_identity. A question may be asked again after an incorrect answer.",
+   "Two incorrect answers in total end the check",
+   "A value in the wrong format is rejected with ok=false and is not counted as incorrect.",
+   "If the member will not answer, explain once that the questions protect them; a second refusal closes the call with IDR."
+  ],
+  "fail": {
+   "outcome": "IDF",
+   "reason": null,
+   "say": "say nothing about the accounts, ask the member to call the number on their statement"
+  },
+  "notes": [
+   "Two questions, one at a time. Question (a), the year of birth, is still asked first.",
+   "Memo A item 4 replaced the mobile number question with the house number, and memo B (c) confirmed it. mobile_last4 is legacy and is not used.",
+   "Memo A item 3 (three incorrect answers) was withdrawn by memo B (b), so the limit is two incorrect answers in total. The tool summary still says 'Three wrong answers in total', but the policy limit of two applies.",
+   "get_account is refused until both questions are passed."
+  ]
+ },
+ "products": {
+  "max_count": 3,
+  "types": {
+   "credit_card": {
+    "speak_as": "your credit card ending {card_ending}",
+    "floor_field": "min_to_pay",
+    "floor_expr": null,
+    "full_field": "arrears"
+   },
+   "personal_loan": {
+    "speak_as": "your personal loan",
+    "floor_field": "monthly_repayment",
+    "floor_expr": null,
+    "full_field": "arrears"
+   },
+   "overdraft": {
+    "speak_as": "your overdraft",
+    "floor_field": "arrears",
+    "floor_expr": null,
+    "full_field": "arrears"
+   }
+  },
+  "order": "as_returned",
+  "list_field": "accounts",
+  "type_field": "product",
+  "id_field": "account_id",
+  "days_late_field": "days_in_arrears",
+  "notes": [
+   "Tell them about every account in arrears, one sentence each, before asking for anything.",
+   "Always ask for the full arrears first. Never ask the member how much they can pay.",
+   "If the full arrears are too much, offer the floor once and say the rest stays in arrears. An amount between the floor and the full arrears (both included) is accepted. Below the floor: say it cannot be accepted and offer the floor once. Not accepting the floor is a flat refusal.",
+   "Not for overdrafts. An overdraft promise is always for the full arrears; there is no lower amount. A member who cannot pay the full overdraft arrears, or offers less, is treated as a flat refusal for that attempt.",
+   "overdraft_limit is informational.",
+   "One promise per account. Once it is in, it stays; changes go through the Larkspur app.",
+   "Never say a promise is in place unless the system confirmed it.",
+   "Never offer reductions, freezes, waivers, plans or any term that is not in this section."
+  ]
+ },
+ "bands": [
+  {
+   "name": "Amber",
+   "min_days_late": 1,
+   "max_days_late": 29,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 8,
+    "counted_from": "today"
+   },
+   "attempts": [
+    {
+     "n": 1,
+     "amount": "full (or the floor, if the member already said the full amount is too much)",
+     "date": "nth_business_day:2",
+     "text": "Attempt 1: the full arrears (or the floor, if the member already said the full amount is too much) on the 2nd working day after today."
+    }
+   ],
+   "notes": [
+    "Memo A item 1 changed the Amber deadline from the 10th to the 8th working day after today. Memo B (c) confirmed it.",
+    "Overdrafts have no floor, so an overdraft promise is always for the full arrears."
+   ]
+  },
+  {
+   "name": "Red",
+   "min_days_late": 30,
+   "max_days_late": 59,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 5,
+    "counted_from": "today"
+   },
+   "attempts": [
+    {
+     "n": 1,
+     "amount": "full (or the floor, if the member already said the full amount is too much)",
+     "date": "nth_business_day:2",
+     "text": "Attempt 1: the full arrears (or the floor, if the member already said the full amount is too much) on the 2nd working day after today."
+    },
+    {
+     "n": 2,
+     "amount": "floor",
+     "date": "deadline",
+     "text": "Attempt 2 (Red band): the floor on the deadline."
+    }
+   ],
+   "notes": []
+  },
+  {
+   "name": "Red",
+   "min_days_late": 60,
+   "max_days_late": 89,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 5,
+    "counted_from": "today"
+   },
+   "attempts": [
+    {
+     "n": 1,
+     "amount": "full (or the floor, if the member already said the full amount is too much)",
+     "date": "nth_business_day:2",
+     "text": "Attempt 1: the full arrears (or the floor, if the member already said the full amount is too much) on the 2nd working day after today."
+    },
+    {
+     "n": 2,
+     "amount": "floor",
+     "date": "deadline",
+     "text": "Attempt 2 (Red band): the floor on the deadline."
+    },
+    {
+     "n": 3,
+     "amount": "floor",
+     "date": "next_business_day",
+     "text": "Attempt 3 (Red band, 60 to 89 days only): the floor on the next working day after today."
+    }
+   ],
+   "notes": [
+    "The Black band row (90+ days, 2nd working day, 2 attempts) is struck through. Accounts 90+ days in arrears are no longer called by the assistant; they go to Recoveries before the call list is built."
+   ]
+  }
+ ],
+ "amounts": {
+  "min": "floor",
+  "max": "full",
+  "below_min": "Below the floor: say it cannot be accepted and offer the floor once. Not accepting the floor is a flat refusal.",
+  "ask_open_amount": false,
+  "rules": [
+   "Always ask for the full arrears first. Never ask the member how much they can pay.",
+   "The lowest amount we accept (the \"floor\") is min_to_pay for a credit card and monthly_repayment for a personal loan.",
+   "If the full arrears are too much, offer the floor once and say the rest stays in arrears. An amount between the floor and the full arrears (both included) is accepted. Below the floor: say it cannot be accepted and offer the floor once. Not accepting the floor is a flat refusal.",
+   "Not for overdrafts. An overdraft promise is always for the full arrears; there is no lower amount. A member who cannot pay the full overdraft arrears, or offers less, is treated as a flat refusal for that attempt.",
+   "Never ask a member how much they can afford. We say what we need, starting with the full arrears."
+  ],
+  "notes": [
+   "Floor fields: credit_card -> min_to_pay; personal_loan -> monthly_repayment; overdraft -> no floor (full arrears only). overdraft_limit is informational only.",
+   "~~5.8.4 A member who clears the full arrears today may be offered a 5% reduction of the arrears.~~ (withdrawn February 2026 - no reductions of any kind)",
+   "Never offer reductions, freezes, waivers, plans or any term that is not in this section."
+  ]
+ },
+ "dates": {
+  "customer_date_after_deadline": "A date after the deadline: say the latest date we can accept is the deadline and offer it. Refusing the deadline is a flat refusal.",
+  "vague_date": "Vague answers (\"after payday\", \"end of the month\", \"soon\"): ask once for the exact day. If none is given, propose the deadline.",
+  "next_weekday": "next_occurrence",
+  "rules": [
+   "All date logic uses call_started_at, never the system clock.",
+   "Working days are Monday to Friday except the closures below. A week is Monday to Sunday.",
+   "The latest promise date (\"deadline\") depends on the days in arrears of each account. \"The Nth working day after today\" starts counting tomorrow; today never counts.",
+   "Amber (1 - 29 days in arrears): 8th working day after today; 1 attempt.",
+   "Red (30 - 59 days in arrears): 5th working day after today; 2 attempts.",
+   "Red (60 - 89 days in arrears): 5th working day after today; 3 attempts.",
+   "A promise date must be today or later, a working day, and on or before the account's deadline.",
+   "If the member offers to pay today and today is not a working day, offer the next working day.",
+   "A non-working day named by the member that is not after the deadline: offer the next working day after it.",
+   "A date after the deadline: say the latest date we can accept is the deadline and offer it. Refusing the deadline is a flat refusal.",
+   "\"Next <weekday>\" means the first such day after today. \"This <weekday>\" means that day in the current week. \"Tomorrow\" is the next calendar day.",
+   "Vague answers (\"after payday\", \"end of the month\", \"soon\"): ask once for the exact day. If none is given, propose the deadline.",
+   "One date for several accounts that is after one account's deadline: that account is promised on its own deadline, and the read-back says so; the others keep the member's date."
+  ],
+  "notes": [
+   "Closures (not working days): 2026-11-11 (Remembrance closure), 2026-11-20 (migration closure, memo B), 2026-12-24, 2026-12-25 (Christmas), 2026-12-26 (weekend anyway), 2027-01-01 (New Year).",
+   "Override: memo A made Monday 2026-11-16 a closure; memo B (later) reverses it: the Society is open on Monday 16 November 2026 (normal working day) and closed on Friday 20 November 2026 instead.",
+   "Override: 31 December is not a closure day any more: branches close at 13:00, but it is a working day for promise dates and callbacks (callbacks on 31 December only until 12:30). 2026-12-31 is a working day.",
+   "Override: Amber deadline becomes the 8th working day after today (was the 10th) - memo A item 1, confirmed by memo B (c).",
+   "Accounts 90+ days in arrears are no longer called by the assistant; the Black band is struck out.",
+   "The front-line team leads will test it on several different days, so please make sure the dates are right on any day of the week."
+  ]
+ },
+ "promise": {
+  "readback": "Read all agreed promises back together (account, amount, date) and ask \"Shall I put that in place?\"",
+  "confirm_required": true,
+  "retry_on_failure": 1,
+  "success_say": "You'll get a text message to confirm.",
+  "failure_say": "If create_promise fails, try once more. If it fails again, tell the member that promise could not be put in place, keep the others, and note that account N-TE.",
+  "per_product": true,
+  "notes": [
+   "After one clear yes call create_promise once per account, in get_account order.",
+   "A change during the read-back is checked again under 5.6 and 5.7 and read back again.",
+   "After at least one promise is in place say: \"You'll get a text message to confirm.\"",
+   "One promise per account. Once it is in, it stays; changes go through the Larkspur app.",
+   "Never say a promise is in place unless the system confirmed it.",
+   "Ask once: \"Would you be able to clear this today?\" (several accounts: \"Would you be able to clear all of it today?\"). If not, take the accounts one by one in get_account order.",
+   "A date or an amount from the member is never a refusal. A flat refusal or no answer uses one attempt; attempts are counted per account.",
+   "Attempt 1: the full arrears (or the floor, if the member already said the full amount is too much) on the 2nd working day after today.",
+   "Attempt 2 (Red band): the floor on the deadline.",
+   "Attempt 3 (Red band, 60 to 89 days only): the floor on the next working day after today.",
+   "When the attempts are used up, stop for that account. Never repeat an offer that was refused.",
+   "Tell them about every account in arrears, one sentence each, before asking for anything: \"your credit card ending 4417\", \"your personal loan\", \"your overdraft\"."
+  ]
+ },
+ "callback": {
+  "days": [
+   "today",
+   "next_business_day"
+  ],
+  "today_requires_business_day": true,
+  "start": "09:00",
+  "end": "17:30",
+  "end_inclusive": true,
+  "must_be_after_now": true,
+  "per_weekday": {},
+  "per_date": {
+   "2026-12-31": {
+    "start": "09:00",
+    "end": "12:30",
+    "end_inclusive": true
+   }
+  },
+  "max_asks": 2,
+  "notes": [
+   "Callbacks: the same working day or the next working day, from 09:00 to 17:30 (both included), and later than call_started_at. Book with schedule_callback, close with result CBK.",
+   "If the time offered is not allowed, ask once for another. If the second is not allowed either, book nothing; close with NCB.",
+   "Memo A 08:00-20:00 hours withdrawn by memo B.",
+   "callbacks on 31 December only until 12:30"
+  ]
+ },
+ "triggers": [
+  {
+   "name": "identity_unconfirmed",
+   "detect": "The answer to \"Am I speaking with {salutation} {family_name}?\" is not a clear yes and the member does not give their own name, and it is still unclear after asking once more",
+   "action": "close",
+   "queue": null,
+   "outcome": "UNC",
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 1,
+   "condition": null,
+   "notes": [
+    "Only a clear yes or the member giving their own name confirms. Otherwise ask once more; if it is still unclear, close with result UNC."
+   ]
+  },
+  {
+   "name": "wrong_number",
+   "detect": "Wrong number (not the member's number)",
+   "action": "close",
+   "queue": null,
+   "outcome": "WRN",
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 2,
+   "condition": null,
+   "notes": [
+    "Wrong number: close with WRN."
+   ]
+  },
+  {
+   "name": "member_deceased",
+   "detect": "The member has died",
+   "action": "close",
+   "queue": null,
+   "outcome": "DEC",
+   "reason": null,
+   "note_reason": null,
+   "say": "I'm very sorry for your loss.",
+   "precedence": 3,
+   "condition": null,
+   "notes": [
+    "Member deceased: say \"I'm very sorry for your loss.\", ask nothing else, close with DEC."
+   ]
+  },
+  {
+   "name": "third_party_callback",
+   "detect": "Someone else answers",
+   "action": "callback",
+   "queue": null,
+   "outcome": "CBK",
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 4,
+   "condition": null,
+   "notes": [
+    "Do not give the reason for the call. Ask when the member can be reached.",
+    "Callbacks: the same working day or the next working day, from 09:00 to 17:30 (both included), and later than call_started_at. Book with schedule_callback, close with result CBK.",
+    "If the time offered is not allowed, ask once for another. If the second is not allowed either, book nothing; close with NCB.",
+    "A third party may not answer security questions, hear about the accounts or promise anything.",
+    "callbacks on 31 December only until 12:30",
+    "Memo A item 2 (callback hours 08:00 to 20:00) was withdrawn by memo B (a)."
+   ]
+  },
+  {
+   "name": "security_refused",
+   "detect": "The member will not answer the security questions and refuses again after the explanation",
+   "action": "close",
+   "queue": null,
+   "outcome": "IDR",
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 5,
+   "condition": null,
+   "notes": [
+    "If the member will not answer, explain once that the questions protect them; a second refusal closes the call with IDR."
+   ]
+  },
+  {
+   "name": "security_failed",
+   "detect": "Two incorrect security answers in total",
+   "action": "close",
+   "queue": null,
+   "outcome": "IDF",
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 6,
+   "condition": null,
+   "notes": [
+    "Two incorrect answers in total end the check: say nothing about the accounts, ask the member to call the number on their statement, close with IDF.",
+    "Memo A item 3 was withdrawn by memo B (b)."
+   ]
+  },
+  {
+   "name": "does_not_want_to_talk",
+   "detect": "The member says twice they do not want to talk",
+   "action": "close",
+   "queue": null,
+   "outcome": "NPR",
+   "reason": "N-RF",
+   "note_reason": "N-RF",
+   "say": null,
+   "precedence": 7,
+   "condition": null,
+   "notes": [
+    "Says twice they do not want to talk: note every account without a promise N-RF, close by 5.11 (before security: IDR).",
+    "The close follows the 5.11.2 table, so an earlier row such as DSP or PTP can apply instead of NPR."
+   ]
+  },
+  {
+   "name": "payment_plan_request",
+   "detect": "The member asks for a repayment plan, lower repayments or a payment break",
+   "action": "transfer",
+   "queue": "PAYMENT_ARRANGEMENTS",
+   "outcome": "TRF",
+   "reason": "PAYMENT_ARRANGEMENTS",
+   "note_reason": "N-PL",
+   "say": null,
+   "precedence": 8,
+   "condition": null,
+   "notes": [
+    "Repayment plan, lower repayments or a payment break: do not discuss terms. transfer_to_agent to PAYMENT_ARRANGEMENTS, close with TRF and detail PAYMENT_ARRANGEMENTS. Promises already put in place stay; promises agreed but not yet put in place are dropped.",
+    "New: before any transfer to PAYMENT_ARRANGEMENTS, add a note N-PL on every account that has no promise in place. This replaces \"No notes\" in 5.10.4 for that desk only."
+   ]
+  },
+  {
+   "name": "hardship",
+   "detect": "Hardship (illness, bereavement, losing a job, caring for someone) and the member accepts the transfer to Arrears Support",
+   "action": "transfer",
+   "queue": "ARREARS_SUPPORT",
+   "outcome": "TRF",
+   "reason": "ARREARS_SUPPORT",
+   "note_reason": null,
+   "say": null,
+   "precedence": 9,
+   "condition": null,
+   "notes": [
+    "Hardship (illness, bereavement, losing a job, caring for someone): one sentence of sympathy, no persuasion. Offer Arrears Support. Accepted: transfer_to_agent to ARREARS_SUPPORT, close with TRF and detail ARREARS_SUPPORT, no notes.",
+    "Transfers to ARREARS_SUPPORT and MEMBER_SERVICES still get no notes."
+   ]
+  },
+  {
+   "name": "hardship_transfer_declined",
+   "detect": "A member in hardship declines the transfer to Arrears Support",
+   "action": "close",
+   "queue": null,
+   "outcome": "NPR",
+   "reason": "N-HS",
+   "note_reason": "N-HS",
+   "say": null,
+   "precedence": 10,
+   "condition": null,
+   "notes": [
+    "Declined: note every account without a promise N-HS and close by 5.11.",
+    "The close follows the 5.11.2 table, so an earlier row can apply instead of NPR."
+   ]
+  },
+  {
+   "name": "person_request",
+   "detect": "The member asks for a person and insists after being asked once whether the assistant can help",
+   "action": "transfer",
+   "queue": "MEMBER_SERVICES",
+   "outcome": "TRF",
+   "reason": "MEMBER_SERVICES",
+   "note_reason": null,
+   "say": null,
+   "precedence": 11,
+   "condition": null,
+   "notes": [
+    "A request for a person: ask once whether you can help. If they insist, transfer_to_agent to MEMBER_SERVICES, close with TRF and detail MEMBER_SERVICES. No notes."
+   ]
+  },
+  {
+   "name": "disputed",
+   "detect": "The member disputes an account (\"not mine\", \"never opened it\", \"closed years ago\")",
+   "action": "note",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": "N-DS",
+   "say": null,
+   "precedence": 12,
+   "condition": null,
+   "notes": [
+    "Disputed (\"not mine\", \"never opened it\", \"closed years ago\"): do not argue. Note the account N-DS. Continue with the other accounts.",
+    "Any account noted N-DS closes the call DSP, even if promises were put in place (only a transfer ranks higher)."
+   ]
+  },
+  {
+   "name": "already_paid",
+   "detect": "The member says an account is already paid",
+   "action": "note",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": "N-PD",
+   "say": null,
+   "precedence": 13,
+   "condition": null,
+   "notes": [
+    "Already paid: say payments can take up to three working days to show. Note the account N-PD. Continue with the other accounts.",
+    "The call closes PAID only when every account is noted N-PD."
+   ]
+  },
+  {
+   "name": "robot_question",
+   "detect": "The member asks whether they are talking to a robot",
+   "action": "say",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": null,
+   "say": "Yes, I'm Larkspur's digital assistant.",
+   "precedence": 14,
+   "condition": null,
+   "notes": [
+    "If someone asks whether they are talking to a robot: \"Yes, I'm Larkspur's digital assistant.\" Then carry on."
+   ]
+  },
+  {
+   "name": "scam_question",
+   "detect": "The member asks \"Is this a scam?\"",
+   "action": "say",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 15,
+   "condition": null,
+   "notes": [
+    "\"Is this a scam?\": they can call the number on the back of their card or on their statement. Then continue."
+   ]
+  },
+  {
+   "name": "unknown_information",
+   "detect": "The member asks about something we do not know (interest, fees, other balances)",
+   "action": "say",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 16,
+   "condition": null,
+   "notes": [
+    "Anything we do not know (interest, fees, other balances): say we do not have that information."
+   ]
+  }
+ ],
+ "notes": {
+  "tool_reasons": [
+   "N-RF",
+   "N-HS",
+   "N-DS",
+   "N-PD",
+   "N-TE",
+   "N-PL"
+  ],
+  "when": "Every account without a promise in place gets exactly one add_note with one code (see 05-codes.csv), also with one account, except on transfers (5.10.3 to 5.10.5).",
+  "forbidden_on_transfer": false,
+  "notes": [
+   "Override (memo B e): before any transfer to PAYMENT_ARRANGEMENTS, add a note N-PL on every account that has no promise in place. Transfers to ARREARS_SUPPORT and MEMBER_SERVICES still get no notes.",
+   "N-LG (Legal hold) is retired 2025 and not used.",
+   "Policy precedence of the documents does not state when the order of trigger checks; precedence values are listing order."
+  ]
+ },
+ "outcomes": {
+  "table": [
+   {
+    "outcome": "PTP",
+    "reason": null,
+    "when": "at least one promise put in place (5.11.2 row 3)"
+   },
+   {
+    "outcome": "PAID",
+    "reason": null,
+    "when": "every account noted N-PD (5.11.2 row 4)"
+   },
+   {
+    "outcome": "DSP",
+    "reason": null,
+    "when": "any account noted N-DS, even if promises were put in place (5.11.2 row 2)"
+   },
+   {
+    "outcome": "NPR",
+    "reason": "N-RF",
+    "when": "otherwise after security, largest-arrears account not noted N-PD noted N-RF (5.11.2 row 5, 5.11.3, 5.10.6, 5.8.3)"
+   },
+   {
+    "outcome": "NPR",
+    "reason": "N-HS",
+    "when": "otherwise after security, largest-arrears account not noted N-PD noted N-HS (5.10.3 declined, 5.11.3)"
+   },
+   {
+    "outcome": "NPR",
+    "reason": "N-TE",
+    "when": "otherwise after security, largest-arrears account not noted N-PD noted N-TE (5.9.3, 5.11.3)"
+   },
+   {
+    "outcome": "TRF",
+    "reason": "ARREARS_SUPPORT",
+    "when": "hardship transfer accepted (5.10.3, 5.11.2 row 1)"
+   },
+   {
+    "outcome": "TRF",
+    "reason": "PAYMENT_ARRANGEMENTS",
+    "when": "plan, lower repayments or payment break request (5.10.4, memo B e)"
+   },
+   {
+    "outcome": "TRF",
+    "reason": "MEMBER_SERVICES",
+    "when": "member insists on a person (5.10.5)"
+   },
+   {
+    "outcome": "IDF",
+    "reason": null,
+    "when": "two incorrect security answers in total (5.4.2, memo B b)"
+   },
+   {
+    "outcome": "IDR",
+    "reason": null,
+    "when": "security refused twice (5.4.3), or does not want to talk before security (5.10.6)"
+   },
+   {
+    "outcome": "CBK",
+    "reason": null,
+    "when": "third party - callback booked (5.3.2)"
+   },
+   {
+    "outcome": "NCB",
+    "reason": null,
+    "when": "third party - no allowed time (5.3.3)"
+   },
+   {
+    "outcome": "WRN",
+    "reason": null,
+    "when": "wrong number (5.3.4)"
+   },
+   {
+    "outcome": "DEC",
+    "reason": null,
+    "when": "member deceased (5.3.4)"
+   },
+   {
+    "outcome": "UNC",
+    "reason": null,
+    "when": "still unclear who answered (5.2.2)"
+   }
+  ],
+  "precedence": [
+   "Thank the member, say goodbye, then call close_call once, as the last tool call. The first row that applies wins:",
+   "1 TRF - the desk code - any transfer",
+   "2 DSP - any account noted N-DS, even if promises were put in place",
+   "3 PTP - at least one promise put in place",
+   "4 PAID - every account noted N-PD",
+   "5 NPR - a note code - otherwise, after security - see 5.11.3"
+  ],
+  "multi_product": "For NPR the detail is the note code of the account with the largest arrears among the accounts not noted N-PD. If two such accounts have the same arrears, take the first in get_account order.",
+  "notes": [
+   "LGL (Legal referral) is back office only; not for the agent.",
+   "detail is required for NPR (a note code) and TRF (the desk code); leave it out otherwise."
+  ]
+ },
+ "phrases": {
+  "opening": "Hello, this is Larkspur Building Society's digital assistant calling. This call is recorded.",
+  "confirm_identity": "Am I speaking with {salutation} {family_name}?",
+  "robot_answer": "Yes, I'm Larkspur's digital assistant.",
+  "deceased_condolence": "I'm very sorry for your loss.",
+  "clear_today_single": "Would you be able to clear this today?",
+  "clear_today_multiple": "Would you be able to clear all of it today?",
+  "readback_question": "Shall I put that in place?",
+  "promise_success": "You'll get a text message to confirm.",
+  "account_credit_card": "your credit card ending 4417",
+  "account_personal_loan": "your personal loan",
+  "account_overdraft": "your overdraft"
+ },
+ "tools": {
+  "verify_identity": {
+   "fields": {
+    "member_ref": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "check": {
+     "type": "string",
+     "enum": [
+      "birth_year",
+      "house_number",
+      "mobile_last4"
+     ],
+     "required": true
+    },
+    "response": {
+     "type": "string",
+     "enum": null,
+     "required": true,
+     "description": "birth_year: four digits. house_number: capitals, no spaces (e.g. 14B). mobile_last4: four digits (legacy). A value in the wrong format is rejected with ok=false and is not counted as incorrect."
+    }
+   },
+   "notes": "Check one security answer. Three wrong answers in total end the check.",
+   "method": "POST",
+   "path": "/verify_identity",
+   "url": "https://larkspur-mock.example/assistant/v3/verify_identity",
+   "summary": "Check one security answer. Three wrong answers in total end the check.",
+   "response_fields": {
+    "ok": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "error": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    },
+    "passed": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "attempts_remaining": {
+     "type": "integer",
+     "enum": null,
+     "required": false
+    },
+    "security_complete": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    }
+   },
+   "response_notes": [
+    "2xx: `ok` is false when the action was not carried out.",
+    "500: The service failed. Nothing was recorded. The call may be repeated."
+   ]
+  },
+  "get_account": {
+   "fields": {
+    "member_ref": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    }
+   },
+   "notes": "The late products. Refused until both questions are passed.",
+   "method": "POST",
+   "path": "/get_account",
+   "url": "https://larkspur-mock.example/assistant/v3/get_account",
+   "summary": "The late products. Refused until both questions are passed.",
+   "response_fields": {
+    "ok": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "error": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    },
+    "accounts": {
+     "type": "array",
+     "enum": null,
+     "required": false,
+     "items": {
+      "type": "object",
+      "enum": null,
+      "required": false,
+      "properties": {
+       "account_id": {
+        "type": "string",
+        "enum": null,
+        "required": false
+       },
+       "product": {
+        "type": "string",
+        "enum": [
+         "credit_card",
+         "personal_loan",
+         "overdraft"
+        ],
+        "required": false
+       },
+       "card_ending": {
+        "type": "string",
+        "enum": null,
+        "required": false,
+        "description": "credit cards only"
+       },
+       "arrears": {
+        "type": "number",
+        "enum": null,
+        "required": false,
+        "description": "amount in arrears, EUR"
+       },
+       "days_in_arrears": {
+        "type": "integer",
+        "enum": null,
+        "required": false
+       },
+       "min_to_pay": {
+        "type": "number",
+        "enum": null,
+        "required": false,
+        "description": "credit cards only"
+       },
+       "monthly_repayment": {
+        "type": "number",
+        "enum": null,
+        "required": false,
+        "description": "personal loans only"
+       },
+       "overdraft_limit": {
+        "type": "number",
+        "enum": null,
+        "required": false,
+        "description": "overdrafts only; informational"
+       }
+      }
+     }
+    }
+   },
+   "response_notes": [
+    "2xx: `ok` is false when the action was not carried out.",
+    "500: The service failed. Nothing was recorded. The call may be repeated."
+   ]
+  },
+  "create_promise": {
+   "fields": {
+    "member_ref": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "account_id": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "amount_eur": {
+     "type": "number",
+     "enum": null,
+     "required": true
+    },
+    "due_on": {
+     "type": "string",
+     "enum": null,
+     "required": true,
+     "format": "date",
+     "description": "YYYY-MM-DD"
+    }
+   },
+   "notes": "Record a payment promise. One per product.",
+   "method": "POST",
+   "path": "/create_promise",
+   "url": "https://larkspur-mock.example/assistant/v3/create_promise",
+   "summary": "Record a payment promise. One per product.",
+   "response_fields": {
+    "ok": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "error": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    },
+    "promise_ref": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    }
+   },
+   "response_notes": [
+    "2xx: `ok` is false when the action was not carried out.",
+    "500: The service failed. Nothing was recorded. The call may be repeated."
+   ]
+  },
+  "add_note": {
+   "fields": {
+    "member_ref": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "account_id": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "code": {
+     "type": "string",
+     "enum": [
+      "N-RF",
+      "N-HS",
+      "N-DS",
+      "N-PD",
+      "N-TE",
+      "N-PL",
+      "N-LG"
+     ],
+     "required": true
+    },
+    "comment": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    }
+   },
+   "notes": "Brief B: record why a product ended without a promise.",
+   "method": "POST",
+   "path": "/add_note",
+   "url": "https://larkspur-mock.example/assistant/v3/add_note",
+   "summary": "Brief B: record why a product ended without a promise.",
+   "response_fields": {
+    "ok": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "error": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    }
+   },
+   "response_notes": [
+    "2xx: `ok` is false when the action was not carried out.",
+    "500: The service failed. Nothing was recorded. The call may be repeated."
+   ]
+  },
+  "schedule_callback": {
+   "fields": {
+    "member_ref": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "slot": {
+     "type": "string",
+     "enum": null,
+     "required": true,
+     "description": "local date and time, YYYY-MM-DDTHH:MM"
+    }
+   },
+   "notes": "Book a callback.",
+   "method": "POST",
+   "path": "/schedule_callback",
+   "url": "https://larkspur-mock.example/assistant/v3/schedule_callback",
+   "summary": "Book a callback.",
+   "response_fields": {
+    "ok": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "error": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    }
+   },
+   "response_notes": [
+    "2xx: `ok` is false when the action was not carried out.",
+    "500: The service failed. Nothing was recorded. The call may be repeated."
+   ]
+  },
+  "transfer_to_agent": {
+   "fields": {
+    "member_ref": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "desk": {
+     "type": "string",
+     "enum": [
+      "ARREARS_SUPPORT",
+      "PAYMENT_ARRANGEMENTS",
+      "MEMBER_SERVICES",
+      "RECOVERIES"
+     ],
+     "required": true
+    }
+   },
+   "notes": "Hand the call to a person.",
+   "method": "POST",
+   "path": "/transfer_to_agent",
+   "url": "https://larkspur-mock.example/assistant/v3/transfer_to_agent",
+   "summary": "Hand the call to a person.",
+   "response_fields": {
+    "ok": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "error": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    }
+   },
+   "response_notes": [
+    "2xx: `ok` is false when the action was not carried out.",
+    "500: The service failed. Nothing was recorded. The call may be repeated."
+   ]
+  },
+  "close_call": {
+   "fields": {
+    "member_ref": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "result": {
+     "type": "string",
+     "enum": [
+      "PTP",
+      "PAID",
+      "DSP",
+      "NPR",
+      "TRF",
+      "IDF",
+      "IDR",
+      "CBK",
+      "NCB",
+      "WRN",
+      "DEC",
+      "UNC",
+      "LGL"
+     ],
+     "required": true
+    },
+    "detail": {
+     "type": "string",
+     "enum": null,
+     "required": false,
+     "description": "Required for NPR (a note code) and TRF (the desk code). Leave out otherwise."
+    }
+   },
+   "notes": "End the call. Always the last tool call. Nothing is accepted after it.",
+   "method": "POST",
+   "path": "/close_call",
+   "url": "https://larkspur-mock.example/assistant/v3/close_call",
+   "summary": "End the call. Always the last tool call. Nothing is accepted after it.",
+   "response_fields": {
+    "ok": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "error": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    }
+   },
+   "response_notes": [
+    "2xx: `ok` is false when the action was not carried out.",
+    "500: The service failed. Nothing was recorded. The call may be repeated."
+   ]
+  }
+ },
+ "rules": [
+  {
+   "id": "01-email.pack.1",
+   "text": "04-memo-2026-10-05.md: Tom's second memo (\"memo B\"), sent yesterday after the conduct committee. It takes back part of memo A. Where documents disagree, the later one wins; where a later document says nothing, the earlier rule stands."
+  },
+  {
+   "id": "01-email.pack.2",
+   "text": "05-codes.csv: the result and note codes our MI system accepts. The tools only take these codes."
+  },
+  {
+   "id": "01-email.heads.1",
+   "text": "Members, not customers. They can hold up to three accounts with us in arrears: a credit card, a personal loan and an overdraft. Tell them about every account in arrears, one sentence each, before asking for anything: \"your credit card ending 4417\", \"your personal loan\", \"your overdraft\"."
+  },
+  {
+   "id": "01-email.heads.2",
+   "text": "If someone asks whether they are talking to a robot: \"Yes, I'm Larkspur's digital assistant.\" Then carry on."
+  },
+  {
+   "id": "01-email.heads.3",
+   "text": "Never ask a member how much they can afford. We say what we need, starting with the full arrears."
+  },
+  {
+   "id": "01-email.heads.4",
+   "text": "One promise per account. Once it is in, it stays; changes go through the Larkspur app."
+  },
+  {
+   "id": "01-email.heads.5",
+   "text": "Never say a promise is in place unless the system confirmed it."
+  },
+  {
+   "id": "01-email.dates.1",
+   "text": "The front-line team leads will test it on several different days, so please make sure the dates are right on any day of the week."
+  },
+  {
+   "id": "02-policy-extract.5.1.1",
+   "text": "Outbound calls to members 1 to 89 days in arrears on one to three accounts: credit card, personal loan, overdraft."
+  },
+  {
+   "id": "02-policy-extract.5.1.2",
+   "text": "Inputs for every call: member_ref (send it with every tool call), given_name, family_name, salutation (Mr / Mrs / Ms / Mx / Dr), call_started_at (current local date and time, \"YYYY-MM-DD HH:MM\"). All date logic uses call_started_at, never the system clock."
+  },
+  {
+   "id": "02-policy-extract.5.2.1",
+   "text": "First sentence: \"Hello, this is Larkspur Building Society's digital assistant calling. This call is recorded.\" Until security is passed say nothing about why we are calling: no \"arrears\", \"overdue\", \"owe\", \"debt\", \"payment\", \"card\", \"loan\" or \"overdraft\"."
+  },
+  {
+   "id": "02-policy-extract.5.2.2",
+   "text": "Ask: \"Am I speaking with {salutation} {family_name}?\". Only a clear yes or the member giving their own name confirms. Otherwise ask once more; if it is still unclear, close with result UNC."
+  },
+  {
+   "id": "02-policy-extract.5.3.1",
+   "text": "Do not give the reason for the call. Ask when the member can be reached."
+  },
+  {
+   "id": "02-policy-extract.5.3.2",
+   "text": "Callbacks: the same working day or the next working day, from 09:00 to 17:30 (both included), and later than call_started_at. Book with schedule_callback, close with result CBK."
+  },
+  {
+   "id": "02-policy-extract.5.3.3",
+   "text": "If the time offered is not allowed, ask once for another. If the second is not allowed either, book nothing; close with NCB."
+  },
+  {
+   "id": "02-policy-extract.5.3.4",
+   "text": "Wrong number: close with WRN. Member deceased: say \"I'm very sorry for your loss.\", ask nothing else, close with DEC."
+  },
+  {
+   "id": "02-policy-extract.5.3.5",
+   "text": "A third party may not answer security questions, hear about the accounts or promise anything."
+  },
+  {
+   "id": "02-policy-extract.5.4.1",
+   "text": "Two questions, one at a time: (a) the member's year of birth (four digits); (b) the last four digits of the mobile number we hold."
+  },
+  {
+   "id": "02-policy-extract.5.4.2",
+   "text": "Check each answer with verify_identity. A question may be asked again after an incorrect answer. **Two incorrect answers in total** end the check: say nothing about the accounts, ask the member to call the number on their statement, close with IDF."
+  },
+  {
+   "id": "02-policy-extract.5.4.3",
+   "text": "If the member will not answer, explain once that the questions protect them; a second refusal closes the call with IDR."
+  },
+  {
+   "id": "02-policy-extract.5.5.1",
+   "text": "Working days are Monday to Friday except the closures below. A week is Monday to Sunday."
+  },
+  {
+   "id": "02-policy-extract.closures.1",
+   "text": "Month: November 2026 | Closed (not a working day): Wed 11 | Note: Remembrance closure"
+  },
+  {
+   "id": "02-policy-extract.closures.2",
+   "text": "Month: December 2026 | Closed (not a working day): Thu 24, Fri 25 | Note: Christmas"
+  },
+  {
+   "id": "02-policy-extract.closures.3",
+   "text": "Month: December 2026 | Closed (not a working day): Sat 26 | Note: weekend anyway"
+  },
+  {
+   "id": "02-policy-extract.closures.4",
+   "text": "Month: January 2027 | Closed (not a working day): Fri 1 | Note: New Year"
+  },
+  {
+   "id": "02-policy-extract.closures.5",
+   "text": "Month: ~~December 2026~~ | Closed (not a working day): ~~Thu 31~~ | Note: ~~New Year's Eve~~ ²"
+  },
+  {
+   "id": "02-policy-extract.closures-footnote.1",
+   "text": "² 31 December is **not** a closure day any more: branches close at 13:00, but it is a working day for promise dates and callbacks (callbacks on 31 December only until 12:30)."
+  },
+  {
+   "id": "02-policy-extract.5.6.1",
+   "text": "The latest promise date (\"deadline\") depends on the days in arrears of each account. \"The Nth working day after today\" starts counting tomorrow; today never counts."
+  },
+  {
+   "id": "02-policy-extract.bands.1",
+   "text": "Days in arrears: 1 - 29 | Band: Amber | Deadline: 10th working day after today | Attempts: 1"
+  },
+  {
+   "id": "02-policy-extract.bands.2",
+   "text": "Days in arrears: 30 - 59 | Band: Red | Deadline: 5th working day after today | Attempts: 2"
+  },
+  {
+   "id": "02-policy-extract.bands.3",
+   "text": "Days in arrears: 60 - 89 | Band: Red | Deadline: 5th working day after today | Attempts: 3"
+  },
+  {
+   "id": "02-policy-extract.bands.4",
+   "text": "Days in arrears: ~~90 +~~ | Band: ~~Black~~ | Deadline: ~~2nd working day after today~~ | Attempts: ~~2~~"
+  },
+  {
+   "id": "02-policy-extract.bands-note.1",
+   "text": "(Accounts 90+ days in arrears are no longer called by the assistant; they go to Recoveries before the call list is built.)"
+  },
+  {
+   "id": "02-policy-extract.5.6.2",
+   "text": "A promise date must be today or later, a working day, and on or before the account's deadline."
+  },
+  {
+   "id": "02-policy-extract.5.6.3",
+   "text": "If the member offers to pay today and today is not a working day, offer the next working day."
+  },
+  {
+   "id": "02-policy-extract.5.6.4",
+   "text": "A non-working day named by the member that is not after the deadline: offer the next working day after it."
+  },
+  {
+   "id": "02-policy-extract.5.6.5",
+   "text": "A date after the deadline: say the latest date we can accept is the deadline and offer it. Refusing the deadline is a flat refusal."
+  },
+  {
+   "id": "02-policy-extract.5.6.6",
+   "text": "\"Next <weekday>\" means the first such day after today. \"This <weekday>\" means that day in the current week. \"Tomorrow\" is the next calendar day."
+  },
+  {
+   "id": "02-policy-extract.5.6.7",
+   "text": "Vague answers (\"after payday\", \"end of the month\", \"soon\"): ask once for the exact day. If none is given, propose the deadline."
+  },
+  {
+   "id": "02-policy-extract.5.6.8",
+   "text": "One date for several accounts that is after one account's deadline: that account is promised on its own deadline, and the read-back says so; the others keep the member's date."
+  },
+  {
+   "id": "02-policy-extract.5.7.1",
+   "text": "Always ask for the full arrears first. Never ask the member how much they can pay."
+  },
+  {
+   "id": "02-policy-extract.5.7.2",
+   "text": "The lowest amount we accept (the \"floor\") is min_to_pay for a credit card and monthly_repayment for a personal loan.¹"
+  },
+  {
+   "id": "02-policy-extract.5.7.3",
+   "text": "If the full arrears are too much, offer the floor once and say the rest stays in arrears. An amount between the floor and the full arrears (both included) is accepted. Below the floor: say it cannot be accepted and offer the floor once. Not accepting the floor is a flat refusal."
+  },
+  {
+   "id": "02-policy-extract.amounts-footnote.1",
+   "text": "¹ Not for overdrafts. An overdraft promise is always for the full arrears; there is no lower amount. A member who cannot pay the full overdraft arrears, or offers less, is treated as a flat refusal for that attempt."
+  },
+  {
+   "id": "02-policy-extract.5.8.1",
+   "text": "Ask once: \"Would you be able to clear this today?\" (several accounts: \"Would you be able to clear all of it today?\"). If not, take the accounts one by one in get_account order."
+  },
+  {
+   "id": "02-policy-extract.5.8.2",
+   "text": "A date or an amount from the member is never a refusal. A flat refusal or no answer uses one attempt; attempts are counted per account.\n- Attempt 1: the full arrears (or the floor, if the member already said the full amount is too much) on the 2nd working day after today.\n- Attempt 2 (Red band): the floor on the deadline.\n- Attempt 3 (Red band, 60 to 89 days only): the floor on the next working day after today."
+  },
+  {
+   "id": "02-policy-extract.5.8.3",
+   "text": "When the attempts are used up, stop for that account. Never repeat an offer that was refused."
+  },
+  {
+   "id": "02-policy-extract.5.8.4",
+   "text": "~~5.8.4 A member who clears the full arrears today may be offered a 5% reduction of the arrears.~~ (withdrawn February 2026 - no reductions of any kind)"
+  },
+  {
+   "id": "02-policy-extract.5.8.5",
+   "text": "Never offer reductions, freezes, waivers, plans or any term that is not in this section."
+  },
+  {
+   "id": "02-policy-extract.5.9.1",
+   "text": "Read all agreed promises back together (account, amount, date) and ask \"Shall I put that in place?\". After one clear yes call create_promise once per account, in get_account order."
+  },
+  {
+   "id": "02-policy-extract.5.9.2",
+   "text": "A change during the read-back is checked again under 5.6 and 5.7 and read back again."
+  },
+  {
+   "id": "02-policy-extract.5.9.3",
+   "text": "If create_promise fails, try once more. If it fails again, tell the member that promise could not be put in place, keep the others, and note that account N-TE."
+  },
+  {
+   "id": "02-policy-extract.5.9.4",
+   "text": "After at least one promise is in place say: \"You'll get a text message to confirm.\""
+  },
+  {
+   "id": "02-policy-extract.5.10.1",
+   "text": "Already paid: say payments can take up to three working days to show. Note the account N-PD. Continue with the other accounts."
+  },
+  {
+   "id": "02-policy-extract.5.10.2",
+   "text": "Disputed (\"not mine\", \"never opened it\", \"closed years ago\"): do not argue. Note the account N-DS. Continue with the other accounts."
+  },
+  {
+   "id": "02-policy-extract.5.10.3",
+   "text": "Hardship (illness, bereavement, losing a job, caring for someone): one sentence of sympathy, no persuasion. Offer Arrears Support. Accepted: transfer_to_agent to ARREARS_SUPPORT, close with TRF and detail ARREARS_SUPPORT, no notes. Declined: note every account without a promise N-HS and close by 5.11."
+  },
+  {
+   "id": "02-policy-extract.5.10.4",
+   "text": "Repayment plan, lower repayments or a payment break: do not discuss terms. transfer_to_agent to PAYMENT_ARRANGEMENTS, close with TRF and detail PAYMENT_ARRANGEMENTS. No notes. Promises already put in place stay; promises agreed but not yet put in place are dropped."
+  },
+  {
+   "id": "02-policy-extract.5.10.5",
+   "text": "A request for a person: ask once whether you can help. If they insist, transfer_to_agent to MEMBER_SERVICES, close with TRF and detail MEMBER_SERVICES. No notes."
+  },
+  {
+   "id": "02-policy-extract.5.10.6",
+   "text": "Says twice they do not want to talk: note every account without a promise N-RF, close by 5.11 (before security: IDR)."
+  },
+  {
+   "id": "02-policy-extract.5.10.7",
+   "text": "\"Is this a scam?\": they can call the number on the back of their card or on their statement. Then continue. Anything we do not know (interest, fees, other balances): say we do not have that information."
+  },
+  {
+   "id": "02-policy-extract.5.11.1",
+   "text": "Every account without a promise in place gets exactly one add_note with one code (see 05-codes.csv), also with one account, except on transfers (5.10.3 to 5.10.5)."
+  },
+  {
+   "id": "02-policy-extract.5.11.2",
+   "text": "Thank the member, say goodbye, then call close_call once, as the last tool call. The first row that applies wins:"
+  },
+  {
+   "id": "02-policy-extract.closing.1",
+   "text": "#: 1 | result: TRF | detail: the desk code | when: any transfer"
+  },
+  {
+   "id": "02-policy-extract.closing.2",
+   "text": "#: 2 | result: DSP | detail: - | when: any account noted N-DS, **even if promises were put in place**"
+  },
+  {
+   "id": "02-policy-extract.closing.3",
+   "text": "#: 3 | result: PTP | detail: - | when: at least one promise put in place"
+  },
+  {
+   "id": "02-policy-extract.closing.4",
+   "text": "#: 4 | result: PAID | detail: - | when: every account noted N-PD"
+  },
+  {
+   "id": "02-policy-extract.closing.5",
+   "text": "#: 5 | result: NPR | detail: a note code | when: otherwise, after security - see 5.11.3"
+  },
+  {
+   "id": "02-policy-extract.closing.6",
+   "text": "#:  | result: IDF / IDR | detail: - | when: 5.4"
+  },
+  {
+   "id": "02-policy-extract.closing.7",
+   "text": "#:  | result: CBK / NCB / WRN / DEC / UNC | detail: - | when: 5.3, 5.2.2"
+  },
+  {
+   "id": "02-policy-extract.5.11.3",
+   "text": "For NPR the detail is the note code of the account with the **largest arrears** among the accounts not noted N-PD. If two such accounts have the same arrears, take the first in get_account order."
+  },
+  {
+   "id": "03-memo-2026-09-14.general.1",
+   "text": "Everything not listed here is unchanged."
+  },
+  {
+   "id": "03-memo-2026-09-14.1",
+   "text": "[overrides 02-policy-extract.bands.1] Amber deadline. The Amber deadline becomes the **8th working day after today** (was the 10th). Red is unchanged."
+  },
+  {
+   "id": "03-memo-2026-09-14.2",
+   "text": "[overrides 02-policy-extract.5.3.2] Callback hours. Callbacks may be booked from 08:00 to 20:00, both included."
+  },
+  {
+   "id": "03-memo-2026-09-14.3",
+   "text": "[overrides 02-policy-extract.5.4.2] Security tolerance. Three incorrect answers in total end the security check (was two)."
+  },
+  {
+   "id": "03-memo-2026-09-14.4",
+   "text": "[overrides 02-policy-extract.5.4.1] Security questions. Because of SIM-swap fraud we stop using the mobile number. Question (b) becomes **the house number of the home address we hold** (as written on the statement, e.g. 14B; send it in capitals with no spaces). Question (a), the year of birth, stays and is still asked first."
+  },
+  {
+   "id": "03-memo-2026-09-14.5",
+   "text": "Systems migration. The Society is closed on **Monday 16 November 2026** for the core banking migration. It is not a working day."
+  },
+  {
+   "id": "04-memo-2026-10-05.a",
+   "text": "[overrides 03-memo-2026-09-14.2] Memo A item 2 (callback hours) is **withdrawn**. Callback hours go back to the policy hours in 5.3.2."
+  },
+  {
+   "id": "04-memo-2026-10-05.b",
+   "text": "[overrides 03-memo-2026-09-14.3] Memo A item 3 (three incorrect answers) is **withdrawn**. The policy rule of two incorrect answers in total applies again."
+  },
+  {
+   "id": "04-memo-2026-10-05.c",
+   "text": "Memo A items 1 and 4 stand (Amber deadline 8th working day; house number instead of mobile)."
+  },
+  {
+   "id": "04-memo-2026-10-05.d",
+   "text": "[overrides 03-memo-2026-09-14.5] The migration closure moves: the Society is **open on Monday 16 November 2026** (normal working day) and **closed on Friday 20 November 2026** instead."
+  },
+  {
+   "id": "04-memo-2026-10-05.e",
+   "text": "[overrides 02-policy-extract.5.10.4] New: before any transfer to PAYMENT_ARRANGEMENTS, add a note N-PL on every account that has no promise in place. This replaces \"No notes\" in 5.10.4 for that desk only. Transfers to ARREARS_SUPPORT and MEMBER_SERVICES still get no notes."
+  },
+  {
+   "id": "05-codes.codes.1",
+   "text": "tool: close_call | code: PTP | meaning: Promise to pay in place | when used: at least one promise in place | detail: "
+  },
+  {
+   "id": "05-codes.codes.2",
+   "text": "tool: close_call | code: PAID | meaning: Already paid | when used: every account noted N-PD | detail: "
+  },
+  {
+   "id": "05-codes.codes.3",
+   "text": "tool: close_call | code: DSP | meaning: Disputed | when used: any account noted N-DS (wins over PTP) | detail: "
+  },
+  {
+   "id": "05-codes.codes.4",
+   "text": "tool: close_call | code: NPR | meaning: No promise | when used: otherwise after security | detail: note code of the largest-arrears account not noted N-PD"
+  },
+  {
+   "id": "05-codes.codes.5",
+   "text": "tool: close_call | code: TRF | meaning: Transferred | when used: hardship accepted, plan request, person request | detail: desk code"
+  },
+  {
+   "id": "05-codes.codes.6",
+   "text": "tool: close_call | code: IDF | meaning: Security failed | when used: too many incorrect answers | detail: "
+  },
+  {
+   "id": "05-codes.codes.7",
+   "text": "tool: close_call | code: IDR | meaning: Security refused | when used: member refuses security twice | detail: "
+  },
+  {
+   "id": "05-codes.codes.8",
+   "text": "tool: close_call | code: CBK | meaning: Callback booked | when used: third party - callback booked | detail: "
+  },
+  {
+   "id": "05-codes.codes.9",
+   "text": "tool: close_call | code: NCB | meaning: No callback | when used: third party - no allowed time | detail: "
+  },
+  {
+   "id": "05-codes.codes.10",
+   "text": "tool: close_call | code: WRN | meaning: Wrong number | when used: not the member's number | detail: "
+  },
+  {
+   "id": "05-codes.codes.11",
+   "text": "tool: close_call | code: DEC | meaning: Deceased | when used: member has died | detail: "
+  },
+  {
+   "id": "05-codes.codes.12",
+   "text": "tool: close_call | code: UNC | meaning: Unconfirmed | when used: still unclear who answered | detail: "
+  },
+  {
+   "id": "05-codes.codes.13",
+   "text": "tool: close_call | code: LGL | meaning: Legal referral | when used: back office only | detail: "
+  },
+  {
+   "id": "05-codes.codes.14",
+   "text": "tool: add_note | code: N-RF | meaning: Refused | when used: attempts used up / does not want to talk | detail: "
+  },
+  {
+   "id": "05-codes.codes.15",
+   "text": "tool: add_note | code: N-HS | meaning: Hardship | when used: hardship declined transfer | detail: "
+  },
+  {
+   "id": "05-codes.codes.16",
+   "text": "tool: add_note | code: N-DS | meaning: Disputed | when used: member disputes this account | detail: "
+  },
+  {
+   "id": "05-codes.codes.17",
+   "text": "tool: add_note | code: N-PD | meaning: Paid | when used: member says this account is paid | detail: "
+  },
+  {
+   "id": "05-codes.codes.18",
+   "text": "tool: add_note | code: N-TE | meaning: Technical | when used: create_promise failed twice | detail: "
+  },
+  {
+   "id": "05-codes.codes.19",
+   "text": "tool: add_note | code: N-PL | meaning: Plan request | when used: see memo B (e) | detail: "
+  },
+  {
+   "id": "05-codes.codes.20",
+   "text": "tool: add_note | code: N-LG | meaning: Legal hold | when used: retired 2025 | detail: "
+  },
+  {
+   "id": "05-codes.codes.21",
+   "text": "tool: transfer_to_agent | code: ARREARS_SUPPORT | meaning: Arrears Support | when used: hardship | detail: "
+  },
+  {
+   "id": "05-codes.codes.22",
+   "text": "tool: transfer_to_agent | code: PAYMENT_ARRANGEMENTS | meaning: Payment Arrangements | when used: plans, lower repayments, payment break | detail: "
+  },
+  {
+   "id": "05-codes.codes.23",
+   "text": "tool: transfer_to_agent | code: MEMBER_SERVICES | meaning: Member Services | when used: member insists on a person | detail: "
+  }
+ ],
+ "closing": {
+  "promise": {
+   "outcome": "PTP",
+   "reason": null
+  },
+  "id_fail": {
+   "outcome": "IDF",
+   "reason": null
+  },
+  "callback": {
+   "outcome": "CBK",
+   "reason": null
+  },
+  "no_callback": {
+   "outcome": "NCB",
+   "reason": null
+  },
+  "refused": {
+   "outcome": "NPR",
+   "reason": "N-RF"
+  },
+  "service_error": {
+   "outcome": "NPR",
+   "reason": "N-TE"
+  },
+  "transfer": {
+   "ARREARS_SUPPORT": {
+    "outcome": "TRF",
+    "reason": "ARREARS_SUPPORT"
+   },
+   "PAYMENT_ARRANGEMENTS": {
+    "outcome": "TRF",
+    "reason": "PAYMENT_ARRANGEMENTS"
+   },
+   "MEMBER_SERVICES": {
+    "outcome": "TRF",
+    "reason": "MEMBER_SERVICES"
+   }
+  },
+  "note_map": {
+   "N-RF": {
+    "outcome": "NPR",
+    "reason": "N-RF"
+   },
+   "N-HS": {
+    "outcome": "NPR",
+    "reason": "N-HS"
+   },
+   "N-TE": {
+    "outcome": "NPR",
+    "reason": "N-TE"
+   },
+   "N-DS": {
+    "outcome": "DSP",
+    "reason": null
+   },
+   "N-PD": {
+    "outcome": "PAID",
+    "reason": null
+   },
+   "N-PL": {
+    "outcome": "TRF",
+    "reason": "PAYMENT_ARRANGEMENTS"
+   }
+  },
+  "transfer_overrides_promise": true,
+  "no_reason_outcomes": [
+   "PTP",
+   "PAID",
+   "DSP",
+   "IDF",
+   "IDR",
+   "CBK",
+   "NCB",
+   "WRN",
+   "DEC",
+   "UNC"
+  ],
+  "notes": [
+   "Thank the member, say goodbye, then call close_call once, as the last tool call.",
+   "Refusal to talk before security closes with IDR.",
+   "service_error maps to NPR N-TE only when no promise is in place and no higher row applies; N-TE accounts with other promises in place close PTP.",
+   "close_call 'detail' field carries the reason: note code for NPR, desk code for TRF."
+  ]
+ }
+}

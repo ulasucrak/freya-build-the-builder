@@ -1,8 +1,8 @@
 {
  "bank": "S1",
- "seconds": 90.6523699760437,
+ "seconds": 118.10109305381775,
  "warnings": [
-  "resolved triggers; evidence: [\"If the person says the customer has passed away, say \\\"Please accept our condolences.\\\", ask nothing further, and close as `not_reached` / `deceased`.\", \"If the person says the number does not belong to the customer, close as `not_reached` / `wrong_number`.\", \"If it is still unclear after the seco"
+  "resolved triggers; evidence: [\"This rule comes before rules 30 and 42.\", \"If the second offer is also outside the window, book nothing and close as `not_reached` / `no_callback`.\", \"If it fails again, tell the customer it could not be recorded and close as `no_promise` / `system_error`.\", \"If one `create_promise` fails twice, k"
  ],
  "passed": 111,
  "total": 111,

@@ -1,0 +1,913 @@
+{
+ "bank": "Larkspur Building Society",
+ "form": "raw material: email + policy extract + memo A + memo B (partly reverts A) + codes CSV; struck-through rows/rules, footnote exceptions, merged table cells",
+ "brief_files": [
+  "01-email.md",
+  "02-policy-extract.md",
+  "03-memo-2026-09-14.md",
+  "04-memo-2026-10-05.md",
+  "05-codes.csv"
+ ],
+ "openapi": "openapi.json",
+ "live_compatible": false,
+ "variables": [
+  "member_ref",
+  "given_name",
+  "family_name",
+  "salutation",
+  "call_started_at"
+ ],
+ "clock": {
+  "now_variable": "call_started_at",
+  "date_format": "YYYY-MM-DD HH:MM"
+ },
+ "calendar": {
+  "weekend": [
+   6,
+   7
+  ],
+  "week_starts": 1,
+  "holidays": [
+   "2026-11-11",
+   "2026-11-20",
+   "2026-12-24",
+   "2026-12-25",
+   "2026-12-26",
+   "2027-01-01"
+  ],
+  "non_holidays": [
+   "2026-11-16",
+   "2026-12-31"
+  ],
+  "roll_rule": "next_business_day"
+ },
+ "opening": {
+  "text": "Hello, this is Larkspur Building Society's digital assistant calling. This call is recorded.",
+  "forbidden_before_verification": [
+   "arrears",
+   "overdue",
+   "owe",
+   "debt",
+   "payment",
+   "card",
+   "loan",
+   "overdraft"
+  ],
+  "confirm_question": "Am I speaking with {salutation} {family_name}?",
+  "unclear_asks": 2,
+  "unclear_outcome": [
+   "UNC",
+   null
+  ]
+ },
+ "identity": {
+  "questions": [
+   {
+    "order": 1,
+    "tool_field": "birth_year",
+    "answer_format": "digits",
+    "normalise": "digits_only"
+   },
+   {
+    "order": 2,
+    "tool_field": "house_number",
+    "answer_format": "text",
+    "normalise": "uppercase, no spaces"
+   }
+  ],
+  "unused_enum_values": [
+   "mobile_last4"
+  ],
+  "tool_fields": {
+   "question_field": "check",
+   "answer_field": "response"
+  },
+  "max_wrong": 2,
+  "max_wrong_scope": "total over both questions",
+  "swap_hint": null,
+  "fail": {
+   "outcome": "IDF",
+   "reason": null
+  },
+  "declined": {
+   "outcome": "IDR",
+   "reason": null
+  }
+ },
+ "products": {
+  "max_count": 3,
+  "list_field": "accounts",
+  "id_field": "account_id",
+  "type_field": "product",
+  "floor_field": {
+   "credit_card": "min_to_pay",
+   "personal_loan": "monthly_repayment",
+   "overdraft": "arrears (no lower amount; less = flat refusal)"
+  },
+  "full_field": "arrears",
+  "days_field": "days_in_arrears",
+  "speak_as": {
+   "credit_card": "your credit card ending {card_ending}",
+   "personal_loan": "your personal loan",
+   "overdraft": "your overdraft"
+  }
+ },
+ "bands": [
+  {
+   "name": "Amber",
+   "min_days_late": 1,
+   "max_days_late": 29,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 8,
+    "counted_from": "tomorrow"
+   },
+   "attempts": 1
+  },
+  {
+   "name": "Red",
+   "min_days_late": 30,
+   "max_days_late": 59,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 5,
+    "counted_from": "tomorrow"
+   },
+   "attempts": 2
+  },
+  {
+   "name": "Red",
+   "min_days_late": 60,
+   "max_days_late": 89,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 5,
+    "counted_from": "tomorrow"
+   },
+   "attempts": 3
+  }
+ ],
+ "struck_through": [
+  "Black band 90+ (2nd working day)",
+  "5.8.4 5 % reduction for paying in full today",
+  "31 Dec closure row"
+ ],
+ "attempts": [
+  {
+   "n": 1,
+   "amount": "full (or floor if full already said too much)",
+   "date": "2nd working day after today"
+  },
+  {
+   "n": 2,
+   "bands": [
+    "Red"
+   ],
+   "amount": "floor",
+   "date": "deadline"
+  },
+  {
+   "n": 3,
+   "bands": [
+    "Red 60-89"
+   ],
+   "amount": "floor",
+   "date": "next working day after today"
+  }
+ ],
+ "today_on_non_business_day": "offer the next working day",
+ "next_weekday_rule": "'next X' = first such day after today; 'this X' = in the current Monday-Sunday week",
+ "vague_date": "ask once for exact day, then propose the deadline",
+ "deadline_examples": [
+  {
+   "case": "S6-01",
+   "now": "2026-11-16 10:00",
+   "product": "p1",
+   "type": "credit_card",
+   "days_in_arrears": 12,
+   "band": "Amber",
+   "attempts": 1,
+   "deadline": "2026-11-27",
+   "attempt_1_date": "2026-11-18",
+   "attempt_3_date": null,
+   "floor": 25.0,
+   "full": 265.0
+  },
+  {
+   "case": "S6-02",
+   "now": "2026-11-19 17:00",
+   "product": "p1",
+   "type": "personal_loan",
+   "days_in_arrears": 34,
+   "band": "Red",
+   "attempts": 2,
+   "deadline": "2026-11-27",
+   "attempt_1_date": "2026-11-24",
+   "attempt_3_date": null,
+   "floor": 205.0,
+   "full": 820.0
+  },
+  {
+   "case": "S6-03",
+   "now": "2026-11-24 11:20",
+   "product": "p1",
+   "type": "credit_card",
+   "days_in_arrears": 7,
+   "band": "Amber",
+   "attempts": 1,
+   "deadline": "2026-12-04",
+   "attempt_1_date": "2026-11-26",
+   "attempt_3_date": null,
+   "floor": 25.0,
+   "full": 140.0
+  },
+  {
+   "case": "S6-04",
+   "now": "2026-11-25 12:00",
+   "product": "p1",
+   "type": "credit_card",
+   "days_in_arrears": 10,
+   "band": "Amber",
+   "attempts": 1,
+   "deadline": "2026-12-07",
+   "attempt_1_date": "2026-11-27",
+   "attempt_3_date": null,
+   "floor": 31.0,
+   "full": 310.0
+  },
+  {
+   "case": "S6-04",
+   "now": "2026-11-25 12:00",
+   "product": "p2",
+   "type": "personal_loan",
+   "days_in_arrears": 45,
+   "band": "Red",
+   "attempts": 2,
+   "deadline": "2026-12-02",
+   "attempt_1_date": "2026-11-27",
+   "attempt_3_date": null,
+   "floor": 275.0,
+   "full": 2200.0
+  },
+  {
+   "case": "S6-04",
+   "now": "2026-11-25 12:00",
+   "product": "p3",
+   "type": "overdraft",
+   "days_in_arrears": 6,
+   "band": "Amber",
+   "attempts": 1,
+   "deadline": "2026-12-07",
+   "attempt_1_date": "2026-11-27",
+   "attempt_3_date": null,
+   "floor": 180.0,
+   "full": 180.0
+  },
+  {
+   "case": "S6-05",
+   "now": "2026-12-03 14:00",
+   "product": "p1",
+   "type": "overdraft",
+   "days_in_arrears": 20,
+   "band": "Amber",
+   "attempts": 1,
+   "deadline": "2026-12-15",
+   "attempt_1_date": "2026-12-07",
+   "attempt_3_date": null,
+   "floor": 260.0,
+   "full": 260.0
+  },
+  {
+   "case": "S6-06",
+   "now": "2026-12-18 09:00",
+   "product": "p1",
+   "type": "personal_loan",
+   "days_in_arrears": 70,
+   "band": "Red",
+   "attempts": 3,
+   "deadline": "2026-12-29",
+   "attempt_1_date": "2026-12-22",
+   "attempt_3_date": "2026-12-21",
+   "floor": 295.0,
+   "full": 1180.0
+  },
+  {
+   "case": "S6-07",
+   "now": "2026-12-07 15:30",
+   "product": "p1",
+   "type": "credit_card",
+   "days_in_arrears": 5,
+   "band": "Amber",
+   "attempts": 1,
+   "deadline": "2026-12-17",
+   "attempt_1_date": "2026-12-09",
+   "attempt_3_date": null,
+   "floor": 25.0,
+   "full": 190.0
+  },
+  {
+   "case": "S6-07",
+   "now": "2026-12-07 15:30",
+   "product": "p2",
+   "type": "personal_loan",
+   "days_in_arrears": 33,
+   "band": "Red",
+   "attempts": 2,
+   "deadline": "2026-12-14",
+   "attempt_1_date": "2026-12-09",
+   "attempt_3_date": null,
+   "floor": 240.0,
+   "full": 960.0
+  },
+  {
+   "case": "S6-08",
+   "now": "2026-11-10 12:00",
+   "product": "p1",
+   "type": "credit_card",
+   "days_in_arrears": 18,
+   "band": "Amber",
+   "attempts": 1,
+   "deadline": "2026-11-24",
+   "attempt_1_date": "2026-11-13",
+   "attempt_3_date": null,
+   "floor": 42.0,
+   "full": 420.0
+  },
+  {
+   "case": "S6-08",
+   "now": "2026-11-10 12:00",
+   "product": "p2",
+   "type": "overdraft",
+   "days_in_arrears": 40,
+   "band": "Red",
+   "attempts": 2,
+   "deadline": "2026-11-18",
+   "attempt_1_date": "2026-11-13",
+   "attempt_3_date": null,
+   "floor": 350.0,
+   "full": 350.0
+  },
+  {
+   "case": "S6-09",
+   "now": "2026-12-30 10:00",
+   "product": "p1",
+   "type": "credit_card",
+   "days_in_arrears": 15,
+   "band": "Amber",
+   "attempts": 1,
+   "deadline": "2027-01-12",
+   "attempt_1_date": "2027-01-04",
+   "attempt_3_date": null,
+   "floor": 25.0,
+   "full": 120.0
+  },
+  {
+   "case": "S6-09",
+   "now": "2026-12-30 10:00",
+   "product": "p2",
+   "type": "personal_loan",
+   "days_in_arrears": 35,
+   "band": "Red",
+   "attempts": 2,
+   "deadline": "2027-01-07",
+   "attempt_1_date": "2027-01-04",
+   "attempt_3_date": null,
+   "floor": 160.0,
+   "full": 640.5
+  },
+  {
+   "case": "S6-09",
+   "now": "2026-12-30 10:00",
+   "product": "p3",
+   "type": "overdraft",
+   "days_in_arrears": 12,
+   "band": "Amber",
+   "attempts": 1,
+   "deadline": "2027-01-12",
+   "attempt_1_date": "2027-01-04",
+   "attempt_3_date": null,
+   "floor": 1500.0,
+   "full": 1500.0
+  },
+  {
+   "case": "S6-10",
+   "now": "2026-11-02 09:15",
+   "product": "p1",
+   "type": "credit_card",
+   "days_in_arrears": 25,
+   "band": "Amber",
+   "attempts": 1,
+   "deadline": "2026-11-13",
+   "attempt_1_date": "2026-11-04",
+   "attempt_3_date": null,
+   "floor": 53.0,
+   "full": 530.0
+  },
+  {
+   "case": "S6-11",
+   "now": "2026-11-27 16:50",
+   "product": "p1",
+   "type": "credit_card",
+   "days_in_arrears": 8,
+   "band": "Amber",
+   "attempts": 1,
+   "deadline": "2026-12-09",
+   "attempt_1_date": "2026-12-01",
+   "attempt_3_date": null,
+   "floor": 25.0,
+   "full": 210.0
+  },
+  {
+   "case": "S6-11",
+   "now": "2026-11-27 16:50",
+   "product": "p2",
+   "type": "personal_loan",
+   "days_in_arrears": 40,
+   "band": "Red",
+   "attempts": 2,
+   "deadline": "2026-12-04",
+   "attempt_1_date": "2026-12-01",
+   "attempt_3_date": null,
+   "floor": 175.0,
+   "full": 700.0
+  },
+  {
+   "case": "S6-12",
+   "now": "2026-12-11 17:45",
+   "product": "p1",
+   "type": "credit_card",
+   "days_in_arrears": 22,
+   "band": "Amber",
+   "attempts": 1,
+   "deadline": "2026-12-23",
+   "attempt_1_date": "2026-12-15",
+   "attempt_3_date": null,
+   "floor": 30.0,
+   "full": 300.0
+  },
+  {
+   "case": "S6-13",
+   "now": "2026-11-11 10:30",
+   "product": "p1",
+   "type": "credit_card",
+   "days_in_arrears": 3,
+   "band": "Amber",
+   "attempts": 1,
+   "deadline": "2026-11-24",
+   "attempt_1_date": "2026-11-13",
+   "attempt_3_date": null,
+   "floor": 25.0,
+   "full": 95.5
+  },
+  {
+   "case": "S6-14",
+   "now": "2026-12-01 11:00",
+   "product": "p1",
+   "type": "personal_loan",
+   "days_in_arrears": 15,
+   "band": "Amber",
+   "attempts": 1,
+   "deadline": "2026-12-11",
+   "attempt_1_date": "2026-12-03",
+   "attempt_3_date": null,
+   "floor": 100.0,
+   "full": 400.0
+  },
+  {
+   "case": "S6-15",
+   "now": "2026-12-02 13:00",
+   "product": "p1",
+   "type": "credit_card",
+   "days_in_arrears": 9,
+   "band": "Amber",
+   "attempts": 1,
+   "deadline": "2026-12-14",
+   "attempt_1_date": "2026-12-04",
+   "attempt_3_date": null,
+   "floor": 25.0,
+   "full": 150.0
+  },
+  {
+   "case": "S6-16",
+   "now": "2026-11-13 10:00",
+   "product": "p1",
+   "type": "credit_card",
+   "days_in_arrears": 21,
+   "band": "Amber",
+   "attempts": 1,
+   "deadline": "2026-11-26",
+   "attempt_1_date": "2026-11-17",
+   "attempt_3_date": null,
+   "floor": 48.0,
+   "full": 480.0
+  },
+  {
+   "case": "S6-16",
+   "now": "2026-11-13 10:00",
+   "product": "p2",
+   "type": "personal_loan",
+   "days_in_arrears": 31,
+   "band": "Red",
+   "attempts": 2,
+   "deadline": "2026-11-23",
+   "attempt_1_date": "2026-11-17",
+   "attempt_3_date": null,
+   "floor": 310.0,
+   "full": 1250.0
+  },
+  {
+   "case": "S6-17",
+   "now": "2026-12-14 09:40",
+   "product": "p1",
+   "type": "credit_card",
+   "days_in_arrears": 4,
+   "band": "Amber",
+   "attempts": 1,
+   "deadline": "2026-12-28",
+   "attempt_1_date": "2026-12-16",
+   "attempt_3_date": null,
+   "floor": 25.0,
+   "full": 130.0
+  },
+  {
+   "case": "S6-17",
+   "now": "2026-12-14 09:40",
+   "product": "p2",
+   "type": "overdraft",
+   "days_in_arrears": 11,
+   "band": "Amber",
+   "attempts": 1,
+   "deadline": "2026-12-28",
+   "attempt_1_date": "2026-12-16",
+   "attempt_3_date": null,
+   "floor": 220.0,
+   "full": 220.0
+  },
+  {
+   "case": "S6-18",
+   "now": "2026-12-15 15:15",
+   "product": "p1",
+   "type": "personal_loan",
+   "days_in_arrears": 52,
+   "band": "Red",
+   "attempts": 2,
+   "deadline": "2026-12-22",
+   "attempt_1_date": "2026-12-17",
+   "attempt_3_date": null,
+   "floor": 400.0,
+   "full": 1600.0
+  },
+  {
+   "case": "S6-19",
+   "now": "2026-11-18 11:00",
+   "product": "p1",
+   "type": "credit_card",
+   "days_in_arrears": 9,
+   "band": "Amber",
+   "attempts": 1,
+   "deadline": "2026-12-01",
+   "attempt_1_date": "2026-11-23",
+   "attempt_3_date": null,
+   "floor": 34.0,
+   "full": 340.0
+  },
+  {
+   "case": "S6-20",
+   "now": "2026-12-17 14:30",
+   "product": "p1",
+   "type": "credit_card",
+   "days_in_arrears": 12,
+   "band": "Amber",
+   "attempts": 1,
+   "deadline": "2026-12-31",
+   "attempt_1_date": "2026-12-21",
+   "attempt_3_date": null,
+   "floor": 25.0,
+   "full": 200.0
+  },
+  {
+   "case": "S6-20",
+   "now": "2026-12-17 14:30",
+   "product": "p2",
+   "type": "personal_loan",
+   "days_in_arrears": 33,
+   "band": "Red",
+   "attempts": 2,
+   "deadline": "2026-12-28",
+   "attempt_1_date": "2026-12-21",
+   "attempt_3_date": null,
+   "floor": 112.5,
+   "full": 450.0
+  },
+  {
+   "case": "S6-20",
+   "now": "2026-12-17 14:30",
+   "product": "p3",
+   "type": "overdraft",
+   "days_in_arrears": 8,
+   "band": "Amber",
+   "attempts": 1,
+   "deadline": "2026-12-31",
+   "attempt_1_date": "2026-12-21",
+   "attempt_3_date": null,
+   "floor": 900.0,
+   "full": 900.0
+  },
+  {
+   "case": "S6-21",
+   "now": "2026-11-30 10:10",
+   "product": "p1",
+   "type": "credit_card",
+   "days_in_arrears": 4,
+   "band": "Amber",
+   "attempts": 1,
+   "deadline": "2026-12-10",
+   "attempt_1_date": "2026-12-02",
+   "attempt_3_date": null,
+   "floor": 30.0,
+   "full": 300.0
+  },
+  {
+   "case": "S6-21",
+   "now": "2026-11-30 10:10",
+   "product": "p2",
+   "type": "personal_loan",
+   "days_in_arrears": 50,
+   "band": "Red",
+   "attempts": 2,
+   "deadline": "2026-12-07",
+   "attempt_1_date": "2026-12-02",
+   "attempt_3_date": null,
+   "floor": 75.0,
+   "full": 300.0
+  },
+  {
+   "case": "S6-22",
+   "now": "2026-11-23 09:30",
+   "product": "p1",
+   "type": "credit_card",
+   "days_in_arrears": 29,
+   "band": "Amber",
+   "attempts": 1,
+   "deadline": "2026-12-03",
+   "attempt_1_date": "2026-11-25",
+   "attempt_3_date": null,
+   "floor": 61.0,
+   "full": 610.0
+  },
+  {
+   "case": "S6-22",
+   "now": "2026-11-23 09:30",
+   "product": "p2",
+   "type": "personal_loan",
+   "days_in_arrears": 30,
+   "band": "Red",
+   "attempts": 2,
+   "deadline": "2026-11-30",
+   "attempt_1_date": "2026-11-25",
+   "attempt_3_date": null,
+   "floor": 220.0,
+   "full": 880.0
+  },
+  {
+   "case": "S6-23",
+   "now": "2026-12-22 16:00",
+   "product": "p1",
+   "type": "credit_card",
+   "days_in_arrears": 2,
+   "band": "Amber",
+   "attempts": 1,
+   "deadline": "2027-01-06",
+   "attempt_1_date": "2026-12-28",
+   "attempt_3_date": null,
+   "floor": 25.0,
+   "full": 145.0
+  },
+  {
+   "case": "S6-24",
+   "now": "2026-12-30 16:00",
+   "product": "p1",
+   "type": "personal_loan",
+   "days_in_arrears": 26,
+   "band": "Amber",
+   "attempts": 1,
+   "deadline": "2027-01-12",
+   "attempt_1_date": "2027-01-04",
+   "attempt_3_date": null,
+   "floor": 127.5,
+   "full": 510.0
+  }
+ ],
+ "callback": {
+  "days": [
+   "today",
+   "next_business_day"
+  ],
+  "start": "09:00",
+  "end": "17:30",
+  "end_inclusive": true,
+  "must_be_after_now": true,
+  "per_date": {
+   "2026-12-31": {
+    "start": "09:00",
+    "end": "12:30"
+   }
+  },
+  "retry_asks": 1,
+  "ok": [
+   "CBK",
+   null
+  ],
+  "fail": [
+   "NCB",
+   null
+  ],
+  "tool_fields": {
+   "slot": "YYYY-MM-DDTHH:MM"
+  }
+ },
+ "queues": {
+  "restructuring": "PAYMENT_ARRANGEMENTS",
+  "human": "MEMBER_SERVICES",
+  "hardship": "ARREARS_SUPPORT"
+ },
+ "unused_enum_values": {
+  "transfer_to_agent.desk": [
+   "RECOVERIES"
+  ],
+  "add_note.code": [
+   "N-LG"
+  ],
+  "close_call.result": [
+   "LGL"
+  ]
+ },
+ "note_reasons": [
+  "N-RF",
+  "N-HS",
+  "N-DS",
+  "N-PD",
+  "N-TE",
+  "N-PL"
+ ],
+ "notes_always": "every account without a promise in place, also with one account",
+ "notes_on_transfer": {
+  "PAYMENT_ARRANGEMENTS": "N-PL on every account without a promise in place, before the transfer (memo B e))",
+  "ARREARS_SUPPORT": false,
+  "MEMBER_SERVICES": false
+ },
+ "outcomes": [
+  {
+   "outcome": "TRF",
+   "reason": "ARREARS_SUPPORT",
+   "order": 1
+  },
+  {
+   "outcome": "TRF",
+   "reason": "PAYMENT_ARRANGEMENTS",
+   "order": 1
+  },
+  {
+   "outcome": "TRF",
+   "reason": "MEMBER_SERVICES",
+   "order": 1
+  },
+  {
+   "outcome": "DSP",
+   "reason": null,
+   "order": 2
+  },
+  {
+   "outcome": "PTP",
+   "reason": null,
+   "order": 3
+  },
+  {
+   "outcome": "PAID",
+   "reason": null,
+   "order": 4
+  },
+  {
+   "outcome": "NPR",
+   "reason": "N-RF",
+   "order": 5
+  },
+  {
+   "outcome": "NPR",
+   "reason": "N-HS",
+   "order": 5
+  },
+  {
+   "outcome": "NPR",
+   "reason": "N-TE",
+   "order": 5
+  },
+  {
+   "outcome": "IDF",
+   "reason": null
+  },
+  {
+   "outcome": "IDR",
+   "reason": null
+  },
+  {
+   "outcome": "CBK",
+   "reason": null
+  },
+  {
+   "outcome": "NCB",
+   "reason": null
+  },
+  {
+   "outcome": "WRN",
+   "reason": null
+  },
+  {
+   "outcome": "DEC",
+   "reason": null
+  },
+  {
+   "outcome": "UNC",
+   "reason": null
+  }
+ ],
+ "close_tool_fields": {
+  "outcome_field": "result",
+  "reason_field": "detail"
+ },
+ "multi_product_closing": {
+  "rule": "TRF > DSP (any N-DS, even with promises) > PTP > PAID (all N-PD) > NPR",
+  "no_promise_reason": "note code of the account with the largest arrears among accounts not noted N-PD; tie -> get_account order"
+ },
+ "phrases": {
+  "robot": "Yes, I'm Larkspur's digital assistant.",
+  "deceased": "I'm very sorry for your loss.",
+  "promise_confirmation": "You'll get a text message to confirm.",
+  "readback_question": "Shall I put that in place?",
+  "today_question": "Would you be able to clear this today?",
+  "today_question_multi": "Would you be able to clear all of it today?",
+  "already_paid": "payments can take up to three working days to show"
+ },
+ "overrides": [
+  {
+   "what": "Amber deadline",
+   "old": "10th working day after today",
+   "new": "8th working day after today",
+   "source": "memo A 1 (kept by memo B c)"
+  },
+  {
+   "what": "callback window",
+   "old": "09:00-17:30 inclusive",
+   "new": "09:00-17:30 inclusive (memo A 08:00-20:00 withdrawn by memo B a)",
+   "source": "memo A 2, memo B a"
+  },
+  {
+   "what": "security max wrong answers",
+   "old": 2,
+   "new": 2,
+   "note": "memo A raised to 3, memo B b) withdrew it",
+   "source": "memo A 3, memo B b"
+  },
+  {
+   "what": "security question (b)",
+   "old": "mobile_last4",
+   "new": "house_number",
+   "source": "memo A 4 (kept by memo B c)"
+  },
+  {
+   "what": "closure days",
+   "old": "memo A: 2026-11-16 closed",
+   "new": "2026-11-16 open; 2026-11-20 closed",
+   "source": "memo B d"
+  },
+  {
+   "what": "notes on PAYMENT_ARRANGEMENTS transfer",
+   "old": "no notes",
+   "new": "N-PL on every account without a promise",
+   "source": "memo B e"
+  }
+ ],
+ "max_wrong": 2,
+ "close_reasons": {
+  "TRF": [
+   "ARREARS_SUPPORT",
+   "PAYMENT_ARRANGEMENTS",
+   "MEMBER_SERVICES"
+  ],
+  "DSP": [],
+  "PTP": [],
+  "PAID": [],
+  "NPR": [
+   "N-RF",
+   "N-HS",
+   "N-TE"
+  ],
+  "IDF": [],
+  "IDR": [],
+  "CBK": [],
+  "NCB": [],
+  "WRN": [],
+  "DEC": [],
+  "UNC": []
+ }
+}

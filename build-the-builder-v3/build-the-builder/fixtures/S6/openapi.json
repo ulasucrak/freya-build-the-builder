@@ -1,0 +1,478 @@
+{
+ "openapi": "3.0.3",
+ "info": {
+  "title": "Larkspur Building Society - digital assistant tools",
+  "version": "3.0",
+  "description": "Synthetic holdout fixture S6. Mock of Larkspur's member systems. Every call is written to the ledger. The service does not enforce the policy: it accepts promises on closure days or after deadlines without complaint. member_ref identifies the call's member and must be sent with every call."
+ },
+ "servers": [
+  {
+   "url": "https://larkspur-mock.example/assistant/v3"
+  }
+ ],
+ "components": {},
+ "paths": {
+  "/verify_identity": {
+   "post": {
+    "summary": "Check one security answer. Three wrong answers in total end the check.",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "member_ref": {
+          "type": "string"
+         },
+         "check": {
+          "type": "string",
+          "enum": [
+           "birth_year",
+           "house_number",
+           "mobile_last4"
+          ]
+         },
+         "response": {
+          "type": "string",
+          "description": "birth_year: four digits. house_number: capitals, no spaces (e.g. 14B). mobile_last4: four digits (legacy). A value in the wrong format is rejected with ok=false and is not counted as incorrect."
+         }
+        },
+        "required": [
+         "member_ref",
+         "check",
+         "response"
+        ]
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "`ok` is false when the action was not carried out.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "ok": {
+           "type": "boolean"
+          },
+          "error": {
+           "type": "string"
+          },
+          "passed": {
+           "type": "boolean"
+          },
+          "attempts_remaining": {
+           "type": "integer"
+          },
+          "security_complete": {
+           "type": "boolean"
+          }
+         }
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "The service failed. Nothing was recorded. The call may be repeated."
+     }
+    }
+   }
+  },
+  "/get_account": {
+   "post": {
+    "summary": "The late products. Refused until both questions are passed.",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "member_ref": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "member_ref"
+        ]
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "`ok` is false when the action was not carried out.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "ok": {
+           "type": "boolean"
+          },
+          "error": {
+           "type": "string"
+          },
+          "accounts": {
+           "type": "array",
+           "items": {
+            "type": "object",
+            "properties": {
+             "account_id": {
+              "type": "string"
+             },
+             "product": {
+              "type": "string",
+              "enum": [
+               "credit_card",
+               "personal_loan",
+               "overdraft"
+              ]
+             },
+             "card_ending": {
+              "type": "string",
+              "description": "credit cards only"
+             },
+             "arrears": {
+              "type": "number",
+              "description": "amount in arrears, EUR"
+             },
+             "days_in_arrears": {
+              "type": "integer"
+             },
+             "min_to_pay": {
+              "type": "number",
+              "description": "credit cards only"
+             },
+             "monthly_repayment": {
+              "type": "number",
+              "description": "personal loans only"
+             },
+             "overdraft_limit": {
+              "type": "number",
+              "description": "overdrafts only; informational"
+             }
+            }
+           }
+          }
+         }
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "The service failed. Nothing was recorded. The call may be repeated."
+     }
+    }
+   }
+  },
+  "/create_promise": {
+   "post": {
+    "summary": "Record a payment promise. One per product.",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "member_ref": {
+          "type": "string"
+         },
+         "account_id": {
+          "type": "string"
+         },
+         "amount_eur": {
+          "type": "number"
+         },
+         "due_on": {
+          "type": "string",
+          "format": "date",
+          "description": "YYYY-MM-DD"
+         }
+        },
+        "required": [
+         "member_ref",
+         "account_id",
+         "amount_eur",
+         "due_on"
+        ]
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "`ok` is false when the action was not carried out.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "ok": {
+           "type": "boolean"
+          },
+          "error": {
+           "type": "string"
+          },
+          "promise_ref": {
+           "type": "string"
+          }
+         }
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "The service failed. Nothing was recorded. The call may be repeated."
+     }
+    }
+   }
+  },
+  "/add_note": {
+   "post": {
+    "summary": "Brief B: record why a product ended without a promise.",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "member_ref": {
+          "type": "string"
+         },
+         "account_id": {
+          "type": "string"
+         },
+         "code": {
+          "type": "string",
+          "enum": [
+           "N-RF",
+           "N-HS",
+           "N-DS",
+           "N-PD",
+           "N-TE",
+           "N-PL",
+           "N-LG"
+          ]
+         },
+         "comment": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "member_ref",
+         "account_id",
+         "code"
+        ]
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "`ok` is false when the action was not carried out.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "ok": {
+           "type": "boolean"
+          },
+          "error": {
+           "type": "string"
+          }
+         }
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "The service failed. Nothing was recorded. The call may be repeated."
+     }
+    }
+   }
+  },
+  "/schedule_callback": {
+   "post": {
+    "summary": "Book a callback.",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "member_ref": {
+          "type": "string"
+         },
+         "slot": {
+          "type": "string",
+          "description": "local date and time, YYYY-MM-DDTHH:MM"
+         }
+        },
+        "required": [
+         "member_ref",
+         "slot"
+        ]
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "`ok` is false when the action was not carried out.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "ok": {
+           "type": "boolean"
+          },
+          "error": {
+           "type": "string"
+          }
+         }
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "The service failed. Nothing was recorded. The call may be repeated."
+     }
+    }
+   }
+  },
+  "/transfer_to_agent": {
+   "post": {
+    "summary": "Hand the call to a person.",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "member_ref": {
+          "type": "string"
+         },
+         "desk": {
+          "type": "string",
+          "enum": [
+           "ARREARS_SUPPORT",
+           "PAYMENT_ARRANGEMENTS",
+           "MEMBER_SERVICES",
+           "RECOVERIES"
+          ]
+         }
+        },
+        "required": [
+         "member_ref",
+         "desk"
+        ]
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "`ok` is false when the action was not carried out.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "ok": {
+           "type": "boolean"
+          },
+          "error": {
+           "type": "string"
+          }
+         }
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "The service failed. Nothing was recorded. The call may be repeated."
+     }
+    }
+   }
+  },
+  "/close_call": {
+   "post": {
+    "summary": "End the call. Always the last tool call. Nothing is accepted after it.",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "member_ref": {
+          "type": "string"
+         },
+         "result": {
+          "type": "string",
+          "enum": [
+           "PTP",
+           "PAID",
+           "DSP",
+           "NPR",
+           "TRF",
+           "IDF",
+           "IDR",
+           "CBK",
+           "NCB",
+           "WRN",
+           "DEC",
+           "UNC",
+           "LGL"
+          ]
+         },
+         "detail": {
+          "type": "string",
+          "description": "Required for NPR (a note code) and TRF (the desk code). Leave out otherwise."
+         }
+        },
+        "required": [
+         "member_ref",
+         "result"
+        ]
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "`ok` is false when the action was not carried out.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "ok": {
+           "type": "boolean"
+          },
+          "error": {
+           "type": "string"
+          }
+         }
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "The service failed. Nothing was recorded. The call may be repeated."
+     }
+    }
+   }
+  }
+ }
+}

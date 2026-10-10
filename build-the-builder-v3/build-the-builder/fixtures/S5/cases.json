@@ -1,0 +1,1235 @@
+[
+ {
+  "id": "S5-01",
+  "brief": "S5",
+  "family": "Dates",
+  "level": "medium",
+  "title": "Sunday call (a business day); 'the Tuesday after next' equals the deadline",
+  "variables": {
+   "first_name": "Leila",
+   "last_name": "Haddad",
+   "title": "Ms",
+   "now": "2026-11-01T10:00"
+  },
+  "identity": {
+   "date_of_birth": "1987-02-14",
+   "phone_last4": "4410"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "6021",
+    "past_due": 1234.56,
+    "days_late": 10,
+    "minimum_payment": 123.46
+   }
+  ],
+  "script": "Yes, speaking. Born 14 February 1987, phone ends 4410. Cannot pay today. 'I can pay all of it, one thousand two hundred thirty-four fifty-six, the Tuesday after next.' Confirms.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 1234.56,
+     "date": "2026-11-17"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "Sunday is treated as a business day",
+   "'the Tuesday after next' = 2026-11-17, which is exactly the early deadline (12th business day after today) and is accepted",
+   "amount read back with cents"
+  ]
+ },
+ {
+  "id": "S5-02",
+  "brief": "S5",
+  "family": "Third party",
+  "level": "hard",
+  "title": "Thursday after the Thursday callback window; next business day is after a weekend, a bridging day and a holiday",
+  "variables": {
+   "first_name": "Omar",
+   "last_name": "Saleh",
+   "title": "Mr",
+   "now": "2026-11-19T15:30"
+  },
+  "identity": {
+   "date_of_birth": "1979-07-30",
+   "phone_last4": "0912"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "3388",
+    "past_due": 410.0,
+    "days_late": 5,
+    "minimum_payment": 50.0
+   }
+  ],
+  "script": "Brother answers. Offers 'tomorrow at ten'. Agent: not possible (Friday is weekend). Offers 'Tuesday at nine then'.",
+  "expected": {
+   "outcome": "not_reached",
+   "reason": "callback",
+   "promises": [],
+   "notes": [],
+   "callbacks": [
+    {
+     "date": "2026-11-24",
+     "time": "09:00"
+    }
+   ],
+   "transfers": []
+  },
+  "checks": [
+   "no callback today: Thursday window ended at 14:00",
+   "Friday rejected (weekend), asked once for another time",
+   "Sunday 22 Nov (bridging day) and Monday 23 Nov (Founders' Day) are not business days, so Tuesday 24 Nov is the next business day",
+   "reason for the call not disclosed"
+  ]
+ },
+ {
+  "id": "S5-03",
+  "brief": "S5",
+  "family": "Dates",
+  "level": "hard",
+  "title": "Call on a holiday: customer pays 'today', recorded on the next business day",
+  "variables": {
+   "first_name": "Yusuf",
+   "last_name": "Karam",
+   "title": "Mr",
+   "now": "2026-11-23T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1990-12-01",
+   "phone_last4": "7765"
+  },
+  "products": [
+   {
+    "type": "car_loan",
+    "past_due": 687.4,
+    "days_late": 20,
+    "instalment_amount": 210.0
+   }
+  ],
+  "script": "Verified. 'Yes, I can pay the six hundred eighty-seven forty today.' Agent explains today is not a business day and offers Tuesday 24 November. Agrees and confirms.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 687.4,
+     "date": "2026-11-24"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "today (Founders' Day) is not used as the promise date",
+   "customer told the promise is recorded for Tuesday 24 November",
+   "mid deadline counted with day 1 = Tuesday 24 Nov because today is closed: 2026-12-02"
+  ]
+ },
+ {
+  "id": "S5-04",
+  "brief": "S5",
+  "family": "Multi-product",
+  "level": "hard",
+  "title": "Friday (weekend) call: late card capped attempt, open public holiday",
+  "variables": {
+   "first_name": "Rania",
+   "last_name": "Aziz",
+   "title": "Ms",
+   "now": "2026-12-04T10:00"
+  },
+  "identity": {
+   "date_of_birth": "1983-05-09",
+   "phone_last4": "2207"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "1150",
+    "past_due": 1845.3,
+    "days_late": 50,
+    "minimum_payment": 150.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 960.0,
+    "days_late": 12,
+    "instalment_amount": 160.0
+   }
+  ],
+  "script": "Verified. Cannot pay everything today. Card: refuses the full amount on Tuesday 8 December, accepts the floor on Tuesday 8 December. Loan: 'I'll pay the loan in full on the eighth as well.' Confirms both.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 184.53,
+     "date": "2026-12-08"
+    },
+    {
+     "product_id": "p2",
+     "amount": 960.0,
+     "date": "2026-12-08"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "card floor = max(150,00; 10 % of 1.845,30 = 184,53) = 184.53",
+   "card attempt 1: this week's last business day (Thu 3 Dec) is past, next week's (Thu 10 Dec) is after the late deadline, so the deadline Tue 8 Dec is used",
+   "8 December is a business day for Corvane (public holiday, bank open)",
+   "late deadline: today is weekend, day 1 = Sun 6 Dec -> 2026-12-08"
+  ]
+ },
+ {
+  "id": "S5-05",
+  "brief": "S5",
+  "family": "Amounts",
+  "level": "hard",
+  "title": "New Year's Eve call; 'New Year's Day' rolls past a substitute holiday; loan floor capped by past due",
+  "variables": {
+   "first_name": "Hana",
+   "last_name": "Mansour",
+   "title": "Ms",
+   "now": "2026-12-31T09:30"
+  },
+  "identity": {
+   "date_of_birth": "1975-08-21",
+   "phone_last4": "5530"
+  },
+  "products": [
+   {
+    "type": "personal_loan",
+    "past_due": 280.75,
+    "days_late": 60,
+    "instalment_amount": 310.0
+   }
+  ],
+  "script": "Verified. 'I can do two hundred and forty comma five, on New Year's Day.' Agent: below the lowest amount, offers 280,75. Customer agrees. New Year's Day is a weekend day; agent offers Monday 4 January. Confirms.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 280.75,
+     "date": "2027-01-04"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "floor = min(instalment 310,00; past due 280,75) = 280.75, equal to the full amount",
+   "240.50 rejected as below the floor and the floor offered once",
+   "1 Jan (Friday, weekend) -> Sat weekend -> Sun 3 Jan observed holiday -> Mon 4 Jan",
+   "late deadline counted from Mon 4 Jan as day 1: 2027-01-06"
+  ]
+ },
+ {
+  "id": "S5-06",
+  "brief": "S5",
+  "family": "Multi-product",
+  "level": "hard",
+  "title": "Christmas week: attempt 1 jumps to next week, deadline chain crosses five closed days",
+  "variables": {
+   "first_name": "Karim",
+   "last_name": "Nassar",
+   "title": "Mr",
+   "now": "2026-12-23T16:00"
+  },
+  "identity": {
+   "date_of_birth": "1981-03-03",
+   "phone_last4": "8841"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7002",
+    "past_due": 640.0,
+    "days_late": 30,
+    "minimum_payment": 50.0
+   },
+   {
+    "type": "car_loan",
+    "past_due": 1500.0,
+    "days_late": 5,
+    "instalment_amount": 400.0
+   }
+  ],
+  "script": "Verified. Not today. Card: refuses full on Wednesday 30 December, refuses 64,00 on Thursday 7 January. Car loan: 'I'll pay the car loan in full the Tuesday after next.' Confirms.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p2",
+     "amount": 1500.0,
+     "date": "2027-01-05"
+    }
+   ],
+   "notes": [
+    {
+     "product_id": "p1",
+     "reason": "refused"
+    }
+   ],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "today is the last business day of this week (24 Dec closed) so attempt 1 = last business day of next week = Wed 30 Dec (31 Dec closed)",
+   "card mid deadline 2027-01-07 (23, 29, 30 Dec, 4, 5, 6, 7 Jan)",
+   "card floor 64.00 (10 % beats minimum 50,00)",
+   "'Tuesday after next' = 2027-01-05",
+   "card noted refused"
+  ]
+ },
+ {
+  "id": "S5-07",
+  "brief": "S5",
+  "family": "Dates",
+  "level": "hard",
+  "title": "Customer names a date after the deadline that is also a holiday; floor rounding half up",
+  "variables": {
+   "first_name": "Samir",
+   "last_name": "Fawzi",
+   "title": "Mr",
+   "now": "2026-12-15T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1992-10-10",
+   "phone_last4": "3019"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "5560",
+    "past_due": 2010.05,
+    "days_late": 70,
+    "minimum_payment": 200.0
+   }
+  ],
+  "script": "Verified. 'I can pay on Christmas Eve.' Agent: the latest date is Thursday 17 December. 'Fine, but not the whole amount.' Agent offers the floor 201,01 on 17 December. Accepts and confirms.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 201.01,
+     "date": "2026-12-17"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "Christmas Eve is after the deadline -> offer the deadline (not the business day after the holiday)",
+   "floor = 10 % of 2.010,05 = 201,005 -> 201.01 (half up), larger than minimum 200,00"
+  ]
+ },
+ {
+  "id": "S5-08",
+  "brief": "S5",
+  "family": "Tool failure",
+  "level": "hard",
+  "title": "Three bands, one date for all capped twice, first create_promise fails twice",
+  "variables": {
+   "first_name": "Nadia",
+   "last_name": "Rahim",
+   "title": "Ms",
+   "now": "2027-01-11T13:45"
+  },
+  "identity": {
+   "date_of_birth": "1986-06-06",
+   "phone_last4": "6624"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "9917",
+    "past_due": 220.0,
+    "days_late": 3,
+    "minimum_payment": 25.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 780.0,
+    "days_late": 40,
+    "instalment_amount": 130.0
+   },
+   {
+    "type": "car_loan",
+    "past_due": 2600.0,
+    "days_late": 88,
+    "instalment_amount": 700.0
+   }
+  ],
+  "script": "Verified. Cannot pay today. 'I'll pay all three in full next Wednesday.' Agent reads back: card Wed 20 Jan, loan on its deadline Tue 19 Jan, car loan on its deadline Wed 13 Jan. Confirms. Card promise fails twice.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p2",
+     "amount": 780.0,
+     "date": "2027-01-19"
+    },
+    {
+     "product_id": "p3",
+     "amount": 2600.0,
+     "date": "2027-01-13"
+    }
+   ],
+   "notes": [
+    {
+     "product_id": "p1",
+     "reason": "service_error"
+    }
+   ],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "'next Wednesday' = 2027-01-20 (following week)",
+   "loan capped to its mid deadline 2027-01-19, car loan to its late deadline 2027-01-13; read-back says so",
+   "card create_promise tried twice, customer told, card noted service_error",
+   "outcome promise because two promises were recorded"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 2
+   }
+  ]
+ },
+ {
+  "id": "S5-09",
+  "brief": "S5",
+  "family": "Amounts",
+  "level": "hard",
+  "title": "Below-floor amount, 'next Sunday' lands on a bridging day, read-back change after the deadline",
+  "variables": {
+   "first_name": "Tariq",
+   "last_name": "Bishara",
+   "title": "Mr",
+   "now": "2026-11-18T17:40"
+  },
+  "identity": {
+   "date_of_birth": "1969-01-25",
+   "phone_last4": "1180"
+  },
+  "products": [
+   {
+    "type": "personal_loan",
+    "past_due": 412.3,
+    "days_late": 16,
+    "instalment_amount": 95.0
+   }
+  ],
+  "script": "Verified. Full amount too much. 'I can do ninety.' Agent offers 95,00. 'OK, ninety-five, next Sunday.' Agent: Sunday 22 Nov is a closed day, offers Tuesday 24 Nov. At the read-back: 'actually make it the Thursday after next.' Agent: latest date is Monday 30 November. Accepts.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 95.0,
+     "date": "2026-11-30"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "floor = min(95,00; 412,30) = 95.00",
+   "'next Sunday' = 2026-11-22 (bridging day) -> next business day 2026-11-24 (23 Nov is a holiday)",
+   "'Thursday after next' = 2026-12-03 is after the mid deadline 2026-11-30 -> deadline offered",
+   "read-back repeated after the change"
+  ]
+ },
+ {
+  "id": "S5-10",
+  "brief": "S5",
+  "family": "Third party",
+  "level": "medium",
+  "title": "New Year's Day (Friday) third party: closed Sunday, then 19:00 exactly",
+  "variables": {
+   "first_name": "Lina",
+   "last_name": "Toma",
+   "title": "Ms",
+   "now": "2027-01-01T12:00"
+  },
+  "identity": {
+   "date_of_birth": "1994-04-17",
+   "phone_last4": "2290"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4044",
+    "past_due": 300.0,
+    "days_late": 9,
+    "minimum_payment": 30.0
+   }
+  ],
+  "script": "Husband answers. 'Call her Sunday at ten.' Agent: not possible. 'Monday at seven in the evening then.' Agent: not possible either.",
+  "expected": {
+   "outcome": "not_reached",
+   "reason": "no_callback",
+   "promises": [],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "today is weekend: no callback today",
+   "Sunday 3 Jan is the observed New Year holiday: not allowed",
+   "19:00 on a Monday is excluded (window up to but not including 19:00)",
+   "nothing booked after the second refusal"
+  ]
+ },
+ {
+  "id": "S5-11",
+  "brief": "S5",
+  "family": "Multi-product",
+  "level": "hard",
+  "title": "Thursday call: paid + dispute + late loan whose attempt 1 is capped to the deadline",
+  "variables": {
+   "first_name": "Fadi",
+   "last_name": "Haddad",
+   "title": "Mr",
+   "now": "2026-12-10T10:00"
+  },
+  "identity": {
+   "date_of_birth": "1977-11-02",
+   "phone_last4": "3307"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "8123",
+    "past_due": 150.0,
+    "days_late": 8,
+    "minimum_payment": 25.0
+   },
+   {
+    "type": "car_loan",
+    "past_due": 990.0,
+    "days_late": 33,
+    "instalment_amount": 300.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 505.5,
+    "days_late": 47,
+    "instalment_amount": 120.0
+   }
+  ],
+  "script": "Verified. Card: 'I paid that on Monday.' Car loan: 'That car loan is not mine.' Loan: not today; accepts the agent's offer of the full amount on Monday 14 December. Confirms.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p3",
+     "amount": 505.5,
+     "date": "2026-12-14"
+    }
+   ],
+   "notes": [
+    {
+     "product_id": "p1",
+     "reason": "paid"
+    },
+    {
+     "product_id": "p2",
+     "reason": "dispute"
+    }
+   ],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "today is the last business day of the week, so attempt 1 = next Thursday 17 Dec, then capped to the late deadline 2026-12-14",
+   "payments can take two business days to show",
+   "notes paid and dispute, outcome promise"
+  ]
+ },
+ {
+  "id": "S5-12",
+  "brief": "S5",
+  "family": "Identity",
+  "level": "medium",
+  "title": "Swapped date hint does not count; two wrong answers still pass; paid + refused",
+  "variables": {
+   "first_name": "Mira",
+   "last_name": "Saad",
+   "title": "Ms",
+   "now": "2026-12-07T09:00"
+  },
+  "identity": {
+   "date_of_birth": "1985-04-03",
+   "phone_last4": "9021"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "2266",
+    "past_due": 330.0,
+    "days_late": 22,
+    "minimum_payment": 40.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 720.0,
+    "days_late": 14,
+    "instalment_amount": 180.0
+   }
+  ],
+  "script": "Says date of birth '04/03/1985' (hint day_month_swapped), then 'the third of April 1985'. Phone digits wrong twice (9012, 9201), then 9021. Card already paid. Loan: not today; refuses the full amount on Thursday 10 December.",
+  "expected": {
+   "outcome": "no_promise",
+   "reason": "refused",
+   "promises": [],
+   "notes": [
+    {
+     "product_id": "p1",
+     "reason": "paid"
+    },
+    {
+     "product_id": "p2",
+     "reason": "refused"
+    }
+   ],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "swap retry not counted, two wrong answers out of three allowed",
+   "loan early band: one attempt (Thu 10 Dec), then stop",
+   "no_promise reason from the first non-paid note: refused -> refused"
+  ]
+ },
+ {
+  "id": "S5-13",
+  "brief": "S5",
+  "family": "Dates",
+  "level": "medium",
+  "title": "Call on the bridging day; 'this Thursday'",
+  "variables": {
+   "first_name": "Ziad",
+   "last_name": "Khoury",
+   "title": "Mr",
+   "now": "2026-11-22T09:00"
+  },
+  "identity": {
+   "date_of_birth": "1991-09-19",
+   "phone_last4": "4718"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "6677",
+    "past_due": 268.2,
+    "days_late": 25,
+    "minimum_payment": 30.0
+   }
+  ],
+  "script": "Verified. Not today. 'This Thursday, the whole two sixty-eight twenty.' Confirms.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 268.2,
+     "date": "2026-11-26"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "mid deadline: today and tomorrow closed, day 1 = Tue 24 Nov -> 2026-12-02",
+   "'this Thursday' = 2026-11-26"
+  ]
+ },
+ {
+  "id": "S5-14",
+  "brief": "S5",
+  "family": "Third party",
+  "level": "hard",
+  "title": "Christmas Eve (closed Thursday) third party; next business day after four closed days",
+  "variables": {
+   "first_name": "Dalia",
+   "last_name": "Hamdan",
+   "title": "Ms",
+   "now": "2026-12-24T10:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-12-12",
+   "phone_last4": "5151"
+  },
+  "products": [
+   {
+    "type": "personal_loan",
+    "past_due": 400.0,
+    "days_late": 30,
+    "instalment_amount": 100.0
+   }
+  ],
+  "script": "Mother answers. 'Ring her today at one.' Agent: not today. 'Tuesday at half past six in the evening.'",
+  "expected": {
+   "outcome": "not_reached",
+   "reason": "callback",
+   "promises": [],
+   "notes": [],
+   "callbacks": [
+    {
+     "date": "2026-12-29",
+     "time": "18:30"
+    }
+   ],
+   "transfers": []
+  },
+  "checks": [
+   "today closed -> no callback today even though 13:00 is within Thursday hours",
+   "next business day = Tue 29 Dec (25-26 weekend, 27-28 closed)",
+   "18:30 inside the Sunday-Wednesday window"
+  ]
+ },
+ {
+  "id": "S5-15",
+  "brief": "S5",
+  "family": "Third party",
+  "level": "medium",
+  "title": "Thursday window end included; a time earlier than now rejected",
+  "variables": {
+   "first_name": "Imad",
+   "last_name": "Sabbagh",
+   "title": "Mr",
+   "now": "2026-11-26T13:50"
+  },
+  "identity": {
+   "date_of_birth": "1972-06-30",
+   "phone_last4": "6060"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "1209",
+    "past_due": 210.0,
+    "days_late": 4,
+    "minimum_payment": 25.0
+   }
+  ],
+  "script": "Colleague answers. 'Call at half past one.' Agent: that time has passed. 'Two o'clock then.'",
+  "expected": {
+   "outcome": "not_reached",
+   "reason": "callback",
+   "promises": [],
+   "notes": [],
+   "callbacks": [
+    {
+     "date": "2026-11-26",
+     "time": "14:00"
+    }
+   ],
+   "transfers": []
+  },
+  "checks": [
+   "13:30 is before now -> asked once for another",
+   "14:00 on a Thursday is allowed (end included)"
+  ]
+ },
+ {
+  "id": "S5-16",
+  "brief": "S5",
+  "family": "Dates",
+  "level": "medium",
+  "title": "Last business day of the year: passed weekday, attempt 1 in the next week, single-product note",
+  "variables": {
+   "first_name": "Rami",
+   "last_name": "Atallah",
+   "title": "Mr",
+   "now": "2026-12-30T18:00"
+  },
+  "identity": {
+   "date_of_birth": "1980-02-29",
+   "phone_last4": "7319"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "3030",
+    "past_due": 512.4,
+    "days_late": 2,
+    "minimum_payment": 60.0
+   }
+  ],
+  "script": "Verified. Not today. 'Maybe this Monday.' Agent: that date has passed, asks for another. 'No, I cannot pay anything.' Agent offers the full amount on Thursday 7 January. Refuses.",
+  "expected": {
+   "outcome": "no_promise",
+   "reason": "refused",
+   "promises": [],
+   "notes": [
+    {
+     "product_id": "p1",
+     "reason": "refused"
+    }
+   ],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "'this Monday' (28 Dec) is in the past -> ask for another date, not a refusal",
+   "today is the week's last business day -> attempt 1 = Thu 7 Jan",
+   "early band: one attempt; note refused also with one product"
+  ]
+ },
+ {
+  "id": "S5-17",
+  "brief": "S5",
+  "family": "Amounts",
+  "level": "medium",
+  "title": "Car loan floor is 25 % rounded up; instalment field ignored",
+  "variables": {
+   "first_name": "Huda",
+   "last_name": "Barakat",
+   "title": "Ms",
+   "now": "2026-12-01T12:15"
+  },
+  "identity": {
+   "date_of_birth": "1995-07-07",
+   "phone_last4": "8080"
+  },
+  "products": [
+   {
+    "type": "car_loan",
+    "past_due": 1030.1,
+    "days_late": 40,
+    "instalment_amount": 300.0
+   }
+  ],
+  "script": "Verified. 'That's too much for me.' Agent offers 258,00 on Thursday 3 December. Accepts and confirms.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 258.0,
+     "date": "2026-12-03"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "floor = 25 % of 1.030,10 = 257,525 -> rounded up to 258.00 (not 300,00 instalment, not 257,53)",
+   "attempt 1 with the floor on the last business day of this week (Thu 3 Dec)"
+  ]
+ },
+ {
+  "id": "S5-18",
+  "brief": "S5",
+  "family": "Amounts",
+  "level": "medium",
+  "title": "Customer amount with cents between floor and full; 'the day after tomorrow' is the open public holiday",
+  "variables": {
+   "first_name": "Bilal",
+   "last_name": "Jaber",
+   "title": "Mr",
+   "now": "2026-12-06T08:30"
+  },
+  "identity": {
+   "date_of_birth": "1984-01-18",
+   "phone_last4": "1717"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4501",
+    "past_due": 2468.9,
+    "days_late": 30,
+    "minimum_payment": 120.0
+   }
+  ],
+  "script": "Verified. 'I can pay two hundred and fifty euros ten, the day after tomorrow.' Confirms.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 250.1,
+     "date": "2026-12-08"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "card floor 246.89 (10 % beats 120,00); 250.10 accepted",
+   "2026-12-08 is a business day for Corvane"
+  ]
+ },
+ {
+  "id": "S5-19",
+  "brief": "S5",
+  "family": "Hardship",
+  "level": "hard",
+  "title": "Hardship transfer declined, customer still promises on the second product",
+  "variables": {
+   "first_name": "Salma",
+   "last_name": "Odeh",
+   "title": "Ms",
+   "now": "2026-11-30T15:00"
+  },
+  "identity": {
+   "date_of_birth": "1970-10-04",
+   "phone_last4": "2442"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "9988",
+    "past_due": 380.0,
+    "days_late": 12,
+    "minimum_payment": 40.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 625.0,
+    "days_late": 35,
+    "instalment_amount": 125.0
+   }
+  ],
+  "script": "Verified. 'I lost my job last month.' Agent: sympathy, offers support team. Declines. 'I can still pay the loan, all of it, this Thursday.' Confirms.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p2",
+     "amount": 625.0,
+     "date": "2026-12-03"
+    }
+   ],
+   "notes": [
+    {
+     "product_id": "p1",
+     "reason": "hardship"
+    }
+   ],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "no persuasion after hardship",
+   "card noted hardship, loan promise recorded",
+   "outcome promise (row 2)"
+  ]
+ },
+ {
+  "id": "S5-20",
+  "brief": "S5",
+  "family": "Restructuring",
+  "level": "hard",
+  "title": "Agreed but unrecorded promise is dropped on a plan request",
+  "variables": {
+   "first_name": "Adel",
+   "last_name": "Najjar",
+   "title": "Mr",
+   "now": "2026-11-17T10:40"
+  },
+  "identity": {
+   "date_of_birth": "1966-03-23",
+   "phone_last4": "3636"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7171",
+    "past_due": 450.0,
+    "days_late": 9,
+    "minimum_payment": 45.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 1280.0,
+    "days_late": 19,
+    "instalment_amount": 320.0
+   }
+  ],
+  "script": "Verified. Card: agrees the full amount this Thursday. Loan: 'Can I just pay lower instalments on the loan?'",
+  "expected": {
+   "outcome": "transferred",
+   "reason": "restructuring",
+   "promises": [],
+   "notes": [],
+   "callbacks": [],
+   "transfers": [
+    {
+     "queue": "restructuring"
+    }
+   ]
+  },
+  "checks": [
+   "no create_promise: the card promise was agreed but not yet read back and recorded",
+   "no notes on the transfer",
+   "plan terms not discussed"
+  ]
+ },
+ {
+  "id": "S5-21",
+  "brief": "S5",
+  "family": "Amounts",
+  "level": "medium",
+  "title": "Minimum payment beats 10 %; below-floor offer then refusal ends the single attempt",
+  "variables": {
+   "first_name": "Nour",
+   "last_name": "Hassan",
+   "title": "Ms",
+   "now": "2026-11-08T09:20"
+  },
+  "identity": {
+   "date_of_birth": "1993-08-08",
+   "phone_last4": "4848"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "2828",
+    "past_due": 300.0,
+    "days_late": 9,
+    "minimum_payment": 45.0
+   }
+  ],
+  "script": "Verified. 'Three hundred is too much.' Agent offers 45,00 on Thursday 12 November. 'Forty?' Agent: cannot record less than 45,00. 'Then no.'",
+  "expected": {
+   "outcome": "no_promise",
+   "reason": "refused",
+   "promises": [],
+   "notes": [
+    {
+     "product_id": "p1",
+     "reason": "refused"
+    }
+   ],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "floor = max(45,00; 30,00) = 45.00",
+   "40 rejected, floor offered once",
+   "refusal of the floor uses the single early attempt"
+  ]
+ },
+ {
+  "id": "S5-22",
+  "brief": "S5",
+  "family": "Dates",
+  "level": "medium",
+  "title": "Vague date twice -> deadline, which is a Sunday",
+  "variables": {
+   "first_name": "Majd",
+   "last_name": "Daher",
+   "title": "Mr",
+   "now": "2026-12-16T14:10"
+  },
+  "identity": {
+   "date_of_birth": "1982-05-15",
+   "phone_last4": "5959"
+  },
+  "products": [
+   {
+    "type": "personal_loan",
+    "past_due": 512.0,
+    "days_late": 3,
+    "instalment_amount": 128.0
+   }
+  ],
+  "script": "Verified. Not today. 'Around New Year.' Agent asks for the exact day. 'Sometime in January.' Agent proposes Sunday 10 January. Accepts the full amount and confirms.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 512.0,
+     "date": "2027-01-10"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "early deadline: 12th business day after today = 2027-01-10 (a Sunday, business day here)",
+   "vague date asked once, then the deadline proposed"
+  ]
+ },
+ {
+  "id": "S5-23",
+  "brief": "S5",
+  "family": "Identity",
+  "level": "medium",
+  "title": "Swapped date not counted, three wrong phone answers fail",
+  "variables": {
+   "first_name": "Ghada",
+   "last_name": "Issa",
+   "title": "Ms",
+   "now": "2026-11-04T16:00"
+  },
+  "identity": {
+   "date_of_birth": "1990-04-03",
+   "phone_last4": "1357"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "6464",
+    "past_due": 199.99,
+    "days_late": 6,
+    "minimum_payment": 25.0
+   }
+  ],
+  "script": "Date of birth '04/03/1990' (hint day_month_swapped), then 'April the third, 1990'. Phone digits 1375, 1537, 3157.",
+  "expected": {
+   "outcome": "not_verified",
+   "reason": "id_failed",
+   "promises": [],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "swap retry does not count",
+   "third wrong answer ends the check",
+   "nothing about the account disclosed"
+  ]
+ },
+ {
+  "id": "S5-24",
+  "brief": "S5",
+  "family": "Dates",
+  "level": "hard",
+  "title": "Band boundaries 45/46 on the first business day after the New Year closures; one date for both",
+  "variables": {
+   "first_name": "Kamal",
+   "last_name": "Shami",
+   "title": "Mr",
+   "now": "2027-01-04T09:05"
+  },
+  "identity": {
+   "date_of_birth": "1974-09-09",
+   "phone_last4": "2580"
+  },
+  "products": [
+   {
+    "type": "car_loan",
+    "past_due": 1999.99,
+    "days_late": 46,
+    "instalment_amount": 600.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 845.25,
+    "days_late": 45,
+    "instalment_amount": 210.0
+   }
+  ],
+  "script": "Verified. Not today. 'I'll pay both in full this Thursday.' Agent: the car loan must be by Wednesday 6 January. Accepts. Confirms.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 1999.99,
+     "date": "2027-01-06"
+    },
+    {
+     "product_id": "p2",
+     "amount": 845.25,
+     "date": "2027-01-07"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "46 days = late band (deadline 2027-01-06), 45 days = mid band (deadline 2027-01-12)",
+   "'this Thursday' = 2027-01-07, car loan capped to its deadline and the read-back says so"
+  ]
+ },
+ {
+  "id": "S5-25",
+  "brief": "S5",
+  "family": "Dates",
+  "level": "medium",
+  "title": "Date without a year falls on a Sunday business day",
+  "variables": {
+   "first_name": "Rasha",
+   "last_name": "Ayoub",
+   "title": "Ms",
+   "now": "2026-11-03T11:30"
+  },
+  "identity": {
+   "date_of_birth": "1989-11-11",
+   "phone_last4": "3434"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "8787",
+    "past_due": 365.0,
+    "days_late": 7,
+    "minimum_payment": 36.5
+   }
+  ],
+  "script": "Verified. Not today. 'On the fifteenth of November, the full three sixty-five.' Confirms.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 365.0,
+     "date": "2026-11-15"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "no year -> 2026-11-15",
+   "a Sunday is a business day at Corvane; no roll",
+   "on or before the early deadline 2026-11-19"
+  ]
+ }
+]

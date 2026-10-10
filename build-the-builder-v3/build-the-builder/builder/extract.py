@@ -11,6 +11,27 @@ How it works (generic: nothing from any particular brief lives in this file):
   5. normalise types (ISO dates, HH:MM, ints), cross-check enums against the tools, never crash:
      anything that does not fit goes to the nearest "notes"
 Later documents override/extend earlier ones (Brief B over Brief A, a memo over a mail).
+
+Policy extensions (keys beyond contract v1 that the extractor fills; the generator should honour them):
+  calendar.week_starts       ISO weekday (1=Mon .. 7=Sun) the calendar week starts on. Always set: the stated
+                             value, else the first business day after the weekend (Sat+Sun weekend -> 1).
+                             "end of (this/next) week" and "this/next <weekday>" use this week, not Mon-Sun.
+  calendar.non_holidays      ["YYYY-MM-DD"] dates the documents say are business days although they look like
+                             holidays; never in calendar.holidays (informational, for prompts).
+  products.types[t].floor_expr  minimum amount as an expression over response fields (when no single field
+                             holds it): numbers, fields, + - * /, min, max, round_half_up(x, d), round_up(x, d),
+                             round_down(x, d) (aliases round/ceil/floor). Evaluate with eval_amount_expr(expr,
+                             product). floor_field is null then. A type with no lower amount gets
+                             floor_field = full_field.
+  callback.days              keywords only: "today" | "tomorrow" | "next_business_day" | "business_days:N".
+  callback.today_requires_business_day  bool: a callback today only when today is a business day.
+  callback.per_weekday       {"<ISO weekday>": {start, end, end_inclusive?}} window for that weekday
+                             (end_inclusive falls back to callback.end_inclusive).
+  callback.per_date          {"YYYY-MM-DD": {start, end, end_inclusive?}} window for one date (wins over
+                             per_weekday and the general window).
+  callback.max_asks, identity.max_wrong_scope, dates.next_weekday, products.list_field/type_field/id_field/
+  days_late_field, bands[].attempts[].date keywords incl. "nth_business_day:N", triggers[].condition,
+  closing{...}: as described in CONTRACT below.
 """
 import argparse
 import concurrent.futures as cf
@@ -451,7 +472,11 @@ CONTRACT = {
     "calendar": '{"weekend": [ISO weekday ints, Monday=1 .. Sunday=7, that are NOT business days], '
                 '"holidays": ["YYYY-MM-DD", every listed non-business date, after applying overrides], '
                 '"roll_rule": "next_business_day"|"previous_business_day"|"none" (what to do when a named or '
-                'computed date is not a business day), "notes": [verbatim calendar sentences not captured]}',
+                'computed date is not a business day), "week_starts": ISO weekday int the documents\' calendar '
+                'week starts on (e.g. a week "from Sunday to Saturday" starts on 7) or null if not stated, '
+                '"non_holidays": ["YYYY-MM-DD" dates the documents explicitly say are normal business days although '
+                'they look like holidays (never put these in holidays)], "notes": [verbatim calendar sentences not '
+                'captured]}',
     "opening": '{"text": the required first sentence / its required content, "disclosures": [things that must '
                'be said up front], "forbidden_before_verification": [words/topics that must not be said before '
                'identity is verified], "notes": [verbatim rules about confirming who is on the line and any other '
@@ -476,10 +501,15 @@ CONTRACT = {
     "products": '{"max_count": int (max late products per customer; 1 if the documents only speak of one), '
                 '"types": {<exact product type value from the account tool response>: {"speak_as": how to name '
                 'it aloud (verbatim, with {response_field} placeholders if it includes data), "floor_field": '
-                'response field holding the minimum acceptable amount (null if none), "floor_expr": null, or '
-                'when the minimum is a rule rather than one field, an expression over numbers and response '
-                'fields using min(a, b), max(a, b), + - * / (e.g. "min(<number>, <field>)"), '
-                '"full_field": response field holding the full amount due}}, "order": "as_returned", '
+                'response field holding the minimum acceptable amount (when the documents say there is no lower '
+                'amount for this type, the full_field; null only if the minimum is a rule), "floor_expr": null, '
+                'or when the minimum is a rule rather than one field, an expression over numbers and response '
+                'fields using min(a, b), max(a, b), + - * /, round_half_up(x, <decimals>), round_up(x, '
+                '<decimals>), round_down(x, <decimals>) (e.g. "min(<number>, <field>)", "round_half_up(0.1 * '
+                '<field>, 2)"); write percentages as decimals and include EVERY rounding the documents state '
+                '(to the cent = 2 decimals, to a whole unit = 0); a response field the documents say is not '
+                'used must not appear, "full_field": response field holding the full amount due}}, '
+                '"order": "as_returned", '
                 '"list_field": response field holding the product list, "type_field": item field holding the '
                 'product type, "id_field": item field holding the product id, "days_late_field": item field '
                 'holding the days late, "notes": []}',
@@ -490,12 +520,16 @@ CONTRACT = {
              '"date": one of ' + _opts(DATE_OPTIONS) + ' or a text expression (' + DATE_OPTIONS_HELP + '), '
              '"text": verbatim description of this attempt}], "notes": []}]  -- one entry per row of the '
              'lateness / deadline table; attempts = persuasion attempts allowed in that band (empty list if none)',
-    "callback": '{"days": [allowed callback days, e.g. "today", "next_business_day", or text], "start": "HH:MM", '
-                '"end": "HH:MM", "end_inclusive": bool, "must_be_after_now": bool, "per_weekday": {<ISO weekday int '
-                'as a string, Monday="1">: {"start": "HH:MM", "end": "HH:MM"}} for days whose window differs from '
-                'the general one ({} if none), "max_asks": int (how many times a callback time may be asked for '
-                'in total), "notes": [verbatim callback rules: what if the offered time is outside the window, '
-                'how many re-asks, outcomes]}',
+    "callback": '{"days": [allowed callback days as keywords: "today", "tomorrow", "next_business_day", '
+                '"business_days:<N>" (conditions go in the fields below / notes, not in this list)], '
+                '"today_requires_business_day": bool (true when a callback today is allowed only if today is a '
+                'business day), "start": "HH:MM", "end": "HH:MM", "end_inclusive": bool, "must_be_after_now": '
+                'bool, "per_weekday": {<ISO weekday int as a string, Monday="1">: {"start": "HH:MM", "end": '
+                '"HH:MM", "end_inclusive": bool}} for weekdays whose window differs from the general one ({} if '
+                'none), "per_date": {"YYYY-MM-DD": {"start": "HH:MM", "end": "HH:MM", "end_inclusive": bool}} for '
+                'specific dates with their own window, after overrides ({} if none), "max_asks": int (how many '
+                'times a callback time may be asked for in total), "notes": [verbatim callback rules: what if the '
+                'offered time is outside the window, how many re-asks, outcomes]}',
     "amounts": '{"min": "floor", "max": "full", "below_min": "reject"|"accept"|text, "ask_open_amount": bool '
                '(true only if the documents allow an open question about the amount), "rules": [verbatim amount '
                'rules], "notes": []}',
@@ -517,10 +551,12 @@ CONTRACT = {
                 'write it in words)}, "notes": [verbatim rule text and conditions]}]  -- every '
                 'special situation/trigger the documents describe (anything the customer may say or do that '
                 'changes the normal flow), with the exact action/queue/outcome/reason values they give',
-    "notes": '{"tool_reasons": [exact reason enum values of the note tool], "when": verbatim rule for when a note '
+    "notes": '{"tool_reasons": [exact reason enum values of the note tool the agent may use; leave out values '
+             'the documents mark as retired, unused, not to be used or not for the agent], "when": verbatim rule for when a note '
              'is written, "forbidden_on_transfer": bool, "notes": []}',
     "outcomes": '{"table": [{"outcome": exact value, "reason": exact value or null, "when": text with the rule '
-                'refs}] (one row per outcome/reason pair), "precedence": [verbatim rules on which outcome wins], '
+                'refs}] (one row per outcome/reason pair the agent may use; leave out values the documents mark '
+                'as retired, unused, not to be used or reserved for others such as back office), "precedence": [verbatim rules on which outcome wins], '
                 '"multi_product": verbatim rule for choosing the outcome with several products (or ""), "notes": []}',
     "phrases": '{<snake_case key>: verbatim sentence the documents require the agent to say, one entry per '
                'required sentence}',
@@ -872,7 +908,15 @@ def normalise_section(key, v, warnings):
                 warnings.append("calendar.holidays: unparsed %r" % (d,))
             elif iso not in hol:
                 hol.append(iso)
-        v["holidays"] = sorted(hol)
+        non = []
+        for d in _items(v.get("non_holidays")):
+            iso = norm_date(d.get("date") if isinstance(d, dict) else d)
+            if iso and iso not in non:
+                non.append(iso)
+        v["non_holidays"] = sorted(non)
+        v["holidays"] = sorted(h for h in hol if h not in non)
+        ws = _weekday(v.get("week_starts"))
+        v["week_starts"] = ws if ws is not None else default_week_start(v["weekend"])
         rr = _s(v.get("roll_rule")).replace(" ", "_").replace("-", "_")
         v["roll_rule"] = rr if rr in ("next_business_day", "previous_business_day", "none") else \
             ("next_business_day" if "next" in rr else "previous_business_day" if "prev" in rr else "none")
@@ -888,7 +932,17 @@ def normalise_section(key, v, warnings):
                     warnings.append("callback.%s: unparsed %r" % (f, v[f]))
                 v[f] = t
         days = v.get("days")
-        v["days"] = [str(d) for d in days] if isinstance(days, list) else ([str(days)] if days else [])
+        days = [str(d) for d in days] if isinstance(days, list) else ([str(days)] if days else [])
+        v["days"] = []
+        for d in days:
+            kw, cond = callback_day(d)
+            if cond:
+                notes.append("callback day: %s" % d)
+                if kw == "today" and re.search(r"business|working|banking|open", cond):
+                    v["today_requires_business_day"] = True
+            if kw not in v["days"]:
+                v["days"].append(kw)
+        v["today_requires_business_day"] = _bool(v.get("today_requires_business_day"))
         for f in ("end_inclusive", "must_be_after_now"):
             if f in v:
                 v[f] = _bool(v[f])
@@ -901,8 +955,19 @@ def normalise_section(key, v, warnings):
             if wd is None or not isinstance(win, dict):
                 notes.append("unparsed per_weekday entry: %s" % json.dumps({str(day): win}, ensure_ascii=False))
                 continue
-            pw[str(wd)] = {"start": norm_time(win.get("start")), "end": norm_time(win.get("end"))}
+            pw[str(wd)] = _window(win)
         v["per_weekday"] = pw
+        pd = {}
+        raw_pd = v.get("per_date")
+        if isinstance(raw_pd, list):  # [{"date": .., "start": .., "end": ..}]
+            raw_pd = {x.get("date"): x for x in raw_pd if isinstance(x, dict)}
+        for day, win in (raw_pd or {}).items() if isinstance(raw_pd, dict) else []:
+            iso = norm_date(day)
+            if iso is None or not isinstance(win, dict):
+                notes.append("unparsed per_date entry: %s" % json.dumps({str(day): win}, ensure_ascii=False))
+                continue
+            pd[iso] = _window(win)
+        v["per_date"] = pd
         if v.get("max_asks") is not None:
             v["max_asks"] = _int(v.get("max_asks"))
         return v
@@ -961,6 +1026,12 @@ def normalise_section(key, v, warnings):
                     types[t.get("type") or t.get("value")] = t
             v["types"] = types
         v.setdefault("order", "as_returned")
+        for t, info in v["types"].items():
+            if not isinstance(info, dict):
+                continue
+            if not info.get("floor_field") and not info.get("floor_expr") and info.get("full_field"):
+                # no lower amount stated: the floor is the full amount
+                info["floor_field"] = info["full_field"]
         return v
     if key == "dates":
         v = _as_dict(key, v, warnings)
@@ -1078,6 +1149,43 @@ def normalise_section(key, v, warnings):
     return v
 
 
+def default_week_start(weekend):
+    """ISO weekday a week starts on when the documents do not say: the first business day after the weekend
+    (Saturday+Sunday weekend -> Monday). Monday when there is no weekend."""
+    wk = set(weekend or [])
+    for d in range(1, 8):
+        prev = 7 if d == 1 else d - 1
+        if d not in wk and prev in wk:
+            return d
+    return 1
+
+
+_DAY_KEYWORDS = [("next_business_day", r"next[ _](?:business|working|banking)[ _]day"), ("today", r"today"),
+                 ("tomorrow", r"tomorrow")]
+
+
+def callback_day(d):
+    """('keyword', 'condition text') for a callback day: 'today (only if a business day)' ->
+    ('today', 'only if a business day'). Unknown wording is returned unchanged with no condition."""
+    s = str(d or "").strip()
+    low = s.lower()
+    m = re.match(r"^business_days?[:_ ](\d+)$", low)
+    if m:
+        return "business_days:%s" % m.group(1), ""
+    for kw, pat in _DAY_KEYWORDS:
+        m = re.match(r"^(?:the )?%s\b(.*)$" % pat, low)
+        if m:
+            return kw, m.group(1).strip(" ()-,;:")
+    return s, ""
+
+
+def _window(win):
+    out = {"start": norm_time(win.get("start")), "end": norm_time(win.get("end"))}
+    if win.get("end_inclusive") is not None:
+        out["end_inclusive"] = _bool(win.get("end_inclusive"))
+    return out
+
+
 def _pair(x):
     """{"outcome", "reason"} from a dict / [outcome, reason] / "outcome / reason"; None when no outcome."""
     if isinstance(x, dict):
@@ -1134,9 +1242,9 @@ def _number(v):
     if not isinstance(v, str):
         return None
     t = v.strip().lower()
-    m = re.search(r"-?\d[\d ,]*(?:\.\d+)?", t)
+    m = re.search(r"-?\d[\d ,.]*", t)
     if m:
-        raw = m.group(0).replace(" ", "").replace(",", "")
+        raw = _plain_number(m.group(0).strip(" ,."))
         try:
             f = float(raw)
             return int(f) if f.is_integer() else f
@@ -1160,14 +1268,44 @@ def _number(v):
     return total + cur if seen else None
 
 
+def _plain_number(s):
+    """'1.234,56' / '1,234.56' / '3 000' / '12,5' -> '1234.56' / '1234.56' / '3000' / '12.5'. The last of
+    '.'/',' is the decimal mark when both appear; a single mark followed by exactly 3 digits (once or
+    repeatedly) is a thousands separator."""
+    s = s.replace(" ", "")
+    if "." in s and "," in s:
+        dec = "." if s.rfind(".") > s.rfind(",") else ","
+        th = "," if dec == "." else "."
+        return s.replace(th, "").replace(dec, ".")
+    for mark in (",", "."):
+        if mark in s:
+            parts = s.split(mark)
+            if len(parts) > 2 or (len(parts[-1]) == 3 and parts[0].lstrip("-")):
+                if all(len(p) == 3 for p in parts[1:]):
+                    return s.replace(mark, "")
+            return s.replace(mark, ".") if len(parts) == 2 else s.replace(mark, "")
+    return s
+
+
 _TENS = {"thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90}
 
 
 def eval_amount_expr(expr, fields):
-    """Evaluate a floor/amount expression such as 'min(50, past_due)', 'max(10%, minimum)' or 'past_due * 0.1'
-    over a product's response fields. Only numbers, field names, + - * /, min, max and 'N%' (of the first
-    field named 'full' in fields, if given, else N/100). Returns a float or None; never raises."""
+    """Evaluate a floor/amount expression such as 'min(50, due)', 'max(10%, minimum)' or 'due * 0.1'
+    over a product's response fields. Only numbers, field names, + - * /, min, max, 'N%' (= N/100) and the
+    rounding functions round_half_up(x, d) / round(x, d), round_up(x, d) / ceil(x), round_down(x, d) / floor(x)
+    (d decimals, default 0). Returns a float rounded to the cent, or None; never raises."""
     import ast
+    import decimal
+
+    def rnd(x, d, mode):
+        q = decimal.Decimal(1).scaleb(-int(d))
+        x = decimal.Decimal(repr(round(float(x), 9)))
+        return float(x.quantize(q, rounding=mode))
+
+    funcs = {"round_half_up": decimal.ROUND_HALF_UP, "round": decimal.ROUND_HALF_UP,
+             "round_up": decimal.ROUND_CEILING, "ceil": decimal.ROUND_CEILING, "ceiling": decimal.ROUND_CEILING,
+             "round_down": decimal.ROUND_FLOOR, "floor": decimal.ROUND_FLOOR}
     try:
         src = re.sub(r"(\d+(?:\.\d+)?)\s*%", r"(\1/100.0)", str(expr or ""))
         tree = ast.parse(src, mode="eval")
@@ -1188,6 +1326,9 @@ def eval_amount_expr(expr, fields):
             if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id in ("min", "max") and n.args:
                 vals = [ev(a) for a in n.args]
                 return min(vals) if n.func.id == "min" else max(vals)
+            if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id in funcs and n.args:
+                d = ev(n.args[1]) if len(n.args) > 1 else 0
+                return rnd(ev(n.args[0]), d, funcs[n.func.id])
             raise ValueError("unsupported")
         out = ev(tree)
         return round(out, 2) if out is not None else None

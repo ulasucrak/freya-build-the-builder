@@ -1,0 +1,675 @@
+{
+ "bank": "Tidewater Bank",
+ "form": "clean specification, Brief A+B structure with different numbers, phrases and reasons; conversation-behaviour bank",
+ "brief_files": [
+  "brief.md"
+ ],
+ "openapi": "openapi.json",
+ "live_compatible": true,
+ "variables": [
+  "customer_id",
+  "first_name",
+  "last_name",
+  "title",
+  "now"
+ ],
+ "clock": {
+  "now_variable": "now"
+ },
+ "calendar": {
+  "weekend": [
+   6,
+   7
+  ],
+  "holidays": [
+   "2026-10-27",
+   "2026-11-13",
+   "2026-12-08",
+   "2026-12-25",
+   "2026-12-28",
+   "2027-01-01"
+  ],
+  "roll_rule": "next_business_day"
+ },
+ "opening": {
+  "forbidden_before_verification": [
+   "overdue",
+   "arrears",
+   "collections",
+   "owe",
+   "balance",
+   "product name"
+  ],
+  "confirm_question": "Is that {title} {last_name}?",
+  "unclear_asks": 2,
+  "unclear_outcome": [
+   "not_reached",
+   "unclear_id"
+  ]
+ },
+ "identity": {
+  "questions": [
+   {
+    "order": 1,
+    "tool_field": "date_of_birth",
+    "answer_format": "date",
+    "normalise": "dmy_to_iso"
+   },
+   {
+    "order": 2,
+    "tool_field": "phone_last4",
+    "answer_format": "digits",
+    "normalise": "digits_only"
+   }
+  ],
+  "max_wrong": 3,
+  "max_wrong_scope": "total over both questions",
+  "swap_hint": "day_month_swapped",
+  "pieces_rule": "wait for the rest of a date or number given in pieces; a correction replaces the earlier value",
+  "fail": {
+   "outcome": "not_verified",
+   "reason": "id_failed"
+  },
+  "declined": {
+   "outcome": "not_verified",
+   "reason": "id_declined"
+  },
+  "why_question": "explain once, not a refusal; asking what the call is about counts as a refusal"
+ },
+ "products": {
+  "max_count": 3,
+  "floor_field": {
+   "credit_card": "minimum_payment",
+   "personal_loan": "instalment_amount",
+   "car_loan": "instalment_amount"
+  }
+ },
+ "bands": [
+  {
+   "name": "gentle",
+   "min_days_late": 1,
+   "max_days_late": 5,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 9,
+    "counted_from": "tomorrow"
+   },
+   "attempts": 1
+  },
+  {
+   "name": "standard",
+   "min_days_late": 6,
+   "max_days_late": 25,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 5,
+    "counted_from": "tomorrow"
+   },
+   "attempts": 2
+  },
+  {
+   "name": "last",
+   "min_days_late": 26,
+   "max_days_late": 60,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 2,
+    "counted_from": "tomorrow"
+   },
+   "attempts": 2
+  }
+ ],
+ "attempts": [
+  {
+   "n": 1,
+   "amount": "full (or floor if full already said too much)",
+   "date": "2nd business day after today, or the deadline if earlier"
+  },
+  {
+   "n": 2,
+   "bands": [
+    "standard",
+    "last"
+   ],
+   "amount": "floor",
+   "date": "deadline"
+  }
+ ],
+ "next_weekday_rule": "first such weekday after today",
+ "day_of_month_rule": "a day of the month without a month = first such date today or later",
+ "vague_date": "ask once for exact day, then propose the deadline",
+ "deadline_examples": [
+  {
+   "case": "S7-01",
+   "product_id": "p1",
+   "now": "2026-10-14T11:00",
+   "days_late": 3,
+   "band": "gentle",
+   "deadline": "2026-10-28",
+   "attempt_1_date": "2026-10-16"
+  },
+  {
+   "case": "S7-02",
+   "product_id": "p1",
+   "now": "2026-11-05T09:30",
+   "days_late": 8,
+   "band": "standard",
+   "deadline": "2026-11-12",
+   "attempt_1_date": "2026-11-09"
+  },
+  {
+   "case": "S7-03",
+   "product_id": "p1",
+   "now": "2026-10-21T10:15",
+   "days_late": 4,
+   "band": "gentle",
+   "deadline": "2026-11-04",
+   "attempt_1_date": "2026-10-23"
+  },
+  {
+   "case": "S7-04",
+   "product_id": "p1",
+   "now": "2026-11-16T14:00",
+   "days_late": 14,
+   "band": "standard",
+   "deadline": "2026-11-23",
+   "attempt_1_date": "2026-11-18"
+  },
+  {
+   "case": "S7-05",
+   "product_id": "p1",
+   "now": "2026-11-17T09:00",
+   "days_late": 2,
+   "band": "gentle",
+   "deadline": "2026-11-30",
+   "attempt_1_date": "2026-11-19"
+  },
+  {
+   "case": "S7-08",
+   "product_id": "p1",
+   "now": "2026-10-22T12:00",
+   "days_late": 5,
+   "band": "gentle",
+   "deadline": "2026-11-05",
+   "attempt_1_date": "2026-10-26"
+  },
+  {
+   "case": "S7-16",
+   "product_id": "p1",
+   "now": "2026-11-04T10:30",
+   "days_late": 12,
+   "band": "standard",
+   "deadline": "2026-11-11",
+   "attempt_1_date": "2026-11-06"
+  },
+  {
+   "case": "S7-17",
+   "product_id": "p1",
+   "now": "2026-11-03T09:40",
+   "days_late": 20,
+   "band": "standard",
+   "deadline": "2026-11-10",
+   "attempt_1_date": "2026-11-05"
+  },
+  {
+   "case": "S7-18",
+   "product_id": "p1",
+   "now": "2026-10-19T10:00",
+   "days_late": 9,
+   "band": "standard",
+   "deadline": "2026-10-26",
+   "attempt_1_date": "2026-10-21"
+  },
+  {
+   "case": "S7-19",
+   "product_id": "p1",
+   "now": "2026-11-19T15:40",
+   "days_late": 3,
+   "band": "gentle",
+   "deadline": "2026-12-02",
+   "attempt_1_date": "2026-11-23"
+  },
+  {
+   "case": "S7-20",
+   "product_id": "p1",
+   "now": "2026-11-23T10:00",
+   "days_late": 18,
+   "band": "standard",
+   "deadline": "2026-11-30",
+   "attempt_1_date": "2026-11-25"
+  },
+  {
+   "case": "S7-21",
+   "product_id": "p1",
+   "now": "2026-12-01T11:10",
+   "days_late": 22,
+   "band": "standard",
+   "deadline": "2026-12-09",
+   "attempt_1_date": "2026-12-03"
+  },
+  {
+   "case": "S7-22",
+   "product_id": "p1",
+   "now": "2026-11-25T09:50",
+   "days_late": 7,
+   "band": "standard",
+   "deadline": "2026-12-02",
+   "attempt_1_date": "2026-11-27"
+  },
+  {
+   "case": "S7-23",
+   "product_id": "p1",
+   "now": "2026-12-04T10:00",
+   "days_late": 4,
+   "band": "gentle",
+   "deadline": "2026-12-18",
+   "attempt_1_date": "2026-12-09"
+  },
+  {
+   "case": "S7-24",
+   "product_id": "p1",
+   "now": "2026-12-07T11:00",
+   "days_late": 9,
+   "band": "standard",
+   "deadline": "2026-12-15",
+   "attempt_1_date": "2026-12-10"
+  },
+  {
+   "case": "S7-25",
+   "product_id": "p1",
+   "now": "2026-12-09T10:00",
+   "days_late": 6,
+   "band": "standard",
+   "deadline": "2026-12-16",
+   "attempt_1_date": "2026-12-11"
+  },
+  {
+   "case": "S7-25",
+   "product_id": "p2",
+   "now": "2026-12-09T10:00",
+   "days_late": 15,
+   "band": "standard",
+   "deadline": "2026-12-16",
+   "attempt_1_date": "2026-12-11"
+  },
+  {
+   "case": "S7-26",
+   "product_id": "p1",
+   "now": "2026-12-10T10:20",
+   "days_late": 16,
+   "band": "standard",
+   "deadline": "2026-12-17",
+   "attempt_1_date": "2026-12-14"
+  },
+  {
+   "case": "S7-27",
+   "product_id": "p1",
+   "now": "2026-12-14T10:00",
+   "days_late": 10,
+   "band": "standard",
+   "deadline": "2026-12-21",
+   "attempt_1_date": "2026-12-16"
+  },
+  {
+   "case": "S7-28",
+   "product_id": "p1",
+   "now": "2026-12-15T09:45",
+   "days_late": 9,
+   "band": "standard",
+   "deadline": "2026-12-22",
+   "attempt_1_date": "2026-12-17"
+  },
+  {
+   "case": "S7-29",
+   "product_id": "p1",
+   "now": "2026-12-16T10:10",
+   "days_late": 11,
+   "band": "standard",
+   "deadline": "2026-12-23",
+   "attempt_1_date": "2026-12-18"
+  },
+  {
+   "case": "S7-30",
+   "product_id": "p1",
+   "now": "2026-11-02T11:00",
+   "days_late": 12,
+   "band": "standard",
+   "deadline": "2026-11-09",
+   "attempt_1_date": "2026-11-04"
+  },
+  {
+   "case": "S7-31",
+   "product_id": "p1",
+   "now": "2026-11-24T10:00",
+   "days_late": 2,
+   "band": "gentle",
+   "deadline": "2026-12-07",
+   "attempt_1_date": "2026-11-26"
+  },
+  {
+   "case": "S7-32",
+   "product_id": "p1",
+   "now": "2026-12-02T10:00",
+   "days_late": 4,
+   "band": "gentle",
+   "deadline": "2026-12-16",
+   "attempt_1_date": "2026-12-04"
+  },
+  {
+   "case": "S7-32",
+   "product_id": "p2",
+   "now": "2026-12-02T10:00",
+   "days_late": 40,
+   "band": "last",
+   "deadline": "2026-12-04",
+   "attempt_1_date": "2026-12-04"
+  },
+  {
+   "case": "S7-32",
+   "product_id": "p3",
+   "now": "2026-12-02T10:00",
+   "days_late": 15,
+   "band": "standard",
+   "deadline": "2026-12-10",
+   "attempt_1_date": "2026-12-04"
+  },
+  {
+   "case": "S7-33",
+   "product_id": "p1",
+   "now": "2026-11-12T10:00",
+   "days_late": 3,
+   "band": "gentle",
+   "deadline": "2026-11-26",
+   "attempt_1_date": "2026-11-17"
+  },
+  {
+   "case": "S7-33",
+   "product_id": "p2",
+   "now": "2026-11-12T10:00",
+   "days_late": 12,
+   "band": "standard",
+   "deadline": "2026-11-20",
+   "attempt_1_date": "2026-11-17"
+  },
+  {
+   "case": "S7-33",
+   "product_id": "p3",
+   "now": "2026-11-12T10:00",
+   "days_late": 20,
+   "band": "standard",
+   "deadline": "2026-11-20",
+   "attempt_1_date": "2026-11-17"
+  },
+  {
+   "case": "S7-34",
+   "product_id": "p1",
+   "now": "2026-12-11T09:30",
+   "days_late": 3,
+   "band": "gentle",
+   "deadline": "2026-12-24",
+   "attempt_1_date": "2026-12-15"
+  },
+  {
+   "case": "S7-34",
+   "product_id": "p2",
+   "now": "2026-12-11T09:30",
+   "days_late": 9,
+   "band": "standard",
+   "deadline": "2026-12-18",
+   "attempt_1_date": "2026-12-15"
+  },
+  {
+   "case": "S7-34",
+   "product_id": "p3",
+   "now": "2026-12-11T09:30",
+   "days_late": 30,
+   "band": "last",
+   "deadline": "2026-12-15",
+   "attempt_1_date": "2026-12-15"
+  },
+  {
+   "case": "S7-35",
+   "product_id": "p1",
+   "now": "2026-12-17T10:30",
+   "days_late": 10,
+   "band": "standard",
+   "deadline": "2026-12-24",
+   "attempt_1_date": "2026-12-21"
+  },
+  {
+   "case": "S7-35",
+   "product_id": "p2",
+   "now": "2026-12-17T10:30",
+   "days_late": 4,
+   "band": "gentle",
+   "deadline": "2027-01-04",
+   "attempt_1_date": "2026-12-21"
+  },
+  {
+   "case": "S7-36",
+   "product_id": "p1",
+   "now": "2026-10-29T10:00",
+   "days_late": 6,
+   "band": "standard",
+   "deadline": "2026-11-05",
+   "attempt_1_date": "2026-11-02"
+  },
+  {
+   "case": "S7-37",
+   "product_id": "p1",
+   "now": "2026-10-30T11:00",
+   "days_late": 3,
+   "band": "gentle",
+   "deadline": "2026-11-12",
+   "attempt_1_date": "2026-11-03"
+  },
+  {
+   "case": "S7-38",
+   "product_id": "p1",
+   "now": "2026-11-30T10:00",
+   "days_late": 5,
+   "band": "gentle",
+   "deadline": "2026-12-14",
+   "attempt_1_date": "2026-12-02"
+  },
+  {
+   "case": "S7-38",
+   "product_id": "p2",
+   "now": "2026-11-30T10:00",
+   "days_late": 9,
+   "band": "standard",
+   "deadline": "2026-12-07",
+   "attempt_1_date": "2026-12-02"
+  },
+  {
+   "case": "S7-39",
+   "product_id": "p1",
+   "now": "2026-12-01T09:00",
+   "days_late": 8,
+   "band": "standard",
+   "deadline": "2026-12-09",
+   "attempt_1_date": "2026-12-03"
+  },
+  {
+   "case": "S7-40",
+   "product_id": "p1",
+   "now": "2026-12-07T10:00",
+   "days_late": 5,
+   "band": "gentle",
+   "deadline": "2026-12-21",
+   "attempt_1_date": "2026-12-10"
+  },
+  {
+   "case": "S7-40",
+   "product_id": "p2",
+   "now": "2026-12-07T10:00",
+   "days_late": 3,
+   "band": "gentle",
+   "deadline": "2026-12-21",
+   "attempt_1_date": "2026-12-10"
+  }
+ ],
+ "callback": {
+  "days": [
+   "today",
+   "next_business_day"
+  ],
+  "start": "08:30",
+  "end": "17:30",
+  "end_inclusive": true,
+  "must_be_after_now": true,
+  "retry_asks": 1,
+  "vague_time_counts_as_retry": true,
+  "ok": [
+   "not_reached",
+   "callback_booked"
+  ],
+  "fail": [
+   "not_reached",
+   "no_callback"
+  ],
+  "tool_failure": "retry once, then not_reached / no_callback"
+ },
+ "queues": {
+  "restructuring": "restructuring",
+  "human": "general",
+  "hardship": "support"
+ },
+ "note_reasons": [
+  "refused",
+  "hardship",
+  "dispute",
+  "paid",
+  "service_error"
+ ],
+ "notes_only_on_multi_product": true,
+ "notes_on_transfer": false,
+ "add_note_failure": "retry once, then ignore silently",
+ "outcomes": [
+  {
+   "outcome": "promise",
+   "reason": null
+  },
+  {
+   "outcome": "paid",
+   "reason": null
+  },
+  {
+   "outcome": "transferred",
+   "reason": "restructure",
+   "when": "plan / holiday / lower instalments request"
+  },
+  {
+   "outcome": "transferred",
+   "reason": "person",
+   "when": "insists on a person"
+  },
+  {
+   "outcome": "transferred",
+   "reason": "welfare",
+   "when": "hardship, accepts welfare team"
+  },
+  {
+   "outcome": "no_promise",
+   "reason": "refused",
+   "when": "attempts used up / refuses to talk twice"
+  },
+  {
+   "outcome": "no_promise",
+   "reason": "hardship",
+   "when": "hardship, declines transfer"
+  },
+  {
+   "outcome": "no_promise",
+   "reason": "disputed",
+   "when": "not my debt"
+  },
+  {
+   "outcome": "no_promise",
+   "reason": "tech_fault",
+   "when": "create_promise failed twice"
+  },
+  {
+   "outcome": "not_verified",
+   "reason": "id_failed"
+  },
+  {
+   "outcome": "not_verified",
+   "reason": "id_declined"
+  },
+  {
+   "outcome": "not_reached",
+   "reason": "callback_booked"
+  },
+  {
+   "outcome": "not_reached",
+   "reason": "no_callback"
+  },
+  {
+   "outcome": "not_reached",
+   "reason": "not_customer"
+  },
+  {
+   "outcome": "not_reached",
+   "reason": "deceased"
+  },
+  {
+   "outcome": "not_reached",
+   "reason": "unclear_id"
+  }
+ ],
+ "multi_product_closing": {
+  "rule": "promise if any recorded (transfer overrides); else paid if all notes paid; else no_promise with reason by precedence hardship > dispute > refused > service_error over the non-paid notes",
+  "note_to_close_reason": {
+   "hardship": "hardship",
+   "dispute": "disputed",
+   "refused": "refused",
+   "service_error": "tech_fault"
+  },
+  "precedence": [
+   "hardship",
+   "dispute",
+   "refused",
+   "service_error"
+  ]
+ },
+ "phrases": {
+  "robot": "Yes, I am Tidewater Bank's virtual assistant.",
+  "condolence": "My condolences to the family.",
+  "sympathy": "I am very sorry to hear that.",
+  "promise_confirmation": "You will get a text message to confirm this.",
+  "readback_question": "Shall I record that?",
+  "today_question": "Are you able to pay this today?",
+  "already_paid": "payments can take up to three business days to show",
+  "unknown_info": "I do not have that information.",
+  "scam": "phoning the number on the back of their card"
+ },
+ "overrides": [],
+ "max_wrong": 3,
+ "close_reasons": {
+  "promise": [],
+  "paid": [],
+  "transferred": [
+   "restructure",
+   "person",
+   "welfare"
+  ],
+  "no_promise": [
+   "refused",
+   "hardship",
+   "disputed",
+   "tech_fault"
+  ],
+  "not_verified": [
+   "id_failed",
+   "id_declined"
+  ],
+  "not_reached": [
+   "callback_booked",
+   "no_callback",
+   "not_customer",
+   "deceased",
+   "unclear_id"
+  ]
+ }
+}
