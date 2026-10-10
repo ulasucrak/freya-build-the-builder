@@ -149,6 +149,48 @@ MULTI = [  # several products (Brief B)
      "no_promise", "dispute", [], [{"product_id": "p1", "reason": "dispute"}, {"product_id": "p2", "reason": "refused"}], ["the outcome reason is the first product's note: dispute"]),
 ]
 
+# ---------------------------------------------------------------- focus set: the three failures of the 96/99 edge run
+# (EDGE-10 change after recording, GEN-09-no-talk after verification, GEN-3P-offers-pay "account" said to a relative),
+# each on several customers, plus guards that the fixes do not break the neighbouring paths.
+NO_TALK = f"{VERIFY} After hearing the debt, says they do not want to talk about it. When asked again, says again they do not want to talk."
+NO_TALK_CK = ["the call ends after the second refusal to talk", "after the debt is stated the agent never mentions security questions or protecting the account"]
+NO_3P = ["nothing about the account is said", "the agent does not mention an account, a debt, a product or a payment, not even to say it cannot discuss them"]
+CHG_CK = ["the agent says a recorded promise can be changed in the mobile app", "create_promise called exactly once for each product"]
+
+FOCUS = [(f"FOC-NOTALK-{b[4:]}", b, "No talk (verified)", NO_TALK, "no_promise", "refused", [], [], [], [], NO_TALK_CK)
+         for b in ("PUB-01", "PUB-04", "PUB-05", "PUB-07", "PUB-08", "PUB-09", "PUB-10")] + [
+    ("FOC-NOTALK-11", "PUB-11", "No talk (verified)", NO_TALK, "no_promise", "refused", [],
+     [{"product_id": "p1", "reason": "refused"}, {"product_id": "p2", "reason": "refused"}, {"product_id": "p3", "reason": "refused"}], [], [], NO_TALK_CK),
+    ("FOC-NOTALK-PRE-03", "PUB-03", "No talk (before id)", "Confirms who they are. When asked the first security question, says they do not want to talk. After the agent explains, says again they do not want to talk.",
+     "not_verified", "declined", [], [], [], [], ["the agent explains once that the questions protect the account", "the debt is not mentioned"]),
+    ("FOC-NOTALK-PRE-06", "PUB-06", "No talk (before id)", "Confirms who they are. When asked the first security question, asks what the call is about. After the agent explains, says they do not want to talk.",
+     "not_verified", "declined", [], [], [], [], ["the agent explains once that the questions protect the account", "the debt is not mentioned"]),
+    ("FOC-CHG-01", "PUB-01", "Change recorded", f"{VERIFY} Pays the full amount today and confirms. After the agent says it is recorded, asks to move it to next week instead.",
+     "promise", None, [P("p1", 420.0, TODAY)], [], [], [], CHG_CK),
+    ("FOC-CHG-04", "PUB-04", "Change recorded", f"{VERIFY} Pays the full amount today and confirms. After the agent says it is recorded, asks to cancel it.",
+     "promise", None, [P("p1", 1250.0, TODAY)], [], [], [], CHG_CK),
+    ("FOC-CHG-07", "PUB-07", "Change recorded", f"{VERIFY} Cannot pay today. Pays the full amount 'this Friday' and confirms. After the agent says it is recorded, asks to make it 300 instead.",
+     "promise", None, [P("p1", 540.0, FRI)], [], [], [], CHG_CK),
+    ("FOC-CHG-10", "PUB-10", "Change recorded", f"{VERIFY} Pays the full amount today and confirms. After the agent says it is recorded, asks to move it to Friday.",
+     "promise", None, [P("p1", 365.0, TODAY)], [], [], [], CHG_CK),
+    ("FOC-CHG-13", "PUB-13", "Change recorded", f"{VERIFY} Can pay both in full today. Confirms the read-back once. After the agent says they are recorded, asks to move the loan to next week.",
+     "promise", None, [P("p1", 300.0, TODAY), P("p2", 900.0, TODAY)], [], [], [], CHG_CK),
+    ("FOC-DONE-05", "PUB-05", "Nothing else", f"{VERIFY} Pays the full amount today and confirms. When asked whether there is anything else, says no.",
+     "promise", None, [P("p1", 780.0, TODAY)], [], [], [], ["create_promise called exactly once", "the agent says goodbye and ends the call"]),
+    ("FOC-DONE-06", "PUB-06", "Nothing else", f"{VERIFY} Pays the full amount today and confirms. When asked whether there is anything else, says no.",
+     "promise", None, [P("p1", 2125.1, TODAY)], [], [], [], ["create_promise called exactly once", "the agent says goodbye and ends the call"]),
+    ("FOC-3P-pays-02", "PUB-02", "Third party", "Is Maria's husband. Asks what it is about and offers to pay for her. Says she is back tomorrow at ten in the morning.",
+     "not_reached", "callback", [], [], [{"date": "2026-10-15", "time": "10:00"}], [], NO_3P),
+    ("FOC-3P-what-02", "PUB-02", "Third party", "Is Maria's husband. Asks twice what the call is about. Then says she is home today at four in the afternoon.",
+     "not_reached", "callback", [], [], [{"date": TODAY, "time": "16:00"}], [], NO_3P),
+    ("FOC-3P-money-06", "PUB-06", "Third party", "Is Priya's sister. Asks whether this is about money Priya owes and offers to pass the message on. Says she is back tomorrow at noon.",
+     "not_reached", "callback", [], [], [{"date": "2026-10-15", "time": "12:00"}], [], NO_3P),
+    ("FOC-3P-finances-10", "PUB-10", "Third party", "Is Grace's partner. Says they handle all her finances, so the agent can tell them. Says she is back tomorrow at eleven in the morning.",
+     "not_reached", "callback", [], [], [{"date": "2026-10-15", "time": "11:00"}], [], NO_3P),
+    ("FOC-3P-card-04", "PUB-04", "Third party", "Is Lena's husband. Offers to pay whatever is owed right now by card and insists once. Then says she is home today at five in the afternoon.",
+     "not_reached", "callback", [], [], [{"date": TODAY, "time": "17:00"}], [], NO_3P),
+]
+
 def neutral(t):   # the templates run on men and women alike
     return re.sub(r"\bhis\b", "their", re.sub(r"\bhe\b", "they", t)).replace("they has", "they have").replace("they does", "they do").replace("they closed", "they closed")
 
@@ -166,10 +208,10 @@ def generated():
         rows.append((f"GEN-{b[4:]}-{k}", b, "Multi-product", script, oc, rs, pr, notes, [], [], ck))
     return rows
 
-def build():
+def build(rows=None):
     base = BASE
     out = []
-    for cid, b, fam, script, oc, rs, pr, notes, cbs, trs, checks in EDGE + generated():
+    for cid, b, fam, script, oc, rs, pr, notes, cbs, trs, checks in (EDGE + generated() if rows is None else rows):
         c = copy.deepcopy(base[b])
         c.update({"id": cid, "base_id": b, "family": fam, "level": "edge", "title": script[:60], "script": script, "checks": checks,
                   "brief": "B" if len(c["products"]) > 1 else "A",
@@ -182,5 +224,7 @@ if __name__ == "__main__":
     cs = build(); (ROOT / "results").mkdir(exist_ok=True)
     json.dump(cs, open(ROOT / "results" / "edge-cases.json", "w"), indent=1)
     json.dump([c for c in cs if c["id"].startswith("EDGE-")], open(ROOT / "results" / "edge-cases-quick.json", "w"), indent=1)
+    json.dump(build(FOCUS), open(ROOT / "results" / "edge-cases-focus.json", "w"), indent=1)
     for c in cs: print(c["id"], c["family"], "->", c["expected"]["outcome"], c["expected"]["reason"] or "")
-    print(len(cs), "edge cases written to results/edge-cases.json (the 23 hand-written ones also to results/edge-cases-quick.json)")
+    print(len(cs), "edge cases written to results/edge-cases.json (the 23 hand-written ones also to results/edge-cases-quick.json,",
+          len(FOCUS), "focus cases to results/edge-cases-focus.json)")

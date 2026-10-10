@@ -930,6 +930,16 @@ def pair(x):
     return dict(outcome="", reason="")
 
 
+def pre_verification_outcomes(cl):
+    """Outcomes that only close a call before identity is verified (failed check, someone else answered), minus
+    any outcome the closing table also uses after verification."""
+    pre = set([pair(cl.get(k))["outcome"] for k in ("id_fail", "callback", "no_callback")]
+              + [str(o) for o in (cl.get("pre_verification_outcomes") or [])])
+    post = [pair(cl.get(k))["outcome"] for k in ("promise", "promise_mixed", "refused", "service_error")]
+    post += [pair(v)["outcome"] for v in list((cl.get("transfer") or dict()).values()) + list((cl.get("note_map") or dict()).values())]
+    return set([o for o in pre if o and o not in post])
+
+
 def compute_closing(facts, policy):
     """Outcome and reason for close_call from what happened in the call.
 
@@ -993,6 +1003,8 @@ def compute_closing(facts, policy):
                 res["source"] = "notes"
         if not res["source"]:
             llm = pair(facts.get("llm"))
+            if llm["outcome"] and facts.get("verified") and llm["outcome"] in pre_verification_outcomes(cl):
+                llm = pair(None)        # identity passed: an outcome of a failed check or of someone else answering cannot apply
             if llm["outcome"]:
                 res.update(llm)
                 res["source"] = "llm"

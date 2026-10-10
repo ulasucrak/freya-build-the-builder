@@ -28,7 +28,9 @@ elif call_ok(result, nm("promise_ok", "ok")):
         if ni:
             t += " All products are handled. " + ni
         else:
-            t += " All products are handled. Then " + close_instruction(pair(cl.get("promise"))["outcome"], pair(cl.get("promise"))["reason"])
+            t += (" All products are handled. Do not say goodbye yet: ask whether there is anything else and wait for the answer."
+                  + " If the customer asks to change or cancel a recorded promise, answer as the rules say."
+                  + " When there is nothing else, " + close_instruction(pair(cl.get("promise"))["outcome"], pair(cl.get("promise"))["reason"]))
     set_next(result, t)
 else:
     tries = int(num(vget(vs, "w_cp_tries_" + pid, 1)))

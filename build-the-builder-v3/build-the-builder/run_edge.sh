@@ -3,6 +3,7 @@
 #   bash run_edge.sh            test the agent this folder built last (builds one first if there is none)
 #   bash run_edge.sh --build    build a fresh agent from Brief A+B first
 #   bash run_edge.sh --quick    only the 23 hand-written cases (default: all 99, about 40-60 minutes)
+#   bash run_edge.sh --focus    the 22 focus cases (fixes of the 96/99 run and their guards), 3 runs each
 #   AGENT_ID=<id> bash run_edge.sh   test that agent instead
 # Results: results/edge-report.txt (readable) and results/run-edge.json (details, call ids).
 set -e
@@ -25,6 +26,8 @@ fi
 AGENT=${AGENT_ID:-$($PY -c "import json;print([v for k,v in json.load(open('.freya-agents.json')).items() if not k.endswith('-selftest')][-1]['agent_id'])")}
 echo "agent_id: $AGENT"
 $PY tools/edge_cases.py
-SET=results/edge-cases.json; [[ " $* " == *" --quick "* ]] && SET=results/edge-cases-quick.json
-$PY tools/run_cases.py "$AGENT" --cases "$SET" --reps 2 --out results/run-edge.json
+SET=results/edge-cases.json; REPS=2; OUT=results/run-edge.json
+[[ " $* " == *" --quick "* ]] && SET=results/edge-cases-quick.json
+[[ " $* " == *" --focus "* ]] && SET=results/edge-cases-focus.json && REPS=3 && OUT=results/run-edge-focus.json
+$PY tools/run_cases.py "$AGENT" --cases "$SET" --reps $REPS --out $OUT
 echo "=== DONE $(date) ==="

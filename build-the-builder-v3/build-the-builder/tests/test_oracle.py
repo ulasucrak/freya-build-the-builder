@@ -185,6 +185,25 @@ class BriefA(unittest.TestCase):
         r = c(verified=True, products=["p1"])
         self.assertEqual((r["outcome"], r["reason"], r["source"]), ("no_promise", "refused", "default"))
 
+    def test_closing_after_verification_ignores_pre_verification_outcomes(self):
+        """Edge GEN-09-no-talk: a verified customer who would not talk was closed as not_verified / declined."""
+        c = lambda **f: O.compute_closing(f, self.p)
+        cl = self.p["closing"]
+        pre = O.pre_verification_outcomes(cl)
+        self.assertIn(cl["id_fail"]["outcome"], pre)
+        self.assertIn(cl["callback"]["outcome"], pre)
+        self.assertNotIn(cl["refused"]["outcome"], pre)
+        refused = (cl["refused"]["outcome"], cl["refused"]["reason"] or "")
+        for llm in (dict(outcome=cl["id_fail"]["outcome"], reason="declined"), cl["callback"], cl.get("no_callback")):
+            r = c(verified=True, products=["p1"], llm=llm)
+            self.assertEqual((r["outcome"], r["reason"], r["source"]), refused + ("default",))
+        # before verification the model's choice still stands
+        r = c(verified=False, llm=dict(outcome=cl["id_fail"]["outcome"], reason="declined"))
+        self.assertEqual((r["outcome"], r["reason"]), (cl["id_fail"]["outcome"], "declined"))
+        # an outcome that is also used after verification is not dropped
+        shared = dict(cl, refused=dict(outcome=cl["id_fail"]["outcome"], reason="x"))
+        self.assertNotIn(cl["id_fail"]["outcome"], O.pre_verification_outcomes(shared))
+
     def test_public_cases_expected_promises_are_valid(self):
         """Every expected promise of the kit's public cases passes the oracle's checks (T03 policies too)."""
         cases = json.loads((KIT / "public-test-set.json").read_text())

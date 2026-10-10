@@ -378,6 +378,51 @@ class Compactness(unittest.TestCase):
                     self.assertLess(len(t.get(hk, "")), 21000, (t["function"]["name"], hk))   # was up to 24 KB
 
 
+class EdgeRegressions(unittest.TestCase):
+    """Failures of the teammate edge run (EDGE-10, GEN-09-no-talk, GEN-3P-offers-pay), on every fixture policy."""
+
+    def test_verified_customer_never_closes_with_a_pre_verification_outcome(self):
+        for name in ALL:
+            wf = G.generate_workflow(raw(name))
+            p = S.normalise(raw(name))
+            cl = p["closing"]
+            nm = G._names(p, G.DEFAULT_OPTIONS)
+            fo, fr = nm["close_outcome"], nm["close_reason"]
+            pre = [cl[k] for k in ("id_fail", "callback", "no_callback") if cl.get(k) and cl[k].get("outcome")]
+            for want in pre:
+                s = Sim(wf, customer_id="c1")
+                s.account([{"product_id": "p1", "type": "credit_card", "past_due": 300.0, "days_late": 4, "minimum_payment": 90.0}])
+                s.vs["w_id_state"] = "verified"
+                req = {fo: want["outcome"], fr: want.get("reason") or ""}
+                _route, body, _t = s.close("negotiate", req)
+                if body is None:                      # wrap-up to-do first (notes): close again
+                    _route, body, _t = s.close("negotiate", req)
+                self.assertNotEqual(body.get(fo), want["outcome"], "%s: %s kept after verification" % (name, want))
+            s = Sim(wf, customer_id="c1")             # before verification the request stands
+            _route, body, _t = s.close("greet_verify", {fo: cl["id_fail"]["outcome"], fr: "declined"})
+            self.assertEqual(body[fo], cl["id_fail"]["outcome"], name)
+
+    def test_recorded_promise_asks_anything_else_before_goodbye(self):
+        wf = G.generate_workflow(raw("brief-a"))
+        s = Sim(wf, customer_id="c1")
+        s.account([{"product_id": "p1", "type": "credit_card", "past_due": 300.0, "days_late": 4, "minimum_payment": 90.0}])
+        s.vs["w_id_state"] = "verified"
+        _c, _r, msg = s.call("negotiate", "create_promise", {"product_id": "p1", "amount": 300, "date": "2026-10-14"})
+        self.assertIn("Do not say goodbye yet", msg)
+        self.assertLess(msg.index("anything else"), msg.index("say goodbye and call close_call"))
+        self.assertIn("change or cancel a recorded promise", msg)
+
+    def test_phase_guards_in_prompts(self):
+        for name in ALL:
+            p = S.normalise(raw(name))
+            wf = G.generate_workflow(raw(name))
+            self.assertIn("security questions are over", wf["nodes"]["negotiate"]["task_message"], name)
+            greet = wf["nodes"]["greet_verify"]["task_message"]
+            if p["third_party"]["cases"]:
+                self.assertIn("not even that you cannot discuss them", greet, name)
+                self.assertIn("speak with the customer personally", greet, name)
+
+
 class S3Flows(unittest.TestCase):
     """fixtures/S3 live failures: notes were switched off, parallel calls lost promises and the transfer."""
 

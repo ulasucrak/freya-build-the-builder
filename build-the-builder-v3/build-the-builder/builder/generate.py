@@ -334,7 +334,8 @@ def runtime_policy(p, names):
                      "wrong_counts_rules": p["identity"]["wrong_counts_rules"]},
         "promise": {k: p["promise"][k] for k in ("retry_on_failure", "success_say", "failure_say")},
         "notes": {k: p["notes"][k] for k in ("enabled", "tool_reasons", "forbidden_on_transfer", "min_products")},
-        "closing": {k: v for k, v in p["closing"].items() if k != "notes"},
+        "closing": dict({k: v for k, v in p["closing"].items() if k != "notes"},
+                        pre_verification_outcomes=sorted(_pre_verification_outcomes(p))),
     }
 
 
@@ -592,6 +593,8 @@ def default_greet_task(p, cl):
         _bul([x for x in (p["opening"].get("notes") or []) if isinstance(x, str)]) if verbatim else "",
         _bul(tp["rules"]) if verbatim else "",
         _bul(cases),
+        ("With anyone who is not the customer, say nothing about an account, a product, money or a payment, not even that you cannot discuss them. "
+         "If they ask what the call is about or offer to pay, say only that you need to speak with the customer personally, then ask when the customer can be reached.") if tp["cases"] else "",
         wins,
         "Security questions, only to the customer, once they confirmed who they are, one at a time. Customers often give an answer in pieces over several turns (day and month, then the year; two digits, then two more): that is not a refusal and not a wrong answer. Call verify_identity with each piece as it comes; the pieces are joined automatically, and you ask only for the missing part. Count wrong answers only from verify_identity results.",
         _bul(qlines, ""),
@@ -613,6 +616,7 @@ def default_negotiate_task(p, cl):
     pre_out = _pre_verification_outcomes(p)
     lines = [
         "Current step: the customer is verified. Handle the late products below, from stating the debt to closing the call, following the bank's rules.",
+        "The security questions are over: never mention them again. Rules for declining them or for third parties no longer apply.",
         "{{w_account_facts}}",
         "{{w_date_facts}}",
         "Use only the product ids above. Deadlines, floors and attempt offers are already computed: use them as they are.",
