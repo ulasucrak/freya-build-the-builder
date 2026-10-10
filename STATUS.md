@@ -22,6 +22,11 @@ Akış: extract (Claude -> policy.json) -> deterministik generator (code node'la
   Kalan A: PUB-10 (hakem selamlamadaki "this call is recorded" ifadesini dürüstlük ihlali sayıyor; 3'te 2 geçti). Kalan B: PUB-13 (3. koşuda kart sözü 30 Eki yerine 2 Kas).
   Stiller A/B (önceki): pieces 7/2 (8/2), corrects 9/3 (8/2), talkative 3/2 (6/1; simüle müşteri cümleleri yarım kesiliyor, büyük kısmı simülatör kaynaklı şüphesi), asks_back 10/2 (10/3), in_words 8/2 (9/3).
   En kötü tur 20 sn, kapanan çağrı yok.
+- Edge eval (11 Eki, gen @7fe9065, ajan `ab2440a1`, 99 vaka x 2): koşu 1 92/99, koşu 2 88/99; iki koşuda da geçen 84/99. En yavaş tur medyanı 5 sn / 3 sn, en kötü 30 sn; kapanan çağrı yok.
+  İki koşuda da kalan: GEN-01/07-holiday (26 Eki tatili yerine 27 Eki değil, son tarih 2 Kas teklif ediliyor; early bandda yanlış kural), EDGE-10 (kayıtlı söz değişimi için "mobile app" denmiyor).
+  Tek koşuda kalan: GEN-08/09-no-talk (doğrulanmış müşteri iki kez "konuşmak istemiyorum" deyince `not_verified/declined` kapanıyor, beklenen `no_promise/refused`), GEN-13-dispute-refuse (kapanış nedeni ilk ürünün notu `dispute` yerine `refused`), GEN-11-refuses-all (not eksik), EDGE-14 (doğrulamadan önce "to protect your account" deniyor). 6 hata Freya hakeminin karar vermemesi ("no verdict"), ajan kaynaklı değil.
+  Önceki edge koşusu (sim `917787fd`) yanlış ajanla koştu: `run_edge.sh` son kaydı, yani `-selftest` kopyasını alıyordu (sahte banka, her doğrulama reddedildi). Düzeltildi.
+- Edge vaka seti 130'a çıktı (54 elle yazılmış: EDGE-24..54 yeni); yenileri henüz koşulmadı.
 - Not: Freya API aralıklı 503 veriyor; ortak çalışma alanında başka ekip simülasyonu 40 dk bekletti.
 - Extraction holdout: S1-S7 tam puan (ör. S5 246/246, S6 339/339, S7 193/193); extraction başına 104-131 sn.
 - 192 offline test yeşil.
@@ -33,6 +38,7 @@ Akış: extract (Claude -> policy.json) -> deterministik generator (code node'la
 - Sandbox payload sınırı ~64 KB.
 - Chat route ilk code node'u atlar.
 - Banka mock'u yalnızca 13 hazır vaka id'sini sunar.
+- Hakem analizi takılabiliyor (çağrılar `analyzing`'de kalıyor, simülasyon hiç `completed` olmuyor); `freya.run_simulation` süresiz bekliyor. Çözüm: `POST /api/v2/simulations/{id}/cancel`.
 
 ## Yapılacaklar (öncelik sırası)
 1. T22 devam: ürün başına ikna denemesi sınırı kodda (PUB-12/PUB-06); WIP: `orch/freya-builder-T22` dalı.
