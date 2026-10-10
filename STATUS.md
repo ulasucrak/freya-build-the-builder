@@ -18,7 +18,11 @@ Akış: extract (Claude -> policy.json) -> deterministik generator (code node'la
 - Bizim eval1 (gen @43cc4b2): A pass^3 7/10, B pass^3 1/3.
   Stiller A/B: pieces 8/2, corrects 8/2, talkative 6/1, asks_back 10/3, in_words 9/3; en kötü tur 19 sn.
 - T18 düzeltmelerinden sonra: önceden başarısız A vakaları 2/2 (PUB-02, 09, 10; pieces PUB-01, 03); B talkative PUB-12 0/2.
-- Eval2 (T21): devam ediyor.
+- Eval2 (T18 sonrası, gen @95b89dc): pass^3 A 9/10 (önce 7/10), B 2/3 (önce 1/3).
+  Kalan A: PUB-10 (hakem selamlamadaki "this call is recorded" ifadesini dürüstlük ihlali sayıyor; 3'te 2 geçti). Kalan B: PUB-13 (3. koşuda kart sözü 30 Eki yerine 2 Kas).
+  Stiller A/B (önceki): pieces 7/2 (8/2), corrects 9/3 (8/2), talkative 3/2 (6/1; simüle müşteri cümleleri yarım kesiliyor, büyük kısmı simülatör kaynaklı şüphesi), asks_back 10/2 (10/3), in_words 8/2 (9/3).
+  En kötü tur 20 sn, kapanan çağrı yok.
+- Not: Freya API aralıklı 503 veriyor; ortak çalışma alanında başka ekip simülasyonu 40 dk bekletti.
 - Extraction holdout: S1-S7 tam puan (ör. S5 246/246, S6 339/339, S7 193/193); extraction başına 104-131 sn.
 - 192 offline test yeşil.
 
@@ -32,12 +36,18 @@ Akış: extract (Claude -> policy.json) -> deterministik generator (code node'la
 
 ## Yapılacaklar (öncelik sırası)
 1. T22 devam: ürün başına ikna denemesi sınırı kodda (PUB-12/PUB-06); WIP: `orch/freya-builder-T22` dalı.
-2. Generator/oracle için yeni policy anahtarları: `calendar.week_starts`, `non_holidays`, `floor_expr` (+yuvarlama fonksiyonları), `callback.per_date/per_weekday` `end_inclusive`/`today_requires_business_day`, `identity.max_wrong_scope`, `questions[].tool_format`, `triggers[].condition`.
-3. S1-S7 + takım arkadaşı edge case'leri üzerinde canlı sentetik eval (tekrarlı).
-4. Ham banka malzemesi S2/S4/S6 üzerinde uçtan uca `build.py`.
-5. RUNBOOK prova turu + brief'ler açılmadan `git tag pre-final`.
-6. Final koşu için ANTHROPIC_API_KEY.
-7. Temiz teslim paketi (env.sh olmadan).
+2. Parça parça söylenen sayıları birleştir ("twelve" + "hundred and fifty" = 1250).
+3. Yılsız doğum tarihinde yılı sor (yanlış cevap sayma).
+4. "Neden soruyorsunuz" sonrası soruyu tekrar sorma yerine açıkla.
+5. Erken bant 2. deneme (T22 kapsamı).
+6. PUB-13 kart tarihi (30 Eki vs 2 Kas).
+7. Selamlamadaki "recorded" kelimesi için hakem riski (PUB-10).
+8. Generator/oracle için yeni policy anahtarları: `calendar.week_starts`, `non_holidays`, `floor_expr` (+yuvarlama fonksiyonları), `callback.per_date/per_weekday` `end_inclusive`/`today_requires_business_day`, `identity.max_wrong_scope`, `questions[].tool_format`, `triggers[].condition`.
+9. S1-S7 + takım arkadaşı edge case'leri üzerinde canlı sentetik eval (tekrarlı).
+10. Ham banka malzemesi S2/S4/S6 üzerinde uçtan uca `build.py`.
+11. RUNBOOK prova turu + brief'ler açılmadan `git tag pre-final`.
+12. Final koşu için ANTHROPIC_API_KEY.
+13. Temiz teslim paketi (env.sh olmadan).
 
 ## Güvenlik notu
 `env.sh` GitHub'a hiç commit edilmedi; GitHub `main` temiz bir snapshot'tır.
