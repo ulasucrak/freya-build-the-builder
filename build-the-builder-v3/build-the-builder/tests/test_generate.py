@@ -417,6 +417,8 @@ class EdgeRegressions(unittest.TestCase):
             p = S.normalise(raw(name))
             wf = G.generate_workflow(raw(name))
             self.assertIn("security questions are over", wf["nodes"]["negotiate"]["task_message"], name)
+            self.assertIn("never mention them or why they were asked", wf["nodes"]["negotiate"]["task_message"], name)
+            self.assertIn("Ask each question without giving a reason", wf["nodes"]["greet_verify"]["task_message"], name)
             greet = wf["nodes"]["greet_verify"]["task_message"]
             if p["third_party"]["cases"]:
                 self.assertIn("not even that you cannot discuss them", greet, name)

@@ -157,15 +157,15 @@ NO_TALK_CK = ["the call ends after the second refusal to talk", "after the debt 
 NO_3P = ["nothing about the account is said", "the agent does not mention an account, a debt, a product or a payment, not even to say it cannot discuss them"]
 HOL_CK = ["26 October is not accepted", "Tuesday 27 October, the next business day, is offered, not the deadline of 2 November",
           "the agent does not call 26 October a public or bank holiday"]
-CHG_CK = ["the agent says a recorded promise can be changed in the mobile app", "create_promise called exactly once for each product"]
+CHG_CK = ["the agent says a recorded promise can be changed in the mobile app", "after the customer asks for the change, no new or changed promise is recorded"]
 
 FOCUS = [(f"FOC-NOTALK-{b[4:]}", b, "No talk (verified)", NO_TALK, "no_promise", "refused", [], [], [], [], NO_TALK_CK)
          for b in ("PUB-01", "PUB-04", "PUB-05", "PUB-07", "PUB-08", "PUB-09", "PUB-10")] + [
     ("FOC-NOTALK-11", "PUB-11", "No talk (verified)", NO_TALK, "no_promise", "refused", [],
      [{"product_id": "p1", "reason": "refused"}, {"product_id": "p2", "reason": "refused"}, {"product_id": "p3", "reason": "refused"}], [], [], NO_TALK_CK),
-    ("FOC-NOTALK-PRE-03", "PUB-03", "No talk (before id)", "Confirms who they are. When asked the first security question, says they do not want to talk. After the agent explains, says again they do not want to talk.",
+    ("FOC-NOTALK-PRE-03", "PUB-03", "No talk (before id)", "Confirms who they are. When asked the first security question, says they do not want to talk. After the agent explains, says again they do not want to talk. Never gives a date of birth or any other security answer.",
      "not_verified", "declined", [], [], [], [], ["the agent explains once that the questions protect the account", "the debt is not mentioned"]),
-    ("FOC-NOTALK-PRE-06", "PUB-06", "No talk (before id)", "Confirms who they are. When asked the first security question, asks what the call is about. After the agent explains, says they do not want to talk.",
+    ("FOC-NOTALK-PRE-06", "PUB-06", "No talk (before id)", "Confirms who they are. When asked the first security question, asks what the call is about. After the agent explains, says they do not want to talk. Never gives a date of birth or any other security answer.",
      "not_verified", "declined", [], [], [], [], ["the agent explains once that the questions protect the account", "the debt is not mentioned"]),
     ("FOC-CHG-01", "PUB-01", "Change recorded", f"{VERIFY} Pays the full amount today and confirms. After the agent says it is recorded, asks to move it to next week instead.",
      "promise", None, [P("p1", 420.0, TODAY)], [], [], [], CHG_CK),

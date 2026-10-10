@@ -598,6 +598,7 @@ def default_greet_task(p, cl):
         wins,
         "Security questions, only to the customer, once they confirmed who they are, one at a time. Customers often give an answer in pieces over several turns (day and month, then the year; two digits, then two more): that is not a refusal and not a wrong answer. Call verify_identity with each piece as it comes; the pieces are joined automatically, and you ask only for the missing part. Count wrong answers only from verify_identity results.",
         _bul(qlines, ""),
+        "Ask each question without giving a reason. Explain why only if the customer will not answer or asks why, and only once in the call.",
         _bul(p["identity"]["wrong_counts_rules"]) if verbatim else "",
         ("If the check fails: " + fail["say"] + " Close " + fail["outcome"] + (" / " + fail["reason"] if fail["reason"] else "") + ".") if fail["outcome"] else "",
         "Other situations:",
@@ -616,12 +617,12 @@ def default_negotiate_task(p, cl):
     pre_out = _pre_verification_outcomes(p)
     lines = [
         "Current step: the customer is verified. Handle the late products below, from stating the debt to closing the call, by the bank's rules.",
-        "The security questions are over: do not mention them; rules for declining them or for third parties no longer apply.",
+        "The security questions are over: never mention them or why they were asked; rules for declining them or for third parties no longer apply.",
         "{{w_account_facts}}",
         "{{w_date_facts}}",
         "Use only these product ids. Deadlines, floors and attempt offers are already computed: use them as given.",
-        "Before calling create_promise, check the amount (floor to full amount) and the date (a business day, from today up to that product's deadline) against these facts. Weekdays and years come only from the calendar facts.",
-        "Count persuasion attempts per product; once a product's attempts are used up, make no further offer for it. Say sympathy at most once.",
+        "Before create_promise, check the amount (floor to full) and the date (a business day from today up to that product's deadline) against these facts. Weekdays and years come only from the calendar facts.",
+        "Count persuasion attempts per product; when they are used up, make no further offer for that product. Say sympathy at most once.",
         _bul(p["amounts"]["rules"] + [p["dates"]["customer_date_after_deadline"], p["dates"]["vague_date"]] + p["dates"]["rules"]) if verbatim else "",
         "Read-back: " + pm["readback"] if verbatim else "",
         "Recording: after a clear yes to the read-back, call create_promise once per product, one per message, after each result. If it fails, call it again with the same values, at most %d more time(s); if it still fails: %s."
