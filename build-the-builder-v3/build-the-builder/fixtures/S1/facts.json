@@ -1,0 +1,410 @@
+{
+ "bank": "Nordlicht Bank",
+ "form": "clean specification, Brief A structure plus a multi-product section",
+ "brief_files": [
+  "brief.md"
+ ],
+ "openapi": "openapi.json",
+ "live_compatible": true,
+ "variables": [
+  "customer_id",
+  "first_name",
+  "last_name",
+  "title",
+  "now"
+ ],
+ "clock": {
+  "now_variable": "now"
+ },
+ "calendar": {
+  "weekend": [
+   6,
+   7
+  ],
+  "holidays": [
+   "2026-10-30",
+   "2026-11-09",
+   "2026-11-20",
+   "2026-12-24",
+   "2026-12-25",
+   "2026-12-31",
+   "2027-01-01"
+  ],
+  "roll_rule": "next_business_day"
+ },
+ "opening": {
+  "forbidden_before_verification": [
+   "arrears",
+   "overdue",
+   "debt",
+   "collections",
+   "payment"
+  ],
+  "confirm_question": "Is this {first_name} {last_name}?",
+  "unclear_asks": 2,
+  "unclear_outcome": [
+   "not_reached",
+   "unconfirmed"
+  ]
+ },
+ "identity": {
+  "questions": [
+   {
+    "order": 1,
+    "tool_field": "phone_last4",
+    "answer_format": "digits",
+    "normalise": "digits_only"
+   },
+   {
+    "order": 2,
+    "tool_field": "date_of_birth",
+    "answer_format": "date",
+    "normalise": "dmy_to_iso"
+   }
+  ],
+  "max_wrong": 3,
+  "max_wrong_scope": "total over both questions",
+  "swap_hint": "day_month_swapped",
+  "fail": {
+   "outcome": "not_verified",
+   "reason": "security_failed"
+  },
+  "declined": {
+   "outcome": "not_verified",
+   "reason": "security_declined"
+  }
+ },
+ "products": {
+  "max_count": 3,
+  "floor_field": {
+   "credit_card": "minimum_payment",
+   "personal_loan": "instalment_amount",
+   "car_loan": "instalment_amount"
+  }
+ },
+ "bands": [
+  {
+   "name": "soft",
+   "min_days_late": 1,
+   "max_days_late": 10,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 10,
+    "counted_from": "tomorrow"
+   },
+   "attempts": 1
+  },
+  {
+   "name": "firm",
+   "min_days_late": 11,
+   "max_days_late": 30,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 6,
+    "counted_from": "tomorrow"
+   },
+   "attempts": 2
+  },
+  {
+   "name": "final",
+   "min_days_late": 31,
+   "max_days_late": 60,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 3,
+    "counted_from": "tomorrow"
+   },
+   "attempts": 2
+  }
+ ],
+ "attempts": [
+  {
+   "n": 1,
+   "amount": "full (or floor if full already said too much)",
+   "date": "next business day after today"
+  },
+  {
+   "n": 2,
+   "bands": [
+    "firm",
+    "final"
+   ],
+   "amount": "floor",
+   "date": "deadline"
+  }
+ ],
+ "next_weekday_rule": "first such weekday after today",
+ "vague_date": "ask once for exact day, then propose the deadline",
+ "deadline_examples": [
+  {
+   "case": "S1-01",
+   "now": "2026-10-16T09:15",
+   "days_late": 4,
+   "band": "soft",
+   "deadline": "2026-11-02",
+   "attempt_1_date": "2026-10-19"
+  },
+  {
+   "case": "S1-02",
+   "now": "2026-10-29T16:30",
+   "days_late": 9,
+   "band": "soft",
+   "deadline": "2026-11-16",
+   "attempt_1_date": "2026-11-02"
+  },
+  {
+   "case": "S1-03",
+   "now": "2026-11-11T13:20",
+   "days_late": 19,
+   "band": "firm",
+   "deadline": "2026-11-19",
+   "attempt_1_date": "2026-11-12"
+  },
+  {
+   "case": "S1-04",
+   "now": "2026-11-04T10:00",
+   "days_late": 15,
+   "band": "firm",
+   "deadline": "2026-11-13",
+   "attempt_1_date": "2026-11-05"
+  },
+  {
+   "case": "S1-05",
+   "now": "2026-11-03T14:00",
+   "days_late": 6,
+   "band": "soft",
+   "deadline": "2026-11-18",
+   "attempt_1_date": "2026-11-04"
+  },
+  {
+   "case": "S1-06",
+   "now": "2026-11-16T12:00",
+   "days_late": 33,
+   "band": "final",
+   "deadline": "2026-11-19",
+   "attempt_1_date": "2026-11-17"
+  },
+  {
+   "case": "S1-07",
+   "now": "2026-12-03T10:40",
+   "days_late": 3,
+   "band": "soft",
+   "deadline": "2026-12-17",
+   "attempt_1_date": "2026-12-04"
+  },
+  {
+   "case": "S1-08",
+   "now": "2026-12-07T09:05",
+   "days_late": 12,
+   "band": "firm",
+   "deadline": "2026-12-15",
+   "attempt_1_date": "2026-12-08"
+  },
+  {
+   "case": "S1-09",
+   "now": "2026-11-06T11:00",
+   "days_late": 22,
+   "band": "firm",
+   "deadline": "2026-11-17",
+   "attempt_1_date": "2026-11-10"
+  },
+  {
+   "case": "S1-10",
+   "now": "2026-12-23T10:00",
+   "days_late": 5,
+   "band": "soft",
+   "deadline": "2027-01-12",
+   "attempt_1_date": "2026-12-28"
+  },
+  {
+   "case": "S1-10",
+   "now": "2026-12-23T10:00",
+   "days_late": 35,
+   "band": "final",
+   "deadline": "2026-12-30",
+   "attempt_1_date": "2026-12-28"
+  },
+  {
+   "case": "S1-10",
+   "now": "2026-12-23T10:00",
+   "days_late": 12,
+   "band": "firm",
+   "deadline": "2027-01-06",
+   "attempt_1_date": "2026-12-28"
+  },
+  {
+   "case": "S1-11",
+   "now": "2026-10-19T17:45",
+   "days_late": 7,
+   "band": "soft",
+   "deadline": "2026-11-03",
+   "attempt_1_date": "2026-10-20"
+  },
+  {
+   "case": "S1-11",
+   "now": "2026-10-19T17:45",
+   "days_late": 9,
+   "band": "soft",
+   "deadline": "2026-11-03",
+   "attempt_1_date": "2026-10-20"
+  },
+  {
+   "case": "S1-12",
+   "now": "2026-10-23T15:00",
+   "days_late": 18,
+   "band": "firm",
+   "deadline": "2026-11-03",
+   "attempt_1_date": "2026-10-26"
+  }
+ ],
+ "callback": {
+  "days": [
+   "today",
+   "next_business_day"
+  ],
+  "start": "09:00",
+  "end": "18:00",
+  "end_inclusive": false,
+  "must_be_after_now": true,
+  "retry_asks": 1,
+  "ok": [
+   "not_reached",
+   "callback_set"
+  ],
+  "fail": [
+   "not_reached",
+   "no_callback"
+  ]
+ },
+ "queues": {
+  "restructuring": "restructuring",
+  "human": "general",
+  "hardship": "support"
+ },
+ "note_reasons": [
+  "refused",
+  "hardship",
+  "dispute",
+  "paid",
+  "service_error"
+ ],
+ "notes_on_transfer": false,
+ "outcomes": [
+  {
+   "outcome": "promise",
+   "reason": null
+  },
+  {
+   "outcome": "paid",
+   "reason": null
+  },
+  {
+   "outcome": "transferred",
+   "reason": "plan",
+   "when": "restructuring request"
+  },
+  {
+   "outcome": "transferred",
+   "reason": "agent",
+   "when": "insists on a person"
+  },
+  {
+   "outcome": "transferred",
+   "reason": "care",
+   "when": "hardship, accepts care team"
+  },
+  {
+   "outcome": "no_promise",
+   "reason": "declined",
+   "when": "attempts used up / refuses to talk twice"
+  },
+  {
+   "outcome": "no_promise",
+   "reason": "hardship",
+   "when": "hardship, declines transfer"
+  },
+  {
+   "outcome": "no_promise",
+   "reason": "dispute",
+   "when": "not my debt"
+  },
+  {
+   "outcome": "no_promise",
+   "reason": "system_error",
+   "when": "create_promise failed twice"
+  },
+  {
+   "outcome": "not_verified",
+   "reason": "security_failed"
+  },
+  {
+   "outcome": "not_verified",
+   "reason": "security_declined"
+  },
+  {
+   "outcome": "not_reached",
+   "reason": "callback_set"
+  },
+  {
+   "outcome": "not_reached",
+   "reason": "no_callback"
+  },
+  {
+   "outcome": "not_reached",
+   "reason": "wrong_number"
+  },
+  {
+   "outcome": "not_reached",
+   "reason": "deceased"
+  },
+  {
+   "outcome": "not_reached",
+   "reason": "unconfirmed"
+  }
+ ],
+ "multi_product_closing": {
+  "rule": "promise if any recorded (transfer overrides); else paid if all notes paid; else no_promise with reason mapped from the first non-paid note in get_account order",
+  "note_to_close_reason": {
+   "refused": "declined",
+   "hardship": "hardship",
+   "dispute": "dispute",
+   "service_error": "system_error"
+  }
+ },
+ "phrases": {
+  "robot": "I am Nordlicht Bank's virtual assistant.",
+  "condolence": "Please accept our condolences.",
+  "promise_confirmation": "A confirmation text message will follow shortly.",
+  "readback_question": "Is that correct?",
+  "today_question": "Would you be able to pay this today?",
+  "already_paid": "payments can take up to two business days to show"
+ },
+ "overrides": [],
+ "max_wrong": 3,
+ "close_reasons": {
+  "promise": [],
+  "paid": [],
+  "transferred": [
+   "plan",
+   "agent",
+   "care"
+  ],
+  "no_promise": [
+   "declined",
+   "hardship",
+   "dispute",
+   "system_error"
+  ],
+  "not_verified": [
+   "security_failed",
+   "security_declined"
+  ],
+  "not_reached": [
+   "callback_set",
+   "no_callback",
+   "wrong_number",
+   "deceased",
+   "unconfirmed"
+  ]
+ }
+}

@@ -1,0 +1,495 @@
+{
+ "bank": "Kestrel Credit Union",
+ "form": "clean specification, multi-product, own closing precedence",
+ "brief_files": [
+  "brief.md"
+ ],
+ "openapi": "openapi.json",
+ "live_compatible": false,
+ "variables": [
+  "customer_id",
+  "first_name",
+  "last_name",
+  "title",
+  "now"
+ ],
+ "clock": {
+  "now_variable": "now"
+ },
+ "calendar": {
+  "weekend": [
+   6,
+   7
+  ],
+  "holidays": [
+   "2026-11-02",
+   "2026-11-26",
+   "2026-11-27",
+   "2026-12-25",
+   "2026-12-28",
+   "2027-01-01"
+  ],
+  "roll_rule": "next_business_day"
+ },
+ "opening": {
+  "text": "Hi, this is Kestrel Credit Union's automated assistant. This call is recorded.",
+  "forbidden_before_verification": [
+   "late",
+   "missed",
+   "debt",
+   "owe",
+   "payment"
+  ],
+  "confirm_question": "Am I speaking with {first_name} {last_name}?",
+  "unclear_asks": 2,
+  "unclear_outcome": [
+   "not_reached",
+   "unclear"
+  ]
+ },
+ "identity": {
+  "questions": [
+   {
+    "order": 1,
+    "tool_field": "date_of_birth",
+    "answer_format": "date",
+    "normalise": "dmy_to_iso"
+   },
+   {
+    "order": 2,
+    "tool_field": "debit_card_last4",
+    "answer_format": "digits",
+    "normalise": "digits_only"
+   }
+  ],
+  "max_wrong": 2,
+  "max_wrong_scope": "per question (second wrong answer on the same question ends the check)",
+  "swap_hint": "day_month_swapped",
+  "fail": {
+   "outcome": "not_verified",
+   "reason": "failed"
+  },
+  "declined": {
+   "outcome": "not_verified",
+   "reason": "declined"
+  }
+ },
+ "products": {
+  "max_count": 3,
+  "floor_field": {
+   "credit_card": "minimum_payment",
+   "personal_loan": "instalment_amount",
+   "bnpl": "next_instalment"
+  },
+  "speak_as": {
+   "credit_card": "your credit card ending {card_last4}",
+   "personal_loan": "your personal loan",
+   "bnpl": "your pay-later purchase at {merchant}"
+  }
+ },
+ "bands": [
+  {
+   "name": "A",
+   "min_days_late": 1,
+   "max_days_late": 20,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 15,
+    "counted_from": "today"
+   },
+   "attempts": 1
+  },
+  {
+   "name": "B",
+   "min_days_late": 21,
+   "max_days_late": 40,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 8,
+    "counted_from": "today"
+   },
+   "attempts": 2
+  },
+  {
+   "name": "C",
+   "min_days_late": 41,
+   "max_days_late": 90,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 4,
+    "counted_from": "today"
+   },
+   "attempts": 3
+  }
+ ],
+ "attempts": [
+  {
+   "n": 1,
+   "amount": "full (or floor if full already said too much)",
+   "date": "last business day of this week; if today is it, last business day of next week"
+  },
+  {
+   "n": 2,
+   "bands": [
+    "B",
+    "C"
+   ],
+   "amount": "floor",
+   "date": "deadline"
+  },
+  {
+   "n": 3,
+   "bands": [
+    "C"
+   ],
+   "amount": "floor",
+   "date": "next business day after today"
+  }
+ ],
+ "next_weekday_rule": "weekday in the following calendar week",
+ "vague_date": "ask once for exact day, then propose the deadline",
+ "deadline_examples": [
+  {
+   "case": "S3-01",
+   "now": "2026-11-06T10:00",
+   "days_late": 3,
+   "band": "A",
+   "deadline": "2026-11-30",
+   "attempt_1_date": "2026-11-13",
+   "attempt_3_date": null
+  },
+  {
+   "case": "S3-01",
+   "now": "2026-11-06T10:00",
+   "days_late": 27,
+   "band": "B",
+   "deadline": "2026-11-17",
+   "attempt_1_date": "2026-11-13",
+   "attempt_3_date": null
+  },
+  {
+   "case": "S3-02",
+   "now": "2026-11-23T14:00",
+   "days_late": 5,
+   "band": "A",
+   "deadline": "2026-12-15",
+   "attempt_1_date": "2026-11-25",
+   "attempt_3_date": null
+  },
+  {
+   "case": "S3-02",
+   "now": "2026-11-23T14:00",
+   "days_late": 18,
+   "band": "A",
+   "deadline": "2026-12-15",
+   "attempt_1_date": "2026-11-25",
+   "attempt_3_date": null
+  },
+  {
+   "case": "S3-03",
+   "now": "2026-11-25T09:30",
+   "days_late": 9,
+   "band": "A",
+   "deadline": "2026-12-17",
+   "attempt_1_date": "2026-12-04",
+   "attempt_3_date": null
+  },
+  {
+   "case": "S3-03",
+   "now": "2026-11-25T09:30",
+   "days_late": 25,
+   "band": "B",
+   "deadline": "2026-12-08",
+   "attempt_1_date": "2026-12-04",
+   "attempt_3_date": null
+  },
+  {
+   "case": "S3-04",
+   "now": "2026-10-28T11:15",
+   "days_late": 12,
+   "band": "A",
+   "deadline": "2026-11-18",
+   "attempt_1_date": "2026-10-30",
+   "attempt_3_date": null
+  },
+  {
+   "case": "S3-04",
+   "now": "2026-10-28T11:15",
+   "days_late": 15,
+   "band": "A",
+   "deadline": "2026-11-18",
+   "attempt_1_date": "2026-10-30",
+   "attempt_3_date": null
+  },
+  {
+   "case": "S3-05",
+   "now": "2026-11-12T16:20",
+   "days_late": 8,
+   "band": "A",
+   "deadline": "2026-12-04",
+   "attempt_1_date": "2026-11-13",
+   "attempt_3_date": null
+  },
+  {
+   "case": "S3-05",
+   "now": "2026-11-12T16:20",
+   "days_late": 30,
+   "band": "B",
+   "deadline": "2026-11-23",
+   "attempt_1_date": "2026-11-13",
+   "attempt_3_date": null
+  },
+  {
+   "case": "S3-06",
+   "now": "2026-10-30T16:45",
+   "days_late": 6,
+   "band": "A",
+   "deadline": "2026-11-20",
+   "attempt_1_date": "2026-11-06",
+   "attempt_3_date": null
+  },
+  {
+   "case": "S3-07",
+   "now": "2026-12-01T10:00",
+   "days_late": 33,
+   "band": "B",
+   "deadline": "2026-12-10",
+   "attempt_1_date": "2026-12-04",
+   "attempt_3_date": null
+  },
+  {
+   "case": "S3-08",
+   "now": "2026-12-24T11:00",
+   "days_late": 50,
+   "band": "C",
+   "deadline": "2026-12-31",
+   "attempt_1_date": "2026-12-31",
+   "attempt_3_date": "2026-12-29"
+  },
+  {
+   "case": "S3-09",
+   "now": "2026-11-20T15:00",
+   "days_late": 4,
+   "band": "A",
+   "deadline": "2026-12-14",
+   "attempt_1_date": "2026-11-25",
+   "attempt_3_date": null
+  },
+  {
+   "case": "S3-10",
+   "now": "2026-12-09T13:00",
+   "days_late": 15,
+   "band": "A",
+   "deadline": "2026-12-31",
+   "attempt_1_date": "2026-12-11",
+   "attempt_3_date": null
+  },
+  {
+   "case": "S3-10",
+   "now": "2026-12-09T13:00",
+   "days_late": 22,
+   "band": "B",
+   "deadline": "2026-12-18",
+   "attempt_1_date": "2026-12-11",
+   "attempt_3_date": null
+  },
+  {
+   "case": "S3-11",
+   "now": "2026-11-03T09:10",
+   "days_late": 24,
+   "band": "B",
+   "deadline": "2026-11-12",
+   "attempt_1_date": "2026-11-06",
+   "attempt_3_date": null
+  },
+  {
+   "case": "S3-11",
+   "now": "2026-11-03T09:10",
+   "days_late": 24,
+   "band": "B",
+   "deadline": "2026-11-12",
+   "attempt_1_date": "2026-11-06",
+   "attempt_3_date": null
+  },
+  {
+   "case": "S3-12",
+   "now": "2026-12-14T16:00",
+   "days_late": 2,
+   "band": "A",
+   "deadline": "2027-01-06",
+   "attempt_1_date": "2026-12-18",
+   "attempt_3_date": null
+  }
+ ],
+ "callback": {
+  "days": [
+   "today",
+   "next_business_day"
+  ],
+  "start": "08:00",
+  "end": "20:00",
+  "end_inclusive": true,
+  "must_be_after_now": true,
+  "per_weekday": {
+   "5": {
+    "start": "08:00",
+    "end": "16:00"
+   }
+  },
+  "retry_asks": 1,
+  "ok": [
+   "not_reached",
+   "callback"
+  ],
+  "fail": [
+   "not_reached",
+   "no_callback"
+  ]
+ },
+ "queues": {
+  "restructuring": "payment_plans",
+  "human": "service_desk",
+  "hardship": "hardship_team"
+ },
+ "note_reasons": [
+  "declined",
+  "hardship",
+  "disputed",
+  "already_paid",
+  "technical",
+  "restructuring"
+ ],
+ "notes_always": "every product without a recorded promise, also with one product",
+ "notes_on_transfer": {
+  "payment_plans": "restructuring note on every product without a recorded promise, before the transfer",
+  "hardship_team": false,
+  "service_desk": false
+ },
+ "outcomes": [
+  {
+   "outcome": "transferred",
+   "reason": "payment_plan",
+   "order": 1
+  },
+  {
+   "outcome": "transferred",
+   "reason": "hardship",
+   "order": 1
+  },
+  {
+   "outcome": "transferred",
+   "reason": "human",
+   "order": 1
+  },
+  {
+   "outcome": "partial_promise",
+   "reason": null,
+   "order": 2
+  },
+  {
+   "outcome": "promise",
+   "reason": null,
+   "order": 3
+  },
+  {
+   "outcome": "paid",
+   "reason": null,
+   "order": 4
+  },
+  {
+   "outcome": "no_promise",
+   "reason": "disputed",
+   "order": 5
+  },
+  {
+   "outcome": "no_promise",
+   "reason": "hardship",
+   "order": 5
+  },
+  {
+   "outcome": "no_promise",
+   "reason": "technical",
+   "order": 5
+  },
+  {
+   "outcome": "no_promise",
+   "reason": "declined",
+   "order": 5
+  },
+  {
+   "outcome": "not_verified",
+   "reason": "failed"
+  },
+  {
+   "outcome": "not_verified",
+   "reason": "declined"
+  },
+  {
+   "outcome": "not_reached",
+   "reason": "callback"
+  },
+  {
+   "outcome": "not_reached",
+   "reason": "no_callback"
+  },
+  {
+   "outcome": "not_reached",
+   "reason": "wrong_number"
+  },
+  {
+   "outcome": "not_reached",
+   "reason": "deceased"
+  },
+  {
+   "outcome": "not_reached",
+   "reason": "unclear"
+  }
+ ],
+ "multi_product_closing": {
+  "rule": "first matching row: transferred > partial_promise (promise + any note other than already_paid) > promise > paid (all already_paid) > no_promise",
+  "no_promise_reason_precedence": [
+   "disputed",
+   "hardship",
+   "technical",
+   "declined"
+  ]
+ },
+ "phrases": {
+  "robot": "Yes, I'm Kestrel's automated assistant.",
+  "deceased": "I'm so sorry for your loss.",
+  "promise_confirmation": "We will send you a text to confirm.",
+  "readback_question": "Shall I set that up?",
+  "today_question": "Could you pay everything today?",
+  "today_question_single": "Could you pay this today?",
+  "already_paid": "payments can take one business day to show"
+ },
+ "overrides": [],
+ "max_wrong": 2,
+ "close_reasons": {
+  "transferred": [
+   "payment_plan",
+   "hardship",
+   "human"
+  ],
+  "partial_promise": [],
+  "promise": [],
+  "paid": [],
+  "no_promise": [
+   "disputed",
+   "hardship",
+   "technical",
+   "declined"
+  ],
+  "not_verified": [
+   "failed",
+   "declined"
+  ],
+  "not_reached": [
+   "callback",
+   "no_callback",
+   "wrong_number",
+   "deceased",
+   "unclear"
+  ]
+ }
+}

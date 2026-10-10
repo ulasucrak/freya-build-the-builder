@@ -1,0 +1,534 @@
+[
+  {
+    "id": "S2-01",
+    "brief": "S2",
+    "family": "Happy path",
+    "level": "easy",
+    "title": "Pays in full on the cancelled closure day",
+    "variables": {
+      "first_name": "Fiona",
+      "last_name": "Gallagher",
+      "title": "Ms",
+      "call_time": "2026-11-11T10:00"
+    },
+    "identity": {
+      "dob": "19-08-1983",
+      "postcode": "HB4 7QD"
+    },
+    "products": [
+      {
+        "kind": "card",
+        "card_ending": "6620",
+        "amount_overdue": 275.4,
+        "days_overdue": 8,
+        "min_due": 55.0
+      }
+    ],
+    "script": "Says 'speaking'. Date of birth 19 August 1983. Postcode h b four, seven q d. Pays the full amount today. Confirms.",
+    "expected": {
+      "outcome": "PTP",
+      "reason": null,
+      "promises": [
+        {
+          "product_id": "p1",
+          "amount": 275.4,
+          "date": "2026-11-11"
+        }
+      ],
+      "notes": [],
+      "callbacks": [],
+      "transfers": []
+    },
+    "checks": [
+      "date of birth sent as 19-08-1983 and postcode as 'HB4 7QD'",
+      "11 November is treated as a working day (closure cancelled by the memo)",
+      "create_promise once, 275.40 on 11 November",
+      "close_call with code PTP"
+    ]
+  },
+  {
+    "id": "S2-02",
+    "brief": "S2",
+    "family": "Third party",
+    "level": "hard",
+    "title": "Brother answers, tomorrow is a closure day",
+    "variables": {
+      "first_name": "Declan",
+      "last_name": "Murphy",
+      "title": "Mr",
+      "call_time": "2026-11-12T18:10"
+    },
+    "identity": {
+      "dob": "02-01-1990",
+      "postcode": "HB11 2LP"
+    },
+    "products": [
+      {
+        "kind": "personal_loan",
+        "amount_overdue": 530.0,
+        "days_overdue": 12,
+        "instalment": 265.0
+      }
+    ],
+    "script": "His brother answers. Asks if Declan is in trouble. Says try him tomorrow morning. When asked for another time, says 'tonight at seven then'.",
+    "expected": {
+      "outcome": "CBK",
+      "reason": null,
+      "promises": [],
+      "notes": [],
+      "callbacks": [
+        {
+          "date": "2026-11-12",
+          "time": "19:00"
+        }
+      ],
+      "transfers": []
+    },
+    "checks": [
+      "no reason for the call is given",
+      "13 November is a closure day, so the agent asks once for another time",
+      "callback booked today at 19:00 (inside the 08:30-19:30 window from the memo)"
+    ]
+  },
+  {
+    "id": "S2-03",
+    "brief": "S2",
+    "family": "Identity",
+    "level": "medium",
+    "title": "Two incorrect dates of birth end the check",
+    "variables": {
+      "first_name": "Aileen",
+      "last_name": "Burke",
+      "title": "Ms",
+      "call_time": "2026-11-20T11:00"
+    },
+    "identity": {
+      "dob": "03-05-1969",
+      "postcode": "HB2 9XE"
+    },
+    "products": [
+      {
+        "kind": "card",
+        "card_ending": "0049",
+        "amount_overdue": 310.0,
+        "days_overdue": 22,
+        "min_due": 62.0
+      }
+    ],
+    "script": "Confirms her name. Gives date of birth 3 May 1968, then 3 May 1967. Then asks what is going on.",
+    "expected": {
+      "outcome": "IDF",
+      "reason": null,
+      "promises": [],
+      "notes": [],
+      "callbacks": [],
+      "transfers": []
+    },
+    "checks": [
+      "the check ends after the second incorrect answer (memo), the postcode is never asked",
+      "nothing about the account is disclosed",
+      "customer told to use the app or a branch"
+    ]
+  },
+  {
+    "id": "S2-04",
+    "brief": "S2",
+    "family": "Dates",
+    "level": "hard",
+    "title": "Friday call, vague date then a date past the Stage 1 deadline",
+    "variables": {
+      "first_name": "Callum",
+      "last_name": "Reid",
+      "title": "Mr",
+      "call_time": "2026-11-06T14:00"
+    },
+    "identity": {
+      "dob": "27-11-1977",
+      "postcode": "HB6 3RS"
+    },
+    "products": [
+      {
+        "kind": "personal_loan",
+        "amount_overdue": 840.0,
+        "days_overdue": 10,
+        "instalment": 210.0
+      }
+    ],
+    "script": "Verified. Cannot pay today. Says 'end of the month'. When asked for the exact day, says the 27th. Accepts the latest date he is offered.",
+    "expected": {
+      "outcome": "PTP",
+      "reason": null,
+      "promises": [
+        {
+          "product_id": "p1",
+          "amount": 840.0,
+          "date": "2026-11-23"
+        }
+      ],
+      "notes": [],
+      "callbacks": [],
+      "transfers": []
+    },
+    "checks": [
+      "agent asks once for the exact day",
+      "27 November is past the deadline; the agent offers Monday 23 November (10th working day, 13 November closed, 11 November open)",
+      "promise 840 on 23 November"
+    ]
+  },
+  {
+    "id": "S2-05",
+    "brief": "S2",
+    "family": "Dates",
+    "level": "medium",
+    "title": "Names the closure day of the migration",
+    "variables": {
+      "first_name": "Niamh",
+      "last_name": "Doyle",
+      "title": "Ms",
+      "call_time": "2026-11-10T09:00"
+    },
+    "identity": {
+      "dob": "14-02-1992",
+      "postcode": "HB1 5AT"
+    },
+    "products": [
+      {
+        "kind": "card",
+        "card_ending": "3317",
+        "amount_overdue": 520.0,
+        "days_overdue": 20,
+        "min_due": 104.0
+      }
+    ],
+    "script": "Verified. Cannot pay today. Offers to pay on Friday the 13th. Accepts the day the agent offers instead.",
+    "expected": {
+      "outcome": "PTP",
+      "reason": null,
+      "promises": [
+        {
+          "product_id": "p1",
+          "amount": 520.0,
+          "date": "2026-11-16"
+        }
+      ],
+      "notes": [],
+      "callbacks": [],
+      "transfers": []
+    },
+    "checks": [
+      "13 November is not booked",
+      "the agent offers Monday 16 November",
+      "promise 520 on 16 November, inside the Stage 2 deadline of 18 November"
+    ]
+  },
+  {
+    "id": "S2-06",
+    "brief": "S2",
+    "family": "Amounts",
+    "level": "hard",
+    "title": "Overdraft: offers fifty, below the minimum",
+    "variables": {
+      "first_name": "Ciaran",
+      "last_name": "Walsh",
+      "title": "Mr",
+      "call_time": "2026-11-23T11:30"
+    },
+    "identity": {
+      "dob": "30-06-1986",
+      "postcode": "HB9 8NU"
+    },
+    "products": [
+      {
+        "kind": "overdraft",
+        "amount_overdue": 450.0,
+        "days_overdue": 30,
+        "min_due": 90.0
+      }
+    ],
+    "script": "Verified. Says four hundred and fifty is too much, he could do fifty on Friday. When told fifty cannot be booked, accepts ninety on Friday. Confirms.",
+    "expected": {
+      "outcome": "PTP",
+      "reason": null,
+      "promises": [
+        {
+          "product_id": "p1",
+          "amount": 90.0,
+          "date": "2026-11-27"
+        }
+      ],
+      "notes": [],
+      "callbacks": [],
+      "transfers": []
+    },
+    "checks": [
+      "the agent never asks how much he can pay",
+      "fifty is refused and ninety is offered once",
+      "promise 90 on Friday 27 November"
+    ]
+  },
+  {
+    "id": "S2-07",
+    "brief": "S2",
+    "family": "Restructuring",
+    "level": "hard",
+    "title": "Agrees the card, then wants lower loan payments",
+    "variables": {
+      "first_name": "Orla",
+      "last_name": "Byrne",
+      "title": "Ms",
+      "call_time": "2026-11-19T15:00"
+    },
+    "identity": {
+      "dob": "11-11-1980",
+      "postcode": "HB3 6DW"
+    },
+    "products": [
+      {
+        "kind": "card",
+        "card_ending": "7781",
+        "amount_overdue": 300.0,
+        "days_overdue": 6,
+        "min_due": 60.0
+      },
+      {
+        "kind": "personal_loan",
+        "amount_overdue": 1200.0,
+        "days_overdue": 25,
+        "instalment": 400.0
+      }
+    ],
+    "script": "Verified. Cannot pay everything today. Agrees to pay the card in full on Friday. For the loan, asks for reduced monthly payments.",
+    "expected": {
+      "outcome": "TRA",
+      "reason": null,
+      "promises": [],
+      "notes": [],
+      "callbacks": [],
+      "transfers": [
+        {
+          "queue": "arrangements"
+        }
+      ]
+    },
+    "checks": [
+      "both products stated before any ask",
+      "the card promise agreed but not yet booked is not booked",
+      "transfer_to_agent with queue arrangements",
+      "no add_note at all"
+    ]
+  },
+  {
+    "id": "S2-08",
+    "brief": "S2",
+    "family": "Tool failure",
+    "level": "medium",
+    "title": "Security service fails on the first answer",
+    "variables": {
+      "first_name": "Seamus",
+      "last_name": "Kelly",
+      "title": "Mr",
+      "call_time": "2026-12-04T09:00"
+    },
+    "identity": {
+      "dob": "22-09-1975",
+      "postcode": "HB12 4JF"
+    },
+    "products": [
+      {
+        "kind": "card",
+        "card_ending": "5150",
+        "amount_overdue": 150.0,
+        "days_overdue": 3,
+        "min_due": 30.0
+      }
+    ],
+    "script": "Confirms. Gives date of birth 22 September 1975 and postcode HB12 4JF. Pays the full amount today and confirms.",
+    "expected": {
+      "outcome": "PTP",
+      "reason": null,
+      "promises": [
+        {
+          "product_id": "p1",
+          "amount": 150.0,
+          "date": "2026-12-04"
+        }
+      ],
+      "notes": [],
+      "callbacks": [],
+      "transfers": []
+    },
+    "checks": [
+      "the failed verify_identity call is repeated and not counted as incorrect",
+      "promise 150 today, 4 December"
+    ],
+    "faults": [
+      {
+        "tool": "verify_identity",
+        "fail_first_n": 1
+      }
+    ]
+  },
+  {
+    "id": "S2-09",
+    "brief": "S2",
+    "family": "Multi-product",
+    "level": "hard",
+    "title": "Pre-Christmas: one date for two, disputes the overdraft",
+    "variables": {
+      "first_name": "Eoin",
+      "last_name": "Fitzgerald",
+      "title": "Mr",
+      "call_time": "2026-12-23T12:00"
+    },
+    "identity": {
+      "dob": "08-04-1988",
+      "postcode": "HB7 1QQ"
+    },
+    "products": [
+      {
+        "kind": "card",
+        "card_ending": "2204",
+        "amount_overdue": 400.0,
+        "days_overdue": 5,
+        "min_due": 80.0
+      },
+      {
+        "kind": "personal_loan",
+        "amount_overdue": 900.0,
+        "days_overdue": 40,
+        "instalment": 300.0
+      },
+      {
+        "kind": "overdraft",
+        "amount_overdue": 250.0,
+        "days_overdue": 16,
+        "min_due": 50.0
+      }
+    ],
+    "script": "Verified. Cannot pay today. Says he never had an overdraft with Harbourline. Wants to pay the card and the loan on the eighth of January. Accepts when told the loan has an earlier latest date.",
+    "expected": {
+      "outcome": "PTP",
+      "reason": null,
+      "promises": [
+        {
+          "product_id": "p1",
+          "amount": 400.0,
+          "date": "2027-01-08"
+        },
+        {
+          "product_id": "p2",
+          "amount": 900.0,
+          "date": "2027-01-04"
+        }
+      ],
+      "notes": [
+        {
+          "product_id": "p3",
+          "reason": "N-DSP"
+        }
+      ],
+      "callbacks": [],
+      "transfers": []
+    },
+    "checks": [
+      "all three products stated before any ask",
+      "card on 8 January (Stage 1 deadline 11 January)",
+      "loan on its own deadline, Monday 4 January (25 and 28 December and 1 January closed)",
+      "note N-DSP on the overdraft"
+    ]
+  },
+  {
+    "id": "S2-10",
+    "brief": "S2",
+    "family": "Multi-product",
+    "level": "hard",
+    "title": "Card already paid, refuses the loan; gives the date of birth in pieces",
+    "variables": {
+      "first_name": "Grainne",
+      "last_name": "Nolan",
+      "title": "Ms",
+      "call_time": "2026-10-26T08:45"
+    },
+    "identity": {
+      "dob": "12-02-1980",
+      "postcode": "HB5 2UY"
+    },
+    "products": [
+      {
+        "kind": "card",
+        "card_ending": "8436",
+        "amount_overdue": 120.0,
+        "days_overdue": 4,
+        "min_due": 36.0
+      },
+      {
+        "kind": "personal_loan",
+        "amount_overdue": 660.0,
+        "days_overdue": 21,
+        "instalment": 220.0
+      }
+    ],
+    "script": "Gives the date of birth in pieces: 'the twelfth... of February... nineteen eighty'. Postcode HB5 2UY. Says the card was paid on Saturday. Refuses the loan flatly, whatever is offered.",
+    "expected": {
+      "outcome": "NRF",
+      "reason": null,
+      "promises": [],
+      "notes": [
+        {
+          "product_id": "p1",
+          "reason": "N-PAID"
+        },
+        {
+          "product_id": "p2",
+          "reason": "N-REF"
+        }
+      ],
+      "callbacks": [],
+      "transfers": []
+    },
+    "checks": [
+      "loan attempt 1: 660 on Friday 30 October; attempt 2: 220 on Monday 2 November",
+      "notes N-PAID on the card and N-REF on the loan",
+      "close code NRF"
+    ]
+  },
+  {
+    "id": "S2-11",
+    "brief": "S2",
+    "family": "Third party",
+    "level": "easy",
+    "title": "Wrong number",
+    "variables": {
+      "first_name": "Patrick",
+      "last_name": "Quinn",
+      "title": "Mr",
+      "call_time": "2026-12-29T10:15"
+    },
+    "identity": {
+      "dob": "05-07-1971",
+      "postcode": "HB8 3EP"
+    },
+    "products": [
+      {
+        "kind": "personal_loan",
+        "amount_overdue": 410.0,
+        "days_overdue": 13,
+        "instalment": 205.0
+      }
+    ],
+    "script": "The person who answers says there is no Patrick Quinn at this number.",
+    "expected": {
+      "outcome": "WRN",
+      "reason": null,
+      "promises": [],
+      "notes": [],
+      "callbacks": [],
+      "transfers": []
+    },
+    "checks": [
+      "no reason for the call is given",
+      "no tool other than close_call",
+      "close code WRN"
+    ]
+  }
+]

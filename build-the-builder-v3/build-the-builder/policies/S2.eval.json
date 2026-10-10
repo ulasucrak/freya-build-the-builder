@@ -1,0 +1,1021 @@
+{
+ "bank": "S2",
+ "seconds": 102.29543614387512,
+ "warnings": [
+  "resolved bands; evidence: [\"| Stage 1 | 1-14 | 8th working day after today | 1 |\", \"| Stage 2 | 15-60 | 5th working day after today | 2 |\", \"The latest promise date for Stage 1 (1-14 days overdue) is now the 10th working day after today, not the 8th. Stage 2 is unchanged.\", \"Attempt 1: the full amount (or the lowest acceptab",
+  "resolved identity; evidence: [\"Two questions, one at a time: (a) date of birth, (b) the postcode of the home address on file.\", \"verify_identity wants the date of birth as DD-MM-YYYY (e.g. 07-03-1981). Customers say dates any way they like; a date given in numbers only is day, month, year.\", \"The postcode is sent in capitals wi",
+  "resolved triggers; evidence: [\"Accept only a clear yes or the customer giving their own name. Otherwise ask once more; if still unclear, close with the \\\"could not confirm\\\" code.\", \"Callbacks may now be booked from 08:30 to 19:30, both times included.\", \"If the promise system falls over, try once more. If it fails again, say s",
+  "close tool close_call has no reason field: 6 close reasons dropped",
+  "validate: identity question 1: normalise must be one of ['dmy_to_iso', 'mdy_to_iso', 'digits_only', 'none']",
+  "validate: identity question 2: normalise must be one of ['dmy_to_iso', 'mdy_to_iso', 'digits_only', 'none']"
+ ],
+ "passed": 116,
+ "total": 116,
+ "rows": [
+  {
+   "section": "variables",
+   "check": "customer_id",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "variables",
+   "check": "first_name",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "variables",
+   "check": "last_name",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "variables",
+   "check": "title",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "variables",
+   "check": "call_time",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "clock",
+   "check": "now_variable",
+   "ok": true,
+   "gold": "call_time",
+   "got": "call_time"
+  },
+  {
+   "section": "calendar",
+   "check": "weekend",
+   "ok": true,
+   "gold": [
+    6,
+    7
+   ],
+   "got": [
+    6,
+    7
+   ]
+  },
+  {
+   "section": "calendar",
+   "check": "holidays",
+   "ok": true,
+   "gold": [
+    "2026-11-13",
+    "2026-12-25",
+    "2026-12-28",
+    "2027-01-01"
+   ],
+   "got": [
+    "2026-11-13",
+    "2026-12-25",
+    "2026-12-28",
+    "2027-01-01"
+   ]
+  },
+  {
+   "section": "calendar",
+   "check": "not holiday 2026-11-11",
+   "ok": true,
+   "gold": false,
+   "got": false
+  },
+  {
+   "section": "opening",
+   "check": "forbidden 'arrears'",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "opening",
+   "check": "forbidden 'overdue'",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "opening",
+   "check": "forbidden 'owe'",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "opening",
+   "check": "forbidden 'balance'",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "opening",
+   "check": "forbidden 'payment'",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "opening",
+   "check": "forbidden 'card'",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "opening",
+   "check": "forbidden 'loan'",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "opening",
+   "check": "forbidden 'overdraft'",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "opening",
+   "check": "confirm_question",
+   "ok": true,
+   "gold": "May I speak to {title} {last_name}?",
+   "got": null
+  },
+  {
+   "section": "identity",
+   "check": "question order",
+   "ok": true,
+   "gold": [
+    "dob",
+    "postcode"
+   ],
+   "got": [
+    "dob",
+    "postcode"
+   ]
+  },
+  {
+   "section": "identity",
+   "check": "dob answer_format",
+   "ok": true,
+   "gold": "date",
+   "got": "date"
+  },
+  {
+   "section": "identity",
+   "check": "dob tool format",
+   "ok": true,
+   "gold": "DD-MM-YYYY",
+   "got": "convert the spoken date to dd-mm-yyyy; a date given in numbers only is day, month, year"
+  },
+  {
+   "section": "identity",
+   "check": "postcode answer_format",
+   "ok": true,
+   "gold": "text",
+   "got": "text"
+  },
+  {
+   "section": "identity",
+   "check": "max_wrong",
+   "ok": true,
+   "gold": 2,
+   "got": 2
+  },
+  {
+   "section": "identity",
+   "check": "max_wrong_scope",
+   "ok": true,
+   "gold": "total",
+   "got": "total"
+  },
+  {
+   "section": "identity",
+   "check": "fail",
+   "ok": true,
+   "gold": [
+    "IDF",
+    ""
+   ],
+   "got": [
+    "IDF",
+    ""
+   ]
+  },
+  {
+   "section": "identity",
+   "check": "declined pair",
+   "ok": true,
+   "gold": [
+    "IDD",
+    ""
+   ],
+   "got": null
+  },
+  {
+   "section": "products",
+   "check": "max_count",
+   "ok": true,
+   "gold": 3,
+   "got": 3
+  },
+  {
+   "section": "products",
+   "check": "list_field",
+   "ok": true,
+   "gold": "items",
+   "got": "items"
+  },
+  {
+   "section": "products",
+   "check": "type_field",
+   "ok": true,
+   "gold": "kind",
+   "got": "kind"
+  },
+  {
+   "section": "products",
+   "check": "days_late_field",
+   "ok": true,
+   "gold": "days_overdue",
+   "got": "days_overdue"
+  },
+  {
+   "section": "products",
+   "check": "floor card",
+   "ok": true,
+   "gold": "min_due",
+   "got": "min_due"
+  },
+  {
+   "section": "products",
+   "check": "floor personal_loan",
+   "ok": true,
+   "gold": "instalment",
+   "got": "instalment"
+  },
+  {
+   "section": "products",
+   "check": "floor overdraft",
+   "ok": true,
+   "gold": "min_due",
+   "got": "min_due"
+  },
+  {
+   "section": "products",
+   "check": "full card",
+   "ok": true,
+   "gold": "amount_overdue",
+   "got": "amount_overdue"
+  },
+  {
+   "section": "products",
+   "check": "full personal_loan",
+   "ok": true,
+   "gold": "amount_overdue",
+   "got": "amount_overdue"
+  },
+  {
+   "section": "products",
+   "check": "full overdraft",
+   "ok": true,
+   "gold": "amount_overdue",
+   "got": "amount_overdue"
+  },
+  {
+   "section": "bands",
+   "check": "count",
+   "ok": true,
+   "gold": 2,
+   "got": 2
+  },
+  {
+   "section": "bands",
+   "check": "Stage 1 range",
+   "ok": true,
+   "gold": [
+    1,
+    14
+   ],
+   "got": [
+    1,
+    14
+   ]
+  },
+  {
+   "section": "bands",
+   "check": "Stage 1 deadline n",
+   "ok": true,
+   "gold": 10,
+   "got": 10
+  },
+  {
+   "section": "bands",
+   "check": "Stage 1 counted_from",
+   "ok": true,
+   "gold": "after_today",
+   "got": "after_today"
+  },
+  {
+   "section": "bands",
+   "check": "Stage 1 attempts",
+   "ok": true,
+   "gold": 1,
+   "got": 1
+  },
+  {
+   "section": "bands",
+   "check": "Stage 2 range",
+   "ok": true,
+   "gold": [
+    15,
+    60
+   ],
+   "got": [
+    15,
+    60
+   ]
+  },
+  {
+   "section": "bands",
+   "check": "Stage 2 deadline n",
+   "ok": true,
+   "gold": 5,
+   "got": 5
+  },
+  {
+   "section": "bands",
+   "check": "Stage 2 counted_from",
+   "ok": true,
+   "gold": "after_today",
+   "got": "after_today"
+  },
+  {
+   "section": "bands",
+   "check": "Stage 2 attempts",
+   "ok": true,
+   "gold": 2,
+   "got": 2
+  },
+  {
+   "section": "examples",
+   "check": "S2-01 dl=8 band",
+   "ok": true,
+   "gold": [
+    1,
+    14
+   ],
+   "got": [
+    1,
+    14
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S2-01 dl=8 deadline",
+   "ok": true,
+   "gold": "2026-11-26",
+   "got": "2026-11-26"
+  },
+  {
+   "section": "examples",
+   "check": "S2-01 dl=8 attempt 1",
+   "ok": true,
+   "gold": "2026-11-12",
+   "got": "2026-11-12"
+  },
+  {
+   "section": "examples",
+   "check": "S2-02 dl=12 band",
+   "ok": true,
+   "gold": [
+    1,
+    14
+   ],
+   "got": [
+    1,
+    14
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S2-02 dl=12 deadline",
+   "ok": true,
+   "gold": "2026-11-27",
+   "got": "2026-11-27"
+  },
+  {
+   "section": "examples",
+   "check": "S2-02 dl=12 attempt 1",
+   "ok": true,
+   "gold": "2026-11-20",
+   "got": "2026-11-20"
+  },
+  {
+   "section": "examples",
+   "check": "S2-03 dl=22 band",
+   "ok": true,
+   "gold": [
+    15,
+    60
+   ],
+   "got": [
+    15,
+    60
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S2-03 dl=22 deadline",
+   "ok": true,
+   "gold": "2026-11-27",
+   "got": "2026-11-27"
+  },
+  {
+   "section": "examples",
+   "check": "S2-03 dl=22 attempt 1",
+   "ok": true,
+   "gold": "2026-11-27",
+   "got": "2026-11-27"
+  },
+  {
+   "section": "examples",
+   "check": "S2-04 dl=10 band",
+   "ok": true,
+   "gold": [
+    1,
+    14
+   ],
+   "got": [
+    1,
+    14
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S2-04 dl=10 deadline",
+   "ok": true,
+   "gold": "2026-11-23",
+   "got": "2026-11-23"
+  },
+  {
+   "section": "examples",
+   "check": "S2-04 dl=10 attempt 1",
+   "ok": true,
+   "gold": "2026-11-12",
+   "got": "2026-11-12"
+  },
+  {
+   "section": "examples",
+   "check": "S2-05 dl=20 band",
+   "ok": true,
+   "gold": [
+    15,
+    60
+   ],
+   "got": [
+    15,
+    60
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S2-05 dl=20 deadline",
+   "ok": true,
+   "gold": "2026-11-18",
+   "got": "2026-11-18"
+  },
+  {
+   "section": "examples",
+   "check": "S2-05 dl=20 attempt 1",
+   "ok": true,
+   "gold": "2026-11-12",
+   "got": "2026-11-12"
+  },
+  {
+   "section": "examples",
+   "check": "S2-06 dl=30 band",
+   "ok": true,
+   "gold": [
+    15,
+    60
+   ],
+   "got": [
+    15,
+    60
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S2-06 dl=30 deadline",
+   "ok": true,
+   "gold": "2026-11-30",
+   "got": "2026-11-30"
+  },
+  {
+   "section": "examples",
+   "check": "S2-06 dl=30 attempt 1",
+   "ok": true,
+   "gold": "2026-11-27",
+   "got": "2026-11-27"
+  },
+  {
+   "section": "examples",
+   "check": "S2-07 dl=6 band",
+   "ok": true,
+   "gold": [
+    1,
+    14
+   ],
+   "got": [
+    1,
+    14
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S2-07 dl=6 deadline",
+   "ok": true,
+   "gold": "2026-12-03",
+   "got": "2026-12-03"
+  },
+  {
+   "section": "examples",
+   "check": "S2-07 dl=6 attempt 1",
+   "ok": true,
+   "gold": "2026-11-20",
+   "got": "2026-11-20"
+  },
+  {
+   "section": "examples",
+   "check": "S2-07 dl=25 band",
+   "ok": true,
+   "gold": [
+    15,
+    60
+   ],
+   "got": [
+    15,
+    60
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S2-07 dl=25 deadline",
+   "ok": true,
+   "gold": "2026-11-26",
+   "got": "2026-11-26"
+  },
+  {
+   "section": "examples",
+   "check": "S2-07 dl=25 attempt 1",
+   "ok": true,
+   "gold": "2026-11-20",
+   "got": "2026-11-20"
+  },
+  {
+   "section": "examples",
+   "check": "S2-08 dl=3 band",
+   "ok": true,
+   "gold": [
+    1,
+    14
+   ],
+   "got": [
+    1,
+    14
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S2-08 dl=3 deadline",
+   "ok": true,
+   "gold": "2026-12-18",
+   "got": "2026-12-18"
+  },
+  {
+   "section": "examples",
+   "check": "S2-08 dl=3 attempt 1",
+   "ok": true,
+   "gold": "2026-12-11",
+   "got": "2026-12-11"
+  },
+  {
+   "section": "examples",
+   "check": "S2-09 dl=5 band",
+   "ok": true,
+   "gold": [
+    1,
+    14
+   ],
+   "got": [
+    1,
+    14
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S2-09 dl=5 deadline",
+   "ok": true,
+   "gold": "2027-01-11",
+   "got": "2027-01-11"
+  },
+  {
+   "section": "examples",
+   "check": "S2-09 dl=5 attempt 1",
+   "ok": true,
+   "gold": "2026-12-24",
+   "got": "2026-12-24"
+  },
+  {
+   "section": "examples",
+   "check": "S2-09 dl=40 band",
+   "ok": true,
+   "gold": [
+    15,
+    60
+   ],
+   "got": [
+    15,
+    60
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S2-09 dl=40 deadline",
+   "ok": true,
+   "gold": "2027-01-04",
+   "got": "2027-01-04"
+  },
+  {
+   "section": "examples",
+   "check": "S2-09 dl=40 attempt 1",
+   "ok": true,
+   "gold": "2026-12-24",
+   "got": "2026-12-24"
+  },
+  {
+   "section": "examples",
+   "check": "S2-09 dl=16 band",
+   "ok": true,
+   "gold": [
+    15,
+    60
+   ],
+   "got": [
+    15,
+    60
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S2-09 dl=16 deadline",
+   "ok": true,
+   "gold": "2027-01-04",
+   "got": "2027-01-04"
+  },
+  {
+   "section": "examples",
+   "check": "S2-09 dl=16 attempt 1",
+   "ok": true,
+   "gold": "2026-12-24",
+   "got": "2026-12-24"
+  },
+  {
+   "section": "examples",
+   "check": "S2-10 dl=4 band",
+   "ok": true,
+   "gold": [
+    1,
+    14
+   ],
+   "got": [
+    1,
+    14
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S2-10 dl=4 deadline",
+   "ok": true,
+   "gold": "2026-11-09",
+   "got": "2026-11-09"
+  },
+  {
+   "section": "examples",
+   "check": "S2-10 dl=4 attempt 1",
+   "ok": true,
+   "gold": "2026-10-30",
+   "got": "2026-10-30"
+  },
+  {
+   "section": "examples",
+   "check": "S2-10 dl=21 band",
+   "ok": true,
+   "gold": [
+    15,
+    60
+   ],
+   "got": [
+    15,
+    60
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S2-10 dl=21 deadline",
+   "ok": true,
+   "gold": "2026-11-02",
+   "got": "2026-11-02"
+  },
+  {
+   "section": "examples",
+   "check": "S2-10 dl=21 attempt 1",
+   "ok": true,
+   "gold": "2026-10-30",
+   "got": "2026-10-30"
+  },
+  {
+   "section": "examples",
+   "check": "S2-11 dl=13 band",
+   "ok": true,
+   "gold": [
+    1,
+    14
+   ],
+   "got": [
+    1,
+    14
+   ]
+  },
+  {
+   "section": "examples",
+   "check": "S2-11 dl=13 deadline",
+   "ok": true,
+   "gold": "2027-01-13",
+   "got": "2027-01-13"
+  },
+  {
+   "section": "examples",
+   "check": "S2-11 dl=13 attempt 1",
+   "ok": true,
+   "gold": "2026-12-31",
+   "got": "2026-12-31"
+  },
+  {
+   "section": "callback",
+   "check": "start",
+   "ok": true,
+   "gold": "08:30",
+   "got": "08:30"
+  },
+  {
+   "section": "callback",
+   "check": "end",
+   "ok": true,
+   "gold": "19:30",
+   "got": "19:30"
+  },
+  {
+   "section": "callback",
+   "check": "end_inclusive",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "callback",
+   "check": "must_be_after_now",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "callback",
+   "check": "days",
+   "ok": true,
+   "gold": [
+    "next_business_day",
+    "today"
+   ],
+   "got": [
+    "next_business_day",
+    "today"
+   ]
+  },
+  {
+   "section": "callback",
+   "check": "close ok",
+   "ok": true,
+   "gold": [
+    "CBK",
+    ""
+   ],
+   "got": [
+    "CBK",
+    ""
+   ]
+  },
+  {
+   "section": "callback",
+   "check": "close fail",
+   "ok": true,
+   "gold": [
+    "NCB",
+    ""
+   ],
+   "got": [
+    "NCB",
+    ""
+   ]
+  },
+  {
+   "section": "queues",
+   "check": "restructuring",
+   "ok": true,
+   "gold": "arrangements",
+   "got": [
+    "arrangements",
+    "care",
+    "contact_centre"
+   ]
+  },
+  {
+   "section": "queues",
+   "check": "human",
+   "ok": true,
+   "gold": "contact_centre",
+   "got": [
+    "arrangements",
+    "care",
+    "contact_centre"
+   ]
+  },
+  {
+   "section": "queues",
+   "check": "hardship",
+   "ok": true,
+   "gold": "care",
+   "got": [
+    "arrangements",
+    "care",
+    "contact_centre"
+   ]
+  },
+  {
+   "section": "notes",
+   "check": "tool_reasons",
+   "ok": true,
+   "gold": [
+    "N-DSP",
+    "N-ERR",
+    "N-HRD",
+    "N-PAID",
+    "N-REF"
+   ],
+   "got": [
+    "N-DSP",
+    "N-ERR",
+    "N-HRD",
+    "N-PAID",
+    "N-REF"
+   ]
+  },
+  {
+   "section": "notes",
+   "check": "forbidden_on_transfer",
+   "ok": true,
+   "gold": true,
+   "got": true
+  },
+  {
+   "section": "outcomes",
+   "check": "missing pairs",
+   "ok": true,
+   "gold": [],
+   "got": []
+  },
+  {
+   "section": "outcomes",
+   "check": "extra pairs",
+   "ok": true,
+   "gold": [],
+   "got": []
+  },
+  {
+   "section": "closing",
+   "check": "note N-REF ->",
+   "ok": true,
+   "gold": "NRF",
+   "got": [
+    "NRF",
+    ""
+   ]
+  },
+  {
+   "section": "closing",
+   "check": "note N-HRD ->",
+   "ok": true,
+   "gold": "NHS",
+   "got": [
+    "NHS",
+    ""
+   ]
+  },
+  {
+   "section": "closing",
+   "check": "note N-DSP ->",
+   "ok": true,
+   "gold": "NDS",
+   "got": [
+    "NDS",
+    ""
+   ]
+  },
+  {
+   "section": "closing",
+   "check": "note N-ERR ->",
+   "ok": true,
+   "gold": "NSE",
+   "got": [
+    "NSE",
+    ""
+   ]
+  },
+  {
+   "section": "closing",
+   "check": "id_fail",
+   "ok": true,
+   "gold": [
+    "IDF",
+    ""
+   ],
+   "got": [
+    "IDF",
+    ""
+   ]
+  },
+  {
+   "section": "phrases",
+   "check": "deceased",
+   "ok": true,
+   "gold": "I'm very sorry to hear that.",
+   "got": null
+  },
+  {
+   "section": "phrases",
+   "check": "promise_confirmation",
+   "ok": true,
+   "gold": "You'll get a text message confirming the arrangement.",
+   "got": null
+  },
+  {
+   "section": "phrases",
+   "check": "readback_question",
+   "ok": true,
+   "gold": "Shall I go ahead and book that?",
+   "got": null
+  },
+  {
+   "section": "phrases",
+   "check": "today_question",
+   "ok": true,
+   "gold": "Are you able to pay this today?",
+   "got": null
+  },
+  {
+   "section": "phrases",
+   "check": "already_paid",
+   "ok": true,
+   "gold": "payments can take up to three working days to reach the account",
+   "got": null
+  },
+  {
+   "section": "overrides",
+   "check": "count",
+   "ok": true,
+   "gold": 4,
+   "got": 6
+  },
+  {
+   "section": "dates",
+   "check": "next_weekday",
+   "ok": true,
+   "gold": "following_week",
+   "got": "following_week"
+  }
+ ]
+}

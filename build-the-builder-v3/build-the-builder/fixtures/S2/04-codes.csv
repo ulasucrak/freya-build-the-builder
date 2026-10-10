@@ -1,0 +1,24 @@
+# Harbourline MI code list - collections voice channel (rev 7)
+# tool;code;meaning;used when
+close_call;PTP;Promise to pay booked;at least one promise booked
+close_call;PIF;Already paid;customer says it is paid (all products, if several)
+close_call;TRA;Transferred - Arrangements;repayment plan / reduced payments / payment holiday
+close_call;TCC;Transferred - Customer Care;hardship, transfer accepted
+close_call;TCT;Transferred - Contact Centre;customer insists on a person
+close_call;NRF;No promise - refused;attempts used up, or does not want to talk
+close_call;NHS;No promise - hardship;hardship, transfer declined
+close_call;NDS;No promise - disputed;customer disputes the debt
+close_call;NSE;No promise - system error;promise could not be booked after retry
+close_call;IDF;Security failed;too many incorrect answers
+close_call;IDD;Security declined;customer refuses security
+close_call;CBK;Callback booked;third party, callback booked
+close_call;NCB;No suitable callback time;third party, no time inside the window
+close_call;WRN;Wrong number;number not the customer's
+close_call;DEC;Deceased;customer has died
+close_call;UNC;Could not confirm;still unclear who answered after the second ask
+add_note;N-REF;Refused;no promise on this product, refused
+add_note;N-HRD;Hardship;hardship stated on this product
+add_note;N-DSP;Disputed;customer disputes this product
+add_note;N-PAID;Already paid;customer says this product is paid
+add_note;N-ERR;System error;promise for this product failed twice
+# no-promise close for several products: N-REF->NRF, N-HRD->NHS, N-DSP->NDS, N-ERR->NSE

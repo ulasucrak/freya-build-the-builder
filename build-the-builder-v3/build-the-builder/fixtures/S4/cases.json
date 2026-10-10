@@ -1,0 +1,572 @@
+[
+  {
+    "id": "S4-01",
+    "brief": "S4",
+    "family": "Happy path",
+    "level": "easy",
+    "title": "Friday: pays the loan today, amount in words",
+    "variables": {
+      "first_name": "Aoife",
+      "surname": "Brennan",
+      "honorific": "Ms",
+      "now_local": "16/10/2026 10:30"
+    },
+    "identity": {
+      "date_of_birth": "1987-09-02",
+      "national_id_last3": "418"
+    },
+    "products": [
+      {
+        "type": "loan",
+        "past_due": 520.0,
+        "days_late": 7,
+        "instalment_amount": 130.0
+      }
+    ],
+    "script": "Says 'it's me'. Date of birth the second of September nineteen eighty-seven. ID digits four one eight. Says she can pay the five hundred and twenty today. Confirms.",
+    "expected": {
+      "outcome": "ptp",
+      "reason": null,
+      "promises": [
+        {
+          "product_id": "p1",
+          "amount": 520.0,
+          "date": "2026-10-16"
+        }
+      ],
+      "notes": [],
+      "callbacks": [],
+      "transfers": []
+    },
+    "checks": [
+      "no money or product word before ID",
+      "promise 520 today, 16 October",
+      "'You'll get a text message with the details.' said after recording"
+    ]
+  },
+  {
+    "id": "S4-02",
+    "brief": "S4",
+    "family": "Amounts",
+    "level": "hard",
+    "title": "Overdraft: whole amount too much, takes the fifty-euro floor",
+    "variables": {
+      "first_name": "Kofi",
+      "surname": "Mensah",
+      "honorific": "Mr",
+      "now_local": "16/11/2026 09:00"
+    },
+    "identity": {
+      "date_of_birth": "1979-04-25",
+      "national_id_last3": "073"
+    },
+    "products": [
+      {
+        "type": "overdraft",
+        "past_due": 380.0,
+        "days_late": 20
+      }
+    ],
+    "script": "Verified. Says three hundred and eighty is too much. Accepts fifty when offered and says he can do it on Wednesday. Confirms.",
+    "expected": {
+      "outcome": "ptp",
+      "reason": null,
+      "promises": [
+        {
+          "product_id": "p1",
+          "amount": 50.0,
+          "date": "2026-11-18"
+        }
+      ],
+      "notes": [],
+      "callbacks": [],
+      "transfers": []
+    },
+    "checks": [
+      "the floor offered is fifty euros, once, with the note that the rest stays overdue",
+      "the agent never asks how much he can pay",
+      "promise 50 on Wednesday 18 November"
+    ]
+  },
+  {
+    "id": "S4-03",
+    "brief": "S4",
+    "family": "Restructuring",
+    "level": "hard",
+    "title": "Total past due over three thousand: senior collections",
+    "variables": {
+      "first_name": "Dara",
+      "surname": "O'Connell",
+      "honorific": "Dr",
+      "now_local": "19/11/2026 11:40"
+    },
+    "identity": {
+      "date_of_birth": "1972-12-12",
+      "national_id_last3": "905"
+    },
+    "products": [
+      {
+        "type": "credit_card",
+        "card_last4": "6618",
+        "past_due": 1400.0,
+        "days_late": 12,
+        "minimum_payment": 420.0
+      },
+      {
+        "type": "loan",
+        "past_due": 1900.0,
+        "days_late": 30,
+        "instalment_amount": 475.0
+      }
+    ],
+    "script": "Verified. Listens to both products. Says she wants to sort it out today if she can.",
+    "expected": {
+      "outcome": "handed_over",
+      "reason": "high_balance",
+      "promises": [],
+      "notes": [],
+      "callbacks": [],
+      "transfers": [
+        {
+          "queue": "senior_collections"
+        }
+      ]
+    },
+    "checks": [
+      "both products stated",
+      "no attempt to collect (total 3300 is more than three thousand)",
+      "transfer_to_agent with queue senior_collections",
+      "no add_note"
+    ]
+  },
+  {
+    "id": "S4-04",
+    "brief": "S4",
+    "family": "Dates",
+    "level": "medium",
+    "title": "'This Thursday' is the staff training day",
+    "variables": {
+      "first_name": "Saoirse",
+      "surname": "Kavanagh",
+      "honorific": "Mrs",
+      "now_local": "01/12/2026 14:00"
+    },
+    "identity": {
+      "date_of_birth": "1990-01-19",
+      "national_id_last3": "264"
+    },
+    "products": [
+      {
+        "type": "credit_card",
+        "card_last4": "2093",
+        "past_due": 760.0,
+        "days_late": 30,
+        "minimum_payment": 228.0
+      }
+    ],
+    "script": "Verified. Cannot pay today. Offers this Thursday. Accepts the day the agent offers instead.",
+    "expected": {
+      "outcome": "ptp",
+      "reason": null,
+      "promises": [
+        {
+          "product_id": "p1",
+          "amount": 760.0,
+          "date": "2026-12-04"
+        }
+      ],
+      "notes": [],
+      "callbacks": [],
+      "transfers": []
+    },
+    "checks": [
+      "3 December is a closed day and is not recorded",
+      "the agent offers Friday 4 December",
+      "inside the deadline of 10 December"
+    ]
+  },
+  {
+    "id": "S4-05",
+    "brief": "S4",
+    "family": "Dates",
+    "level": "medium",
+    "title": "Plain no on a Friday before a closed Monday",
+    "variables": {
+      "first_name": "Tadhg",
+      "surname": "Flynn",
+      "honorific": "Mr",
+      "now_local": "30/10/2026 11:00"
+    },
+    "identity": {
+      "date_of_birth": "1983-06-30",
+      "national_id_last3": "552"
+    },
+    "products": [
+      {
+        "type": "loan",
+        "past_due": 300.0,
+        "days_late": 10,
+        "instalment_amount": 100.0
+      }
+    ],
+    "script": "Verified. Just says no when asked about today. Accepts the agent's proposal.",
+    "expected": {
+      "outcome": "ptp",
+      "reason": null,
+      "promises": [
+        {
+          "product_id": "p1",
+          "amount": 300.0,
+          "date": "2026-11-05"
+        }
+      ],
+      "notes": [],
+      "callbacks": [],
+      "transfers": []
+    },
+    "checks": [
+      "try 1 proposes the full 300 on Thursday 5 November (third working day; 2 November closed)",
+      "promise 300 on 5 November"
+    ]
+  },
+  {
+    "id": "S4-06",
+    "brief": "S4",
+    "family": "Identity",
+    "level": "medium",
+    "title": "Four wrong answers end the check",
+    "variables": {
+      "first_name": "Roisin",
+      "surname": "Hayes",
+      "honorific": "Ms",
+      "now_local": "21/10/2026 15:30"
+    },
+    "identity": {
+      "date_of_birth": "1994-03-08",
+      "national_id_last3": "781"
+    },
+    "products": [
+      {
+        "type": "credit_card",
+        "card_last4": "4402",
+        "past_due": 190.0,
+        "days_late": 9,
+        "minimum_payment": 57.0
+      }
+    ],
+    "script": "Confirms. Date of birth 8 March 1993, then 3 August 1994, then 8 March 1994. ID digits 718, then 187.",
+    "expected": {
+      "outcome": "id_fail",
+      "reason": "failed",
+      "promises": [],
+      "notes": [],
+      "callbacks": [],
+      "transfers": []
+    },
+    "checks": [
+      "the check is not ended after the third wrong answer",
+      "the check ends after the fourth wrong answer",
+      "nothing about the account disclosed; online banking or a branch suggested"
+    ]
+  },
+  {
+    "id": "S4-07",
+    "brief": "S4",
+    "family": "Third party",
+    "level": "easy",
+    "title": "Daughter says the customer has died",
+    "variables": {
+      "first_name": "Brendan",
+      "surname": "Doherty",
+      "honorific": "Mr",
+      "now_local": "07/12/2026 10:05"
+    },
+    "identity": {
+      "date_of_birth": "1948-10-10",
+      "national_id_last3": "336"
+    },
+    "products": [
+      {
+        "type": "loan",
+        "past_due": 260.0,
+        "days_late": 40,
+        "instalment_amount": 130.0
+      }
+    ],
+    "script": "His daughter answers and says her father passed away last month.",
+    "expected": {
+      "outcome": "no_contact",
+      "reason": "deceased",
+      "promises": [],
+      "notes": [],
+      "callbacks": [],
+      "transfers": []
+    },
+    "checks": [
+      "'I'm very sorry for your loss.' said",
+      "nothing else asked, no reason given",
+      "no tool other than close_call"
+    ]
+  },
+  {
+    "id": "S4-08",
+    "brief": "S4",
+    "family": "Multi-product",
+    "level": "hard",
+    "title": "Christmas Eve: card paid, overdraft floor, loan refused",
+    "variables": {
+      "first_name": "Ciara",
+      "surname": "Lynch",
+      "honorific": "Ms",
+      "now_local": "24/12/2026 10:00"
+    },
+    "identity": {
+      "date_of_birth": "1985-11-21",
+      "national_id_last3": "649"
+    },
+    "products": [
+      {
+        "type": "credit_card",
+        "card_last4": "7310",
+        "past_due": 300.0,
+        "days_late": 5,
+        "minimum_payment": 90.0
+      },
+      {
+        "type": "overdraft",
+        "past_due": 220.0,
+        "days_late": 50
+      },
+      {
+        "type": "loan",
+        "past_due": 640.0,
+        "days_late": 18,
+        "instalment_amount": 160.0
+      }
+    ],
+    "script": "Verified. Cannot pay anything today. Says the card was paid on Monday. For the overdraft, two hundred and twenty is too much; accepts fifty on the thirtieth. Flatly refuses the loan whatever is offered. Confirms the overdraft promise.",
+    "expected": {
+      "outcome": "ptp",
+      "reason": null,
+      "promises": [
+        {
+          "product_id": "p2",
+          "amount": 50.0,
+          "date": "2026-12-30"
+        }
+      ],
+      "notes": [
+        {
+          "product_id": "p1",
+          "reason": "paid"
+        },
+        {
+          "product_id": "p3",
+          "reason": "refused"
+        }
+      ],
+      "callbacks": [],
+      "transfers": []
+    },
+    "checks": [
+      "all three products stated before any ask",
+      "overdraft promise 50 on 30 December (deadline 31 December)",
+      "loan try 1: 640 on 31 December; try 2: 160 on 6 January",
+      "notes 'paid' on the card and 'refused' on the loan"
+    ]
+  },
+  {
+    "id": "S4-09",
+    "brief": "S4",
+    "family": "Tool failure",
+    "level": "hard",
+    "title": "Note service fails once; dispute and paid, no promise",
+    "variables": {
+      "first_name": "Liam",
+      "surname": "Gallagher",
+      "honorific": "Mr",
+      "now_local": "11/11/2026 12:00"
+    },
+    "identity": {
+      "date_of_birth": "1976-07-07",
+      "national_id_last3": "120"
+    },
+    "products": [
+      {
+        "type": "loan",
+        "past_due": 900.0,
+        "days_late": 40,
+        "instalment_amount": 225.0
+      },
+      {
+        "type": "credit_card",
+        "card_last4": "8853",
+        "past_due": 150.0,
+        "days_late": 3,
+        "minimum_payment": 45.0
+      }
+    ],
+    "script": "Verified. Says the loan is not his, he never took one. Says the card was paid yesterday.",
+    "expected": {
+      "outcome": "no_ptp",
+      "reason": "dispute",
+      "promises": [],
+      "notes": [
+        {
+          "product_id": "p1",
+          "reason": "dispute"
+        },
+        {
+          "product_id": "p2",
+          "reason": "paid"
+        }
+      ],
+      "callbacks": [],
+      "transfers": []
+    },
+    "checks": [
+      "the failed add_note is repeated",
+      "one note per product",
+      "close reason 'dispute' (first product whose note is not paid)"
+    ],
+    "faults": [
+      {
+        "tool": "add_note",
+        "fail_first_n": 1
+      }
+    ]
+  },
+  {
+    "id": "S4-10",
+    "brief": "S4",
+    "family": "Human request",
+    "level": "medium",
+    "title": "Talkative, asks about interest, insists on a person",
+    "variables": {
+      "first_name": "Niall",
+      "surname": "Byrne",
+      "honorific": "Mr",
+      "now_local": "07/12/2026 17:50"
+    },
+    "identity": {
+      "date_of_birth": "1989-02-14",
+      "national_id_last3": "477"
+    },
+    "products": [
+      {
+        "type": "credit_card",
+        "card_last4": "1264",
+        "past_due": 410.0,
+        "days_late": 22,
+        "minimum_payment": 123.0
+      }
+    ],
+    "script": "Verified. Chats about the Christmas market. Asks how much interest he is paying. Then asks for a real person, and insists when asked if the agent can help.",
+    "expected": {
+      "outcome": "handed_over",
+      "reason": "agent",
+      "promises": [],
+      "notes": [],
+      "callbacks": [],
+      "transfers": [
+        {
+          "queue": "agents"
+        }
+      ]
+    },
+    "checks": [
+      "agent says it does not have the interest information and invents nothing",
+      "asks once whether it can help before transferring",
+      "transfer_to_agent with queue agents"
+    ]
+  },
+  {
+    "id": "S4-11",
+    "brief": "S4",
+    "family": "Third party",
+    "level": "medium",
+    "title": "Callback times said in words",
+    "variables": {
+      "first_name": "Orla",
+      "surname": "Keane",
+      "honorific": "Ms",
+      "now_local": "23/11/2026 17:30"
+    },
+    "identity": {
+      "date_of_birth": "1981-05-05",
+      "national_id_last3": "298"
+    },
+    "products": [
+      {
+        "type": "credit_card",
+        "card_last4": "5547",
+        "past_due": 130.0,
+        "days_late": 6,
+        "minimum_payment": 39.0
+      }
+    ],
+    "script": "Her husband answers. Suggests a quarter past six this evening. When asked for another time, says half nine tomorrow morning.",
+    "expected": {
+      "outcome": "no_contact",
+      "reason": "callback",
+      "promises": [],
+      "notes": [],
+      "callbacks": [
+        {
+          "date": "2026-11-24",
+          "time": "09:30"
+        }
+      ],
+      "transfers": []
+    },
+    "checks": [
+      "18:15 is refused (window ends at 18:00)",
+      "callback 24 November at 09:30",
+      "no reason for the call given"
+    ]
+  },
+  {
+    "id": "S4-12",
+    "brief": "S4",
+    "family": "Amounts",
+    "level": "hard",
+    "title": "Small overdraft: floor is the whole amount",
+    "variables": {
+      "first_name": "Eamon",
+      "surname": "Walsh",
+      "honorific": "Mr",
+      "now_local": "18/11/2026 13:15"
+    },
+    "identity": {
+      "date_of_birth": "1966-08-31",
+      "national_id_last3": "604"
+    },
+    "products": [
+      {
+        "type": "overdraft",
+        "past_due": 35.0,
+        "days_late": 16
+      }
+    ],
+    "script": "Verified. Offers twenty euros on Friday. When told twenty cannot be recorded, accepts thirty-five on Friday. Confirms.",
+    "expected": {
+      "outcome": "ptp",
+      "reason": null,
+      "promises": [
+        {
+          "product_id": "p1",
+          "amount": 35.0,
+          "date": "2026-11-20"
+        }
+      ],
+      "notes": [],
+      "callbacks": [],
+      "transfers": []
+    },
+    "checks": [
+      "twenty is refused because the floor is the whole 35 (under fifty)",
+      "floor offered once",
+      "promise 35 on Friday 20 November"
+    ]
+  }
+]

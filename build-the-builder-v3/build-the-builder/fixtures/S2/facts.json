@@ -1,0 +1,443 @@
+{
+ "bank": "Harbourline Savings Bank",
+ "form": "raw bank material: email + policy extract + overriding memo + code list",
+ "brief_files": [
+  "01-email.md",
+  "02-policy-extract.md",
+  "03-memo-2026-10-02.md",
+  "04-codes.csv"
+ ],
+ "openapi": "openapi.json",
+ "live_compatible": false,
+ "variables": [
+  "customer_id",
+  "first_name",
+  "last_name",
+  "title",
+  "call_time"
+ ],
+ "clock": {
+  "now_variable": "call_time"
+ },
+ "calendar": {
+  "weekend": [
+   6,
+   7
+  ],
+  "holidays": [
+   "2026-11-13",
+   "2026-12-25",
+   "2026-12-28",
+   "2027-01-01"
+  ],
+  "roll_rule": "next_business_day",
+  "not_holidays": [
+   "2026-11-11"
+  ]
+ },
+ "opening": {
+  "text": "Hello, this is the automated assistant of Harbourline Savings Bank. This call is recorded.",
+  "forbidden_before_verification": [
+   "arrears",
+   "overdue",
+   "owe",
+   "balance",
+   "payment",
+   "card",
+   "loan",
+   "overdraft"
+  ],
+  "confirm_question": "May I speak to {title} {last_name}?",
+  "unclear_asks": 2,
+  "unclear_outcome": [
+   "UNC",
+   null
+  ]
+ },
+ "identity": {
+  "questions": [
+   {
+    "order": 1,
+    "tool_field": "dob",
+    "answer_format": "date",
+    "normalise": "dmy_to_DD-MM-YYYY",
+    "tool_format": "DD-MM-YYYY"
+   },
+   {
+    "order": 2,
+    "tool_field": "postcode",
+    "answer_format": "text",
+    "normalise": "uppercase, one space before last three characters"
+   }
+  ],
+  "tool_fields": {
+   "question_field": "question",
+   "answer_field": "value"
+  },
+  "max_wrong": 2,
+  "max_wrong_scope": "total over both questions",
+  "swap_hint": null,
+  "fail": {
+   "outcome": "IDF",
+   "reason": null
+  },
+  "declined": {
+   "outcome": "IDD",
+   "reason": null
+  }
+ },
+ "products": {
+  "max_count": 3,
+  "list_field": "items",
+  "type_field": "kind",
+  "past_due_field": "amount_overdue",
+  "days_late_field": "days_overdue",
+  "floor_field": {
+   "card": "min_due",
+   "personal_loan": "instalment",
+   "overdraft": "min_due"
+  }
+ },
+ "bands": [
+  {
+   "name": "Stage 1",
+   "min_days_late": 1,
+   "max_days_late": 14,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 10,
+    "counted_from": "tomorrow"
+   },
+   "attempts": 1
+  },
+  {
+   "name": "Stage 2",
+   "min_days_late": 15,
+   "max_days_late": 60,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 5,
+    "counted_from": "tomorrow"
+   },
+   "attempts": 2
+  }
+ ],
+ "attempts": [
+  {
+   "n": 1,
+   "amount": "full (or floor if full already said too much)",
+   "date": "last working day of this week; if today is it, last working day of next week"
+  },
+  {
+   "n": 2,
+   "bands": [
+    "Stage 2"
+   ],
+   "amount": "floor",
+   "date": "deadline"
+  }
+ ],
+ "next_weekday_rule": "weekday in the following calendar week",
+ "vague_date": "ask once for exact day, then propose the deadline",
+ "deadline_examples": [
+  {
+   "case": "S2-01",
+   "now": "2026-11-11T10:00",
+   "days_late": 8,
+   "band": "Stage 1",
+   "deadline": "2026-11-26",
+   "attempt_1_date": "2026-11-12"
+  },
+  {
+   "case": "S2-02",
+   "now": "2026-11-12T18:10",
+   "days_late": 12,
+   "band": "Stage 1",
+   "deadline": "2026-11-27",
+   "attempt_1_date": "2026-11-20"
+  },
+  {
+   "case": "S2-03",
+   "now": "2026-11-20T11:00",
+   "days_late": 22,
+   "band": "Stage 2",
+   "deadline": "2026-11-27",
+   "attempt_1_date": "2026-11-27"
+  },
+  {
+   "case": "S2-04",
+   "now": "2026-11-06T14:00",
+   "days_late": 10,
+   "band": "Stage 1",
+   "deadline": "2026-11-23",
+   "attempt_1_date": "2026-11-12"
+  },
+  {
+   "case": "S2-05",
+   "now": "2026-11-10T09:00",
+   "days_late": 20,
+   "band": "Stage 2",
+   "deadline": "2026-11-18",
+   "attempt_1_date": "2026-11-12"
+  },
+  {
+   "case": "S2-06",
+   "now": "2026-11-23T11:30",
+   "days_late": 30,
+   "band": "Stage 2",
+   "deadline": "2026-11-30",
+   "attempt_1_date": "2026-11-27"
+  },
+  {
+   "case": "S2-07",
+   "now": "2026-11-19T15:00",
+   "days_late": 6,
+   "band": "Stage 1",
+   "deadline": "2026-12-03",
+   "attempt_1_date": "2026-11-20"
+  },
+  {
+   "case": "S2-07",
+   "now": "2026-11-19T15:00",
+   "days_late": 25,
+   "band": "Stage 2",
+   "deadline": "2026-11-26",
+   "attempt_1_date": "2026-11-20"
+  },
+  {
+   "case": "S2-08",
+   "now": "2026-12-04T09:00",
+   "days_late": 3,
+   "band": "Stage 1",
+   "deadline": "2026-12-18",
+   "attempt_1_date": "2026-12-11"
+  },
+  {
+   "case": "S2-09",
+   "now": "2026-12-23T12:00",
+   "days_late": 5,
+   "band": "Stage 1",
+   "deadline": "2027-01-11",
+   "attempt_1_date": "2026-12-24"
+  },
+  {
+   "case": "S2-09",
+   "now": "2026-12-23T12:00",
+   "days_late": 40,
+   "band": "Stage 2",
+   "deadline": "2027-01-04",
+   "attempt_1_date": "2026-12-24"
+  },
+  {
+   "case": "S2-09",
+   "now": "2026-12-23T12:00",
+   "days_late": 16,
+   "band": "Stage 2",
+   "deadline": "2027-01-04",
+   "attempt_1_date": "2026-12-24"
+  },
+  {
+   "case": "S2-10",
+   "now": "2026-10-26T08:45",
+   "days_late": 4,
+   "band": "Stage 1",
+   "deadline": "2026-11-09",
+   "attempt_1_date": "2026-10-30"
+  },
+  {
+   "case": "S2-10",
+   "now": "2026-10-26T08:45",
+   "days_late": 21,
+   "band": "Stage 2",
+   "deadline": "2026-11-02",
+   "attempt_1_date": "2026-10-30"
+  },
+  {
+   "case": "S2-11",
+   "now": "2026-12-29T10:15",
+   "days_late": 13,
+   "band": "Stage 1",
+   "deadline": "2027-01-13",
+   "attempt_1_date": "2026-12-31"
+  }
+ ],
+ "callback": {
+  "days": [
+   "today",
+   "next_business_day"
+  ],
+  "start": "08:30",
+  "end": "19:30",
+  "end_inclusive": true,
+  "must_be_after_now": true,
+  "retry_asks": 1,
+  "ok": [
+   "CBK",
+   null
+  ],
+  "fail": [
+   "NCB",
+   null
+  ]
+ },
+ "queues": {
+  "restructuring": "arrangements",
+  "human": "contact_centre",
+  "hardship": "care"
+ },
+ "note_reasons": [
+  "N-REF",
+  "N-HRD",
+  "N-DSP",
+  "N-PAID",
+  "N-ERR"
+ ],
+ "note_field": "code",
+ "notes_on_transfer": false,
+ "close_call": {
+  "fields": [
+   "customer_id",
+   "code"
+  ],
+  "has_reason": false
+ },
+ "outcomes": [
+  {
+   "outcome": "PTP",
+   "reason": null,
+   "when": "at least one promise booked"
+  },
+  {
+   "outcome": "PIF",
+   "reason": null,
+   "when": "already paid (every product)"
+  },
+  {
+   "outcome": "TRA",
+   "reason": null,
+   "when": "plan request"
+  },
+  {
+   "outcome": "TCC",
+   "reason": null,
+   "when": "hardship, transfer accepted"
+  },
+  {
+   "outcome": "TCT",
+   "reason": null,
+   "when": "insists on a person"
+  },
+  {
+   "outcome": "NRF",
+   "reason": null,
+   "when": "attempts used up / does not want to talk"
+  },
+  {
+   "outcome": "NHS",
+   "reason": null,
+   "when": "hardship, transfer declined"
+  },
+  {
+   "outcome": "NDS",
+   "reason": null,
+   "when": "dispute"
+  },
+  {
+   "outcome": "NSE",
+   "reason": null,
+   "when": "promise failed twice"
+  },
+  {
+   "outcome": "IDF",
+   "reason": null,
+   "when": "security failed"
+  },
+  {
+   "outcome": "IDD",
+   "reason": null,
+   "when": "security declined"
+  },
+  {
+   "outcome": "CBK",
+   "reason": null,
+   "when": "callback booked"
+  },
+  {
+   "outcome": "NCB",
+   "reason": null,
+   "when": "no suitable callback time"
+  },
+  {
+   "outcome": "WRN",
+   "reason": null,
+   "when": "wrong number"
+  },
+  {
+   "outcome": "DEC",
+   "reason": null,
+   "when": "deceased"
+  },
+  {
+   "outcome": "UNC",
+   "reason": null,
+   "when": "could not confirm"
+  }
+ ],
+ "multi_product_closing": {
+  "rule": "PTP if any promise booked (transfer code wins); else PIF if all notes N-PAID; else the no-promise code mapped from the first non-paid note in get_account order",
+  "note_to_close_reason": {
+   "N-REF": "NRF",
+   "N-HRD": "NHS",
+   "N-DSP": "NDS",
+   "N-ERR": "NSE"
+  }
+ },
+ "phrases": {
+  "deceased": "I'm very sorry to hear that.",
+  "promise_confirmation": "You'll get a text message confirming the arrangement.",
+  "readback_question": "Shall I go ahead and book that?",
+  "today_question": "Are you able to pay this today?",
+  "already_paid": "payments can take up to three working days to reach the account"
+ },
+ "overrides": [
+  {
+   "what": "Stage 1 deadline",
+   "old": "8th working day after today",
+   "new": "10th working day after today"
+  },
+  {
+   "what": "closure days",
+   "old": "2026-11-11 closed",
+   "new": "2026-11-11 is a working day; 2026-11-13 closed"
+  },
+  {
+   "what": "callback window",
+   "old": "09:00-17:00 inclusive",
+   "new": "08:30-19:30 inclusive"
+  },
+  {
+   "what": "security max wrong answers",
+   "old": 3,
+   "new": 2
+  }
+ ],
+ "max_wrong": 2,
+ "close_reasons": {
+  "PTP": [],
+  "PIF": [],
+  "TRA": [],
+  "TCC": [],
+  "TCT": [],
+  "NRF": [],
+  "NHS": [],
+  "NDS": [],
+  "NSE": [],
+  "IDF": [],
+  "IDD": [],
+  "CBK": [],
+  "NCB": [],
+  "WRN": [],
+  "DEC": [],
+  "UNC": []
+ }
+}

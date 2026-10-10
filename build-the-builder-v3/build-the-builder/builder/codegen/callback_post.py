@@ -1,0 +1,13 @@
+# Post-hook of schedule_callback (runs when the bank answered).
+result = extra
+cl = RT.get("closing") or dict()
+block = load_json(vget(vs, "w_cb_block"), dict())
+if isinstance(block, dict) and block.get("code"):
+    vset(vs, "w_cb_block", "")
+    set_next(result, "NOT scheduled: " + str(block.get("message")) + " " + str(block.get("next") or ""))
+elif call_ok(result, nm("callback_ok", "ok")):
+    vset(vs, "w_callback_done", "yes")
+    c = pair(cl.get("callback"))
+    set_next(result, "The callback is scheduled. Tell the person when the customer will be called, without saying why. Then " + close_instruction(c["outcome"], c["reason"]))
+else:
+    set_next(result, "NOT scheduled: the service failed (" + api_error(result) + "). Do not say it was scheduled. Call schedule_callback once more with the same date and time.")

@@ -1,0 +1,959 @@
+"""Deterministic generator: policy.json (contract v1, see policy_schema.py) -> Freya workflow JSON.
+
+    from builder.generate import generate_workflow
+    wf = generate_workflow(policy, prompts=None, openapi=None, options=None)
+
+    python -m builder.generate policies/x.policy.json -o out/x.workflow.json [--openapi tools/openapi.json]
+                               [--prompts prompts.json] [--validate] [--save dev-T04-a]
+
+Graph (every value comes from the policy; nothing here knows a brief):
+
+    setup (code)            date facts from the call's "now" variable + calendar, sentinel values
+      -> greet_verify       opening, who is on the line, third-party cases, security questions
+                            tools: verify_identity, schedule_callback, transfer_to_agent, close_call
+         -> load_account    (api_request) get_account, when the identity check returned all-verified
+         -> prepare_account (code) per product: band, deadline, floor/full, offers -> {{w_account_facts}}
+         -> negotiate       debt statement, negotiation, read-back, promises, notes, triggers, closing
+                            tools: create_promise, add_note, transfer_to_agent, close_call
+      close_call result     -> end_closed (end_call)
+      turn cap reached      -> force_close (code) -> close_api (api_request close_call) -> end_forced
+    workflow tool final_close (end_of_call): safety-net close_call when none was sent (stopped otherwise).
+
+Hooks (python, embedded from builder/oracle.py + builder/codegen/*.py) normalise answers/dates/amounts, stop
+requests that break the policy before they reach the bank, add `what_to_do_next` to every tool result, and
+derive close_call's outcome/reason from recorded facts (transfer, failed identity, promise, callback, notes).
+
+`prompts` (all optional; generated defaults are used for anything missing). Flat keys or nested
+{"nodes": {node: {"task": ..}}} are both accepted:
+    system_prompt                  replaces the global system prompt
+    opening_line                   fixed first sentence (spoken without a model call); {{var}} allowed
+    greet_verify.task / .on_enter / .extra
+    negotiate.task / .on_enter / .extra
+    tool.<tool name>               replaces a tool description
+    farewell                       spoken by end_forced
+"""
+import argparse
+import ast
+import copy
+import json
+import os
+import pathlib
+import re
+import sys
+
+try:
+    from . import policy_schema
+except ImportError:  # run as a plain script
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+    from builder import policy_schema
+
+HERE = pathlib.Path(__file__).resolve().parent
+CODEGEN = HERE / "codegen"
+BLOCK_URL = "https://blocked.invalid/not-sent"
+
+ROLES = {
+    "verify": ("verify_identity", ["verify", "identity"]),
+    "account": ("get_account", ["account"]),
+    "promise": ("create_promise", ["promise"]),
+    "note": ("add_note", ["note"]),
+    "callback": ("schedule_callback", ["callback"]),
+    "transfer": ("transfer_to_agent", ["transfer"]),
+    "close": ("close_call", ["close"]),
+}
+
+DEFAULT_OPTIONS = {
+    "guard": True,                 # stop policy-breaking create_promise/schedule_callback/add_note requests
+    "final_close_fallback": False,  # end_of_call safety-net close_call; off until a live run proves it is suppressed after a close
+    "greet_max_turns": 30,
+    "negotiate_max_turns": 80,
+    "timeout_ms": 12000,
+}
+
+
+# ----------------------------------------------------------------------------------------------- code embedding
+
+def _embed_region(src):
+    m = re.search(r"# EMBED-BEGIN\n(.*?)# EMBED-END", src, re.S)
+    return m.group(1) if m else src
+
+
+def _defs(src):
+    """Top-level definitions of a source -> list of (names, code, refs, is_import), docstrings removed."""
+    tree = ast.parse(src)
+    lines = src.splitlines()
+    out = []
+    for node in tree.body:
+        start, end = node.lineno, node.end_lineno
+        if isinstance(node, (ast.FunctionDef,)):
+            names = {node.name}
+            body_lines = lines[start - 1:end]
+            first = node.body[0]
+            if isinstance(first, ast.Expr) and isinstance(getattr(first, "value", None), ast.Constant) \
+                    and isinstance(first.value.value, str) and len(node.body) > 1:
+                ds, de = first.lineno - start, first.end_lineno - start
+                body_lines = body_lines[:ds] + body_lines[de + 1:]
+            code = "\n".join(body_lines)
+        elif isinstance(node, (ast.Assign,)):
+            names = {t.id for t in node.targets if isinstance(t, ast.Name)}
+            code = "\n".join(lines[start - 1:end])
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            out.append((set(), "\n".join(lines[start - 1:end]), set(), True))
+            continue
+        else:
+            continue
+        refs = {n.id for n in ast.walk(node) if isinstance(n, ast.Name)}
+        out.append((names, code, refs, False))
+    return out
+
+
+_LIB = None
+
+
+def _library():
+    global _LIB
+    if _LIB is None:
+        oracle_src = _embed_region((HERE / "oracle.py").read_text())
+        common_src = (CODEGEN / "common.py").read_text()
+        _LIB = _defs(oracle_src) + _defs(common_src)
+    return _LIB
+
+
+def _squeeze(line):
+    """One space per indentation level (the sources use 4) and no trailing blanks. The code runs inside a sandbox
+    whose payload (code + variables) is limited, so every byte of the embedded snippets counts. Lines continued
+    inside brackets may get any indentation; statement lines keep a consistent one."""
+    stripped = line.lstrip(" ")
+    n = len(line) - len(stripped)
+    return " " * (n // 4 + n % 4) + stripped.rstrip()
+
+
+def _py_literal(text):
+    """A compact Python string literal for JSON text, with no doubled braces in it.
+
+    Single-quoted, so the JSON's double quotes need no escaping (the hooks are sometimes embedded once more as a
+    string, and every escape doubles there). A doubled brace is written with one escaped brace, which Python turns
+    back into the same character, so the value is exact."""
+    lit = text.replace("\\", "\\\\").replace("'", "\\'")
+    while "}}" in lit:
+        lit = lit.replace("}}", "}\\u007d")
+    while "{{" in lit:
+        lit = lit.replace("{{", "{\\u007b")
+    return "'" + lit + "'"
+
+
+def build_code(body_name, rt, mode):
+    """Python source for a code node ('node'), pre-hook ('pre') or post-hook ('post').
+
+    Everything runs inside one function so that helper functions see each other whatever globals/locals the
+    sandbox uses; the call is wrapped in try/except so a snippet never raises."""
+    body = (CODEGEN / (body_name + ".py")).read_text()
+    lib = _library()
+    need = {n.id for n in ast.walk(ast.parse(body)) if isinstance(n, ast.Name)}
+    defined = set()
+    for names, _c, _r, _i in lib:
+        defined |= names
+    want = set()
+    stack = [n for n in need if n in defined]
+    while stack:
+        n = stack.pop()
+        if n in want:
+            continue
+        want.add(n)
+        for names, _c, refs, _i in lib:
+            if n in names:
+                stack.extend(r for r in refs if r in defined and r not in want)
+    parts = []
+    for names, code, _r, is_import in lib:
+        if not is_import and names & want:
+            parts.append(code)
+    parts.append(body)
+    inner = "\n".join(parts)
+    # only the RT sections the code mentions by name ("names" always)
+    sub = {k: v for k, v in rt.items() if k == "names" or ('"%s"' % k) in inner}
+    rt_line = "RT = json.loads(" + _py_literal(json.dumps(sub, separators=(",", ":"), ensure_ascii=True)) + ")"
+    inner = "\n".join(["import datetime", "import json", "import re", rt_line, inner])
+    inner = "\n".join(_squeeze(ln) for ln in inner.splitlines() if ln.strip() and not ln.strip().startswith("#"))
+    inner = "\n".join((" " + ln) if ln.strip() else "" for ln in inner.splitlines())
+    extra = {"node": "None", "pre": "config", "post": "result"}[mode]
+    src = ("def freya_main(vs, extra):\n" + inner + "\n\n\n"
+           "try:\n    freya_vs = vars if hasattr(vars, 'get') else dict()\nexcept Exception:\n    freya_vs = dict()\n"
+           "try:\n    freya_extra = " + extra + "\nexcept Exception:\n    freya_extra = None\n"
+           "try:\n    freya_main(freya_vs, freya_extra)\nexcept Exception:\n    pass\n")
+    assert "{{" not in src and "}}" not in src, body_name
+    return src
+
+
+# ----------------------------------------------------------------------------------------------- openapi / tools
+
+def _openapi_tools(openapi):
+    """openapi dict -> {tool: {url, method, fields, response}} (only what the generator needs)."""
+    out = {}
+    if not isinstance(openapi, dict):
+        return out
+    servers = openapi.get("servers") or []
+    base = (servers[0].get("url") if servers and isinstance(servers[0], dict) else "") or ""
+    for path, ops in (openapi.get("paths") or {}).items():
+        for method, op in (ops or {}).items():
+            if not isinstance(op, dict):
+                continue
+            name = op.get("operationId") or path.strip("/").split("/")[-1]
+            schema = (((op.get("requestBody") or {}).get("content") or {}).get("application/json") or {}).get("schema") or {}
+            req = set(schema.get("required") or [])
+            fields = {f: {"type": s.get("type") or "string", "enum": s.get("enum"), "required": f in req,
+                          "description": s.get("description") or ""}
+                      for f, s in (schema.get("properties") or {}).items()}
+            r200 = ((op.get("responses") or {}).get("200") or {})
+            rs = (((r200.get("content") or {}).get("application/json") or {}).get("schema") or {}).get("properties") or {}
+            out[name] = {"url": base.rstrip("/") + path, "method": method.upper(), "fields": fields, "response": rs}
+    return out
+
+
+def _merge_openapi(policy, openapi):
+    p = copy.deepcopy(policy)
+    tools = p.setdefault("tools", {})
+    for name, t in _openapi_tools(openapi).items():
+        cur = tools.setdefault(name, {})
+        cur.setdefault("url", t["url"])
+        cur.setdefault("method", t["method"])
+        if not cur.get("fields"):
+            cur["fields"] = t["fields"]
+        if not cur.get("response") and not cur.get("response_fields"):
+            cur["response"] = t["response"]
+    return p
+
+
+def _tool_name(p, role):
+    name, kws = ROLES[role]
+    if name in p["tools"]:
+        return name
+    for t in p["tools"]:
+        if any(k in t.lower() for k in kws):
+            return t
+    return ""
+
+
+def _tool_url(p, name):
+    t = p["tools"].get(name) or {}
+    if t.get("url"):
+        return t["url"]
+    base = p["api"]["base_url"]
+    path = t.get("path") or ("/" + name)
+    if not base:
+        raise ValueError("no URL for tool %s: give api.base_url, tools.%s.url or the openapi file" % (name, name))
+    return base.rstrip("/") + "/" + path.lstrip("/")
+
+
+def _resp(p, name):
+    return (p["tools"].get(name) or {}).get("response") or {}
+
+
+def _pick(fields, default, pred):
+    for f, s in fields.items():
+        if pred(f, s or {}):
+            return f
+    return default
+
+
+def _names(p, opts):
+    """Tool and field names the hooks use, taken from the policy's tool definitions."""
+    t = {r: _tool_name(p, r) for r in ROLES}
+    vr = _resp(p, t["verify"])
+    is_bool = lambda s: (s.get("type") or "") == "boolean"
+    vf = (p["tools"].get(t["verify"]) or {}).get("fields") or {}
+    pf = (p["tools"].get(t["promise"]) or {}).get("fields") or {}
+    nf = (p["tools"].get(t["note"]) or {}).get("fields") or {}
+    cf = (p["tools"].get(t["callback"]) or {}).get("fields") or {}
+    tf = (p["tools"].get(t["transfer"]) or {}).get("fields") or {}
+    xf = (p["tools"].get(t["close"]) or {}).get("fields") or {}
+    ok_of = lambda tool: _pick(_resp(p, tool), "ok", lambda f, s: f.lower() in ("ok", "success") and is_bool(s)) if _resp(p, tool) else "ok"
+    names = {
+        "now_var": p["clock"]["now_variable"],
+        "next_weekday": p["dates"].get("next_weekday") or "",
+        "guard": "on" if opts["guard"] else "off",
+        "block_url": BLOCK_URL,
+        "verify_tool": t["verify"], "promise_tool": t["promise"], "note_tool": t["note"],
+        "callback_tool": t["callback"], "transfer_tool": t["transfer"], "close_tool": t["close"],
+        "account_node": "load_account", "close_node": "close_api",
+        "list_field": p["products"]["list_field"],
+        "verify_all": _pick(vr, "all_verified", lambda f, s: is_bool(s) and "all" in f.lower()),
+        "verify_one": _pick(vr, "verified", lambda f, s: is_bool(s) and "all" not in f.lower() and f.lower() not in ("ok", "success")),
+        "verify_left": _pick(vr, "wrong_answers_left", lambda f, s: (s.get("type") or "") in ("integer", "number")),
+        "verify_hint": _pick(vr, "hint", lambda f, s: "hint" in f.lower() or (bool(s.get("enum")) and f.lower() != "error")),
+        "verify_ok": ok_of(t["verify"]),
+        "verify_field": _pick(vf, "field", lambda f, s: bool(s.get("enum"))),
+        "verify_answer": _pick(vf, "answer", lambda f, s: "answer" in f.lower() or "value" in f.lower()),
+        "promise_ok": ok_of(t["promise"]),
+        "promise_product": _pick(pf, "product_id", lambda f, s: "product" in f.lower()),
+        "promise_amount": _pick(pf, "amount", lambda f, s: "amount" in f.lower() or (s.get("type") in ("number", "integer"))),
+        "promise_date": _pick(pf, "date", lambda f, s: "date" in f.lower() or s.get("format") == "date"),
+        "note_ok": ok_of(t["note"]),
+        "note_product": _pick(nf, "product_id", lambda f, s: "product" in f.lower()),
+        "note_reason": _pick(nf, "reason", lambda f, s: bool(s.get("enum"))),
+        "callback_ok": ok_of(t["callback"]),
+        "callback_date": _pick(cf, "date", lambda f, s: "date" in f.lower() or s.get("format") == "date"),
+        "callback_time": _pick(cf, "time", lambda f, s: "time" in f.lower()),
+        "transfer_ok": ok_of(t["transfer"]),
+        "queue_field": _pick(tf, "queue", lambda f, s: bool(s.get("enum"))),
+        "close_ok": ok_of(t["close"]),
+        "close_outcome": _pick(xf, "outcome", lambda f, s: "outcome" in f.lower() or bool(s.get("enum"))),
+        "close_reason": _pick(xf, "reason", lambda f, s: "reason" in f.lower()),
+    }
+    calls = set(_var_names(p))
+    pr = p["products"]
+    # the product id field of create_promise / add_note: named like a product, else the get_account id field
+    for key, fields in (("promise_product", pf), ("note_product", nf)):
+        if names[key] not in fields and fields:
+            if pr["id_field"] in fields:
+                names[key] = pr["id_field"]
+            else:
+                rest = [f for f, sp in fields.items() if f not in calls and not sp.get("enum")
+                        and f not in (names["promise_amount"], names["promise_date"]) and (sp.get("type") or "string") == "string"]
+                if rest:
+                    names[key] = rest[0]
+    return names
+
+
+def runtime_policy(p, names):
+    """The part of the policy the embedded code needs."""
+    return {
+        "names": names,
+        "calendar": {k: p["calendar"][k] for k in ("weekend", "holidays", "roll_rule")},
+        "bands": [{"name": b["name"], "min_days_late": b["min_days_late"], "max_days_late": b["max_days_late"],
+                   "deadline": {k: v for k, v in b["deadline"].items() if k != "notes"},
+                   "attempts": [{k: a.get(k) for k in ("n", "amount", "date", "text")} for a in b["attempts"]]}
+                  for b in p["bands"]],
+        "products": dict({k: p["products"][k] for k in ("id_field", "type_field", "days_late_field", "list_field", "max_count")},
+                         types={k: {f: t.get(f) for f in ("speak_as", "floor_field", "full_field")}
+                                for k, t in p["products"]["types"].items()}),
+        "callback": {k: p["callback"][k] for k in ("days", "start", "end", "end_inclusive", "must_be_after_now", "max_asks")},
+        "dates": {"next_weekday": p["dates"].get("next_weekday") or ""},
+        "identity": {"questions": [dict({k: q.get(k) for k in ("order", "tool_field", "ask", "answer_format", "normalise")},
+                                        digits=_expected_digits(q, p) if q.get("normalise") == "digits_only" or q.get("answer_format") == "digits" else 0)
+                                   for q in p["identity"]["questions"]],
+                     "max_wrong": p["identity"]["max_wrong"], "fail": p["identity"]["fail"],
+                     "wrong_counts_rules": p["identity"]["wrong_counts_rules"]},
+        "promise": {k: p["promise"][k] for k in ("retry_on_failure", "success_say", "failure_say")},
+        "notes": {k: p["notes"][k] for k in ("enabled", "tool_reasons", "forbidden_on_transfer", "min_products")},
+        "closing": {k: v for k, v in p["closing"].items() if k != "notes"},
+    }
+
+
+def _expected_digits(q, p):
+    """How many digits an answer has: from the question text, a number at the end of the field name (..._last4),
+    else the tool's field descriptions (0 = unknown)."""
+    from builder import oracle
+    n = oracle.expected_digits(q.get("ask") or "")
+    if n:
+        return n
+    m = re.search(r"(\d+)$", q.get("tool_field", ""))
+    if m and 0 < int(m.group(1)) < 13:
+        return int(m.group(1))
+    verify = _tool_name(p, "verify")
+    for spec in ((p["tools"].get(verify) or {}).get("fields") or {}).values():
+        n = oracle.expected_digits(spec.get("description") or "")
+        if n:
+            return n
+    return 0
+
+
+def _var_names(p):
+    return [v["name"] for v in p["variables"]]
+
+
+def _field_desc(spec, extra=""):
+    d = (spec.get("description") or "").strip()
+    if spec.get("enum"):
+        d = (d + " " if d else "") + "One of: " + ", ".join(spec["enum"]) + "."
+    if extra:
+        d = (d + " " if d else "") + extra
+    return d
+
+
+def _api_tool(p, name, description, field_hints=None, baked=None, pre=None, post=None, rt=None, retries=0,
+              timeout=12000, mapping=None, config_extra=None):
+    """An api_call tool from the policy's tool definition. Call variables with the field's name are baked,
+    `baked` gives fixed values, every other field is filled by the model."""
+    t = p["tools"][name]
+    props, required = {}, []
+    calls = set(_var_names(p))
+    field_hints = field_hints or {}
+    baked = baked or {}
+    for f, spec in t["fields"].items():
+        leaf = {"type": spec.get("type") or "string"}
+        if leaf["type"] not in ("string", "number", "integer", "boolean"):
+            leaf["type"] = "string"
+        if f in baked:
+            leaf["default"] = baked[f]
+        elif f in calls:
+            leaf["default"] = "{{" + f + "}}"
+        else:
+            leaf["default"] = "{{" + f + "}}"
+            desc = _field_desc(spec, field_hints.get(f, ""))
+            if desc:
+                leaf["description"] = desc
+            if spec.get("enum"):
+                leaf["enum"] = list(spec["enum"])
+        props[f] = leaf
+        if spec.get("required") and f not in calls and f not in baked:
+            required.append(f)
+    cfg = {"timeoutMs": timeout, "maxRetries": retries}
+    if config_extra:
+        cfg.update(config_extra)
+    tool = {
+        "type": "function",
+        "config": cfg,
+        "function": {
+            "name": name,
+            "handler": "__function__:api_call",
+            "description": description,
+            "parameters": {"type": "object", "properties": {
+                "url": {"type": "string", "default": _tool_url(p, name)},
+                "method": {"type": "string", "default": t.get("method") or "POST"},
+                "headers": {"type": "object", "properties": {"Content-Type": {"type": "string", "default": "application/json"}}},
+                "body": {"type": "object", "properties": props, "required": required},
+            }},
+        },
+    }
+    if pre:
+        tool["pre_process_code"] = build_code(pre, rt, "pre")
+    if post:
+        tool["post_process_code"] = build_code(post, rt, "post")
+    if mapping:
+        tool["response_mapping"] = mapping
+    return tool
+
+
+def _code_node(name, body, rt, target, on_enter=None):
+    return {
+        "name": name, "node_type": "code", "passthrough": True, "passthrough_default_transition": target,
+        "on_enter": on_enter or {"type": "silent"}, "disable_inactivity_monitor": True,
+        "pre_actions": [{"type": "function", "function": {
+            "name": "code_exec", "handler": "__function__:code_exec",
+            "parameters": {"type": "object", "properties": {
+                "code": {"type": "string", "default": build_code(body, rt, "node")},
+                "timeout_ms": {"type": "number", "default": 10000}}}}}],
+        "transitions": [{"target_node": target, "description": "always", "condition": {"operator": "always"}}],
+    }
+
+
+def _end_node(name, fn_name, spoken=""):
+    props = {"message_mode": {"type": "string", "default": "custom" if spoken else "none"}}
+    if spoken:
+        props["spoken_message"] = {"type": "string", "default": spoken}
+    return {"name": name, "node_type": "end_call", "on_enter": {"type": "silent"}, "disable_inactivity_monitor": True,
+            "transitions": [], "terminal": {"type": "function", "function": {
+                "name": fn_name, "handler": "__function__:end_call",
+                "parameters": {"type": "object", "properties": props}}}}
+
+
+def _or(*conds):
+    return {"logic": "or", "conditions": list(conds)}
+
+
+def _eq(var, val):
+    return {"variable": var, "operator": "equals", "operand": val}
+
+
+def _gt(var, val):
+    return {"variable": var, "operator": "greater_than", "operand": val}
+
+
+# ----------------------------------------------------------------------------------------------- prompts
+
+class _Prompts:
+    def __init__(self, prompts):
+        self.p = prompts if isinstance(prompts, dict) else {}
+
+    def get(self, key, default=""):
+        if key in self.p and isinstance(self.p[key], str) and self.p[key].strip():
+            return self.p[key]
+        if "." in key:
+            node, part = key.split(".", 1)
+            nd = (self.p.get("nodes") or {}).get(node) or {}
+            if isinstance(nd, dict) and isinstance(nd.get(part), str) and nd[part].strip():
+                return nd[part]
+            if node == "tool":
+                td = (self.p.get("tools") or {}).get(part)
+                if isinstance(td, str) and td.strip():
+                    return td
+        return default
+
+
+def _bul(items, prefix="- "):
+    return "\n".join(prefix + i for i in items if i)
+
+
+def _brace_vars(text, p):
+    """'{title}' for a known call variable -> '{{title}}' (for fixed spoken lines)."""
+    names = set(_var_names(p))
+    return re.sub(r"(?<!\{)\{(\w+)\}(?!\})", lambda m: "{{" + m.group(1) + "}}" if m.group(1) in names else m.group(0), text)
+
+
+def _pre_verification_outcomes(p):
+    out = {c["outcome"] for c in p["third_party"]["cases"] if c["outcome"]}
+    if p["identity"]["fail"]["outcome"]:
+        out.add(p["identity"]["fail"]["outcome"])
+    return out
+
+
+def _trigger_lines(p, cl, verified):
+    """One short line per trigger that can happen in this phase. The verbatim rule text is in the system prompt;
+    trigger notes are added only when the policy has no rules list."""
+    out = []
+    pre_out = _pre_verification_outcomes(p)
+    case_pairs = {(c["outcome"], c["reason"]) for c in p["third_party"]["cases"]}
+    for t in p["triggers"]:
+        act = t["action"]
+        if verified and t["outcome"] in pre_out:
+            continue            # third-party / identity situations cannot happen after verification
+        if not verified and (act == "note" or (t["outcome"], t["reason"]) in case_pairs):
+            continue            # product notes need the account; third-party cases are listed separately
+        line = t["name"] + " (" + (t["detect"] or "when it applies") + "): follow its rule."
+        if t["say"]:
+            line += " Say: \"" + t["say"] + "\"."
+        if act == "transfer" and t["queue"]:
+            line += (" Transfer: call transfer_to_agent with queue '" + t["queue"] + "' and wait for its result, then close "
+                     + t["outcome"] + (" / " + t["reason"] if t["reason"] else "") + ".")
+        elif act == "note" and t["note_reason"] and p["notes"]["enabled"]:
+            line += " Note reason '" + t["note_reason"] + "'."
+        elif t["outcome"]:
+            line += " Close: " + t["outcome"] + (" / " + t["reason"] if t["reason"] else "") + "."
+        if not p["rules"]:
+            for n in t.get("notes") or []:
+                if isinstance(n, str) and n.strip():
+                    line += " " + n.strip()
+        out.append(line)
+    return out
+
+
+def _outcome_lines(p):
+    rows = []
+    for r in p["outcomes"]["table"]:
+        rows.append(r["outcome"] + (" / " + r["reason"] if r["reason"] else "") + (": " + r["when"] if r["when"] else ""))
+    return rows
+
+
+def default_system_prompt(p):
+    vars_ = _bul(["%s = {{%s}}%s" % (v["name"], v["name"], (" (" + v["meaning"] + ")") if v["meaning"] else "") for v in p["variables"]])
+    rules = _bul(["[" + r["id"] + "] " + r["text"] for r in p["rules"]])
+    phrases = _bul(["%s: \"%s\"" % (k, v) for k, v in p["phrases"].items() if isinstance(v, str)])
+    return "\n".join(x for x in [
+        "You are a bank's digital phone agent on a live call. Speak %s. Say one to three short sentences per turn and ask one question at a time." % p["language"],
+        "Use only facts from this prompt, the call variables and tool results. Never invent amounts, dates, reasons, policies or offers.",
+        "",
+        "Call variables:",
+        vars_,
+        "",
+        "How to use tools:",
+        "- When a rule says to call a tool, call it. Saying that you did something is not enough.",
+        "- Call at most one tool per message, and wait for its result before the next one. Several tool calls in one message run at the same time and can be lost.",
+        "- A tool result usually contains what_to_do_next. Follow it exactly and speak to the customer in the same turn. Never end a turn with nothing to say.",
+        "- When a tool call fails or was not sent, nothing was recorded: read 'Status of your last tool request' in the step instructions and act on it.",
+        "- Never say that something was recorded, scheduled or transferred unless the tool result says it worked. In a read-back say what you are going to record and ask for confirmation; never say 'I have recorded' before the tool result.",
+        "- close_call is always the very last action, after the results of all other tool calls: in one message thank the customer, say goodbye and call close_call, with no other tool call in that message. Call it exactly once.",
+        "",
+        "The bank's rules (follow every one of them):",
+        rules,
+        "",
+        ("Fixed phrases (use them word for word where they apply):\n" + phrases) if phrases else "",
+    ] if x is not None)
+
+
+STATUS_LINE = "Status of your last tool request: {{w_last_event}}"
+
+
+def default_greet_task(p, cl):
+    q = p["identity"]["questions"]
+    tp = p["third_party"]
+    verbatim = not p["rules"]          # rules missing: carry the section texts here instead
+    cases = []
+    for c in tp["cases"]:
+        line = "If " + c["trigger"] + ":"
+        if c["say"]:
+            line += " say \"" + c["say"] + "\";"
+        if c["action"] == "callback":
+            line += " ask when the customer can be reached, check the time against the allowed callback window below, then call schedule_callback (date YYYY-MM-DD, time HH:MM 24 h);"
+        if c["outcome"]:
+            line += " close " + c["outcome"] + (" / " + c["reason"] if c["reason"] else "") + "."
+        cases.append(line)
+    qlines = ["%d. %s Then call verify_identity with field '%s' and the answer (%s)." % (
+        i + 1, x["ask"] or ("Ask for " + x["tool_field"].replace("_", " ") + "."), x["tool_field"],
+        {"dmy_to_iso": "the date as YYYY-MM-DD; a date said only in numbers is read day, month, year",
+         "mdy_to_iso": "the date as YYYY-MM-DD; a date said only in numbers is read month, day, year",
+         "digits_only": "digits only"}.get(x["normalise"], "the date as YYYY-MM-DD" if x["answer_format"] == "date" else "as said"))
+        for i, x in enumerate(q)]
+    fail = p["identity"]["fail"]
+    forb = p["opening"]["forbidden_before_verification"]
+    wins = "Allowed callback windows: {{w_callback_windows}}" if p["callback"]["days"] else ""
+    return "\n".join(x for x in [
+        "Current step: make sure you speak with the right person, then check identity, following the bank's rules. The account is not loaded and nothing about it may be said in this step.",
+        ("Never say these words before identity is verified: " + ", ".join(forb) + ".") if forb else "",
+        "Opening: " + p["opening"]["text"],
+        _bul([x for x in (p["opening"].get("notes") or []) if isinstance(x, str)]) if verbatim else "",
+        _bul(tp["rules"]) if verbatim else "",
+        _bul(cases),
+        wins,
+        "Security questions, only to the customer, once they confirmed who they are, one at a time. Customers often give an answer in pieces over several turns (day and month, then the year; two digits, then two more): that is not a refusal and not a wrong answer. Call verify_identity with each piece as it comes; the pieces are joined automatically, and you ask only for the missing part. Count wrong answers only from verify_identity results.",
+        _bul(qlines, ""),
+        _bul(p["identity"]["wrong_counts_rules"]) if verbatim else "",
+        ("If the check fails: " + fail["say"] + " Close " + fail["outcome"] + (" / " + fail["reason"] if fail["reason"] else "") + ".") if fail["outcome"] else "",
+        "Other situations:",
+        _bul(_trigger_lines(p, cl, False)),
+        STATUS_LINE,
+        "Tools in this step: verify_identity, " + ("schedule_callback, " if _tool_name(p, "callback") else "")
+        + ("transfer_to_agent, " if _tool_name(p, "transfer") else "") + "close_call.",
+    ] if x)
+
+
+def default_negotiate_task(p, cl):
+    multi = p["products"]["max_count"] > 1
+    notes = p["notes"]
+    pm = p["promise"]
+    verbatim = not p["rules"]
+    pre_out = _pre_verification_outcomes(p)
+    lines = [
+        "Current step: the customer is verified. Handle the late products below, from stating the debt to closing the call, following the bank's rules.",
+        "{{w_account_facts}}",
+        "{{w_date_facts}}",
+        "Use only the product ids above. Deadlines, floors and attempt offers are already computed: use them as they are.",
+        "Before calling create_promise, check the amount (floor to full amount) and the date (a business day, today or later, not after that product's deadline) against these facts. Weekdays and years come only from the calendar facts.",
+        "Count persuasion attempts per product; once a product's attempts are used up, make no further offer for it. Say sympathy at most once.",
+        _bul(p["amounts"]["rules"] + [p["dates"]["customer_date_after_deadline"], p["dates"]["vague_date"]] + p["dates"]["rules"]) if verbatim else "",
+        "Read-back: " + pm["readback"] if verbatim else "",
+        "Recording: call create_promise once per product, only after a clear yes to the read-back. If it fails, call it again with the same values, at most %d more time(s); if it still fails: %s."
+        % (pm["retry_on_failure"], pm["failure_say"] or "say it could not be recorded"),
+    ]
+    if notes["enabled"]:
+        lines.append("Notes: {{w_notes_rule}} Only after the last note result call close_call, in a separate message."
+                     + (" Unless a rule says to send notes before a transfer, a transfer means no notes at all; never send a note after a transfer."
+                        if notes["forbidden_on_transfer"] else " Before a transfer, follow the rules on whether notes are sent first."))
+    else:
+        lines.append("Do not call add_note in this call.")
+    rows = [r for r in _outcome_lines(p)]
+    rows = [r for r, t in zip(rows, p["outcomes"]["table"]) if t["outcome"] not in pre_out]
+    lines += ["Things the customer may say:", _bul(_trigger_lines(p, cl, True)),
+              "Closing (outcome / reason): " + "; ".join(rows) + ".",
+              _bul(p["outcomes"]["precedence"]) if verbatim else "",
+              p["outcomes"]["multi_product"] if multi and verbatim else "",
+              STATUS_LINE,
+              "Tools in this step: create_promise, " + ("add_note, " if notes["enabled"] else "")
+              + ("transfer_to_agent, " if _tool_name(p, "transfer") else "") + "close_call."]
+    return "\n".join(x for x in lines if x)
+
+
+def _close_reason_desc(p):
+    by = {}
+    for r in p["outcomes"]["table"]:
+        by.setdefault(r["outcome"], [])
+        if r["reason"]:
+            by[r["outcome"]].append(r["reason"])
+    parts = ["%s: %s" % (o, ", ".join(rs) if rs else "no reason") for o, rs in by.items()]
+    return "Reason for the outcome, exactly as in the bank's outcome table. " + "; ".join(parts) + "."
+
+
+# ----------------------------------------------------------------------------------------------- main
+
+def generate_workflow(policy, prompts=None, openapi=None, options=None):
+    """policy dict (contract v1) -> Freya workflow dict. `openapi` (dict) fills tool URLs/fields/responses that
+    the policy lacks. Raises ValueError when the policy cannot produce a workflow."""
+    opts = dict(DEFAULT_OPTIONS)
+    opts.update(options or {})
+    if openapi:
+        policy = _merge_openapi(policy, openapi)
+    p = policy_schema.normalise(policy)
+    for role in ("verify", "account", "promise", "close"):
+        if not _tool_name(p, role):
+            raise ValueError("policy has no %s tool" % ROLES[role][0])
+    names = _names(p, opts)
+    rt = runtime_policy(p, names)
+    cl = p["closing"]
+    P = _Prompts(prompts)
+    tn = {r: _tool_name(p, r) for r in ROLES}
+    to = opts["timeout_ms"]
+
+    def tdesc(role, default):
+        name = tn[role]
+        d = P.get("tool." + name, default)
+        note = (p["tools"].get(name) or {}).get("notes") or ""
+        return d + ((" " + note) if note and note not in d else "")
+
+    # --- tools
+    t_verify = _api_tool(p, tn["verify"], tdesc("verify", "Check ONE security answer. CALL it every time the customer answers a security question, with that question's field and the answer as the customer gave it. Never call it for anyone but the customer."),
+                         {names["verify_answer"]: "The customer's answer to this one question."},
+                         pre="verify_pre", post="verify_post", rt=rt, timeout=to)
+    # the model's close_call is a close REQUEST: the pre-hook records it and stops it; the engine closes the call
+    # from close_api after close_check/finish, so close_call is always the last call and never runs in parallel
+    t_close = _api_tool(p, tn["close"], tdesc("close", "End the call. CALL it once, at the very end, in the same message as your goodbye, after the results of all other tool calls; the system then records the outcome."),
+                        {names["close_reason"]: _close_reason_desc(p), names["close_outcome"]: "The call's outcome from the bank's outcome table."},
+                        pre="close_request", rt=rt, retries=0, timeout=to)
+    t_transfer = _api_tool(p, tn["transfer"], tdesc("transfer", "Hand the call to a person. CALL it only when a rule says to transfer, with the queue that rule names."),
+                           pre="transfer_pre", post="transfer_post", rt=rt, timeout=to) if tn["transfer"] else None
+    t_callback = _api_tool(p, tn["callback"], tdesc("callback", "Book a callback. CALL it when the person who answered gives a day and a time to reach the customer, with the date as YYYY-MM-DD and the time as HH:MM (24 h)."),
+                           {names["callback_date"]: "YYYY-MM-DD", names["callback_time"]: "HH:MM, 24 h"},
+                           pre="callback_pre", post="callback_post", rt=rt, timeout=to) if tn["callback"] else None
+    t_promise = _api_tool(p, tn["promise"], tdesc("promise", "Record ONE payment promise for ONE product. CALL it only after the customer clearly confirmed the read-back; one call per product."),
+                          {names["promise_product"]: "product_id exactly as listed in the account facts.",
+                           names["promise_amount"]: "Amount as a number, e.g. 420.5.",
+                           names["promise_date"]: "Payment date as YYYY-MM-DD."},
+                          pre="promise_pre", post="promise_post", rt=rt, timeout=to)
+    t_note = _api_tool(p, tn["note"], tdesc("note", "Record why ONE product ended without a promise. CALL it only at the end of the call, once per product without a promise, when every product is handled and no transfer happened."),
+                       {names["note_product"]: "product_id exactly as listed in the account facts."},
+                       pre="note_pre", post="note_post", rt=rt, timeout=to) if tn["note"] and p["notes"]["enabled"] else None
+
+    # leave on a successful close, or after two close_call requests that really went out (counted in the
+    # pre-hook: a held-back close is not a send, and the engine does not retry, maxRetries 0)
+    closed = {"target_node": "close_check", "description": "the model asked to close the call",
+              "condition": _or(_eq("w_close_requested", "yes"))}
+
+    # --- nodes
+    nodes = {}
+    nodes["setup"] = _code_node("setup", "setup", rt, "greet_verify")
+
+    opening_line = P.get("opening_line", p["opening"].get("line") or "")
+    greet_on_enter = {"type": "tts", "text": _brace_vars(opening_line, p)} if opening_line else {
+        "type": "llm", "prompt": P.get("greet_verify.on_enter", "\n".join(
+            ["This is the first sentence of the call. Say the opening exactly as the bank requires and then ask whether you are speaking with the customer, as the rules below say. Nothing else. Do not call a tool in this turn.",
+             _bul([p["opening"]["text"]]
+                  + [x for x in (p["opening"].get("notes") or []) if isinstance(x, str)][:4])]))}
+    greet_tools = [t_verify] + [t for t in (t_callback, t_transfer) if t] + [t_close]
+    task = P.get("greet_verify.task", default_greet_task(p, cl))
+    extra = P.get("greet_verify.extra")
+    verify_tool = tn["verify"]
+    nodes["greet_verify"] = {
+        "name": "greet_verify", "node_type": "conversation", "on_enter": greet_on_enter,
+        "on_enter_first_entry_only": True,
+        "task_message": task + (("\n\n" + extra) if extra else ""),
+        "tools": greet_tools,
+        "max_node_turns": opts["greet_max_turns"], "max_turn_transition": "turn_cap",
+        "transitions": [
+            closed,
+            {"target_node": "load_account", "description": "The identity check passed",
+             "condition": _or(_eq(verify_tool + "_response.data." + names["verify_all"], "true"),
+                              _eq(verify_tool + "_response.data." + names["verify_all"], "True"),
+                              _eq("w_id_state", "verified"))},
+        ],
+    }
+
+    account_tool = _api_tool(p, tn["account"], "Get the late products.", rt=rt, retries=2, timeout=to)
+    nodes["load_account"] = {
+        "name": "load_account", "node_type": "api_request", "passthrough": True,
+        "passthrough_default_transition": "prepare_account", "on_enter": {"type": "silent"},
+        "disable_inactivity_monitor": True, "suppress_tool_results": True,
+        "pre_actions": [account_tool],
+        "response_mapping": [{"path": "data." + names["list_field"], "variable": "w_account_products"}],
+        "transitions": [{"target_node": "prepare_account", "description": "always", "condition": {"operator": "always"}}],
+    }
+    nodes["prepare_account"] = _code_node("prepare_account", "prepare_account", rt, "negotiate")
+
+    neg_tools = [t_promise] + [t for t in (t_note, t_transfer) if t] + [t_close]
+    task = P.get("negotiate.task", default_negotiate_task(p, cl))
+    extra = P.get("negotiate.extra")
+    nodes["negotiate"] = {
+        "name": "negotiate", "node_type": "conversation",
+        "on_enter": {"type": "llm", "prompt": P.get("negotiate.on_enter",
+                                                   "Identity is verified. State the debt as the rules require, using the account facts (every late product, one sentence each), then ask the first payment question the rules require. Do not call a tool in this turn.")},
+        "on_enter_first_entry_only": True,
+        "task_message": task + (("\n\n" + extra) if extra else ""),
+        "tools": neg_tools,
+        "max_node_turns": opts["negotiate_max_turns"], "max_turn_transition": "turn_cap",
+        "transitions": [closed],
+    }
+
+    nodes["turn_cap"] = _code_node("turn_cap", "turn_cap", rt, "close_check")
+    close_check = _code_node("close_check", "close_check", rt, "finish")
+    close_check["transitions"] = [
+        {"target_node": "wrap_up", "description": "something is missing before the close",
+         "condition": _or(_eq("w_close_route", "wrap"))},
+        {"target_node": "finish", "description": "always", "condition": {"operator": "always"}}]
+    nodes["close_check"] = close_check
+    wrap_tools = [t for t in (t_note, t_transfer, t_promise) if t] + [t_close]
+    nodes["wrap_up"] = {
+        "name": "wrap_up", "node_type": "conversation",
+        "on_enter": {"type": "llm", "prompt": P.get("wrap_up.on_enter",
+                                                   "Before the call can be closed: {{w_wrap_todo}} Do it now with the tools, one tool call per message. Say at most one short sentence to the customer.")},
+        "task_message": P.get("wrap_up.task", "The call is about to be closed. Before that: {{w_wrap_todo}}\n"
+                              "Use the tools for it, one tool call per message, and wait for each result. Say at most one short sentence to the customer. "
+                              "Then call close_call again with the outcome that applies.\n" + STATUS_LINE),
+        "tools": wrap_tools,
+        "max_node_turns": 4, "max_turn_transition": "finish",
+        "transitions": [{"target_node": "finish", "description": "the model asked to close the call",
+                         "condition": _or(_eq("w_close_requested", "yes"))}],
+    }
+    nodes["finish"] = _code_node("finish", "finish", rt, "close_api")
+    close_fixed = _api_tool(p, tn["close"], "Close the call.", baked={names["close_outcome"]: "{{w_close_outcome}}",
+                                                                     names["close_reason"]: "{{w_close_reason}}"},
+                            pre="close_final_pre", rt=rt, retries=0, timeout=to)
+    nodes["close_api"] = {
+        "name": "close_api", "node_type": "api_request", "passthrough": True,
+        "passthrough_default_transition": "end_closed", "on_enter": {"type": "silent"},
+        "disable_inactivity_monitor": True, "pre_actions": [close_fixed],
+        "transitions": [{"target_node": "end_forced", "description": "the call hit a turn limit",
+                         "condition": _or(_eq("w_forced", "yes"))},
+                        {"target_node": "end_closed", "description": "always", "condition": {"operator": "always"}}],
+    }
+    nodes["end_closed"] = _end_node("end_closed", "call_closed")
+    nodes["end_forced"] = _end_node("end_forced", "call_closed_by_limit", P.get("farewell", "Thank you for your time. Goodbye."))
+
+    wf = {
+        "initial_node": "setup",
+        "system_prompt": P.get("system_prompt", default_system_prompt(p)),
+        "nodes": nodes,
+        "global_nodes": {},
+    }
+    tv = {v["name"]: str(v["example"]) for v in p["variables"] if v.get("example") not in (None, "")}
+    if tv:
+        wf["test_variables"] = tv
+    if opts["final_close_fallback"]:
+        fc = _api_tool(p, tn["close"], "Safety net: close the call if it ended without close_call.",
+                       baked={names["close_outcome"]: "{{w_close_outcome}}", names["close_reason"]: "{{w_close_reason}}",
+                              **{f: "{{" + f + "}}" for f in p["tools"][tn["close"]]["fields"]
+                                 if f not in (names["close_outcome"], names["close_reason"])}},
+                       pre="final_close_pre", rt=rt, timeout=to, config_extra={"alwaysRunsAt": ["end_of_call"]})
+        fc["function"]["name"] = "final_close"
+        wf["tools"] = [fc]
+    _fill_placeholders(wf, p)
+    _strip_nulls(wf)
+    return wf
+
+
+def _fill_placeholders(wf, p):
+    """Brief text writes call variables as {name}; the platform substitutes {{name}}."""
+    wf["system_prompt"] = _brace_vars(wf["system_prompt"], p)
+    for n in wf["nodes"].values():
+        if isinstance(n.get("task_message"), str):
+            n["task_message"] = _brace_vars(n["task_message"], p)
+        oe = n.get("on_enter") or {}
+        for k in ("prompt", "text"):
+            if isinstance(oe.get(k), str):
+                oe[k] = _brace_vars(oe[k], p)
+
+
+def _strip_nulls(x):
+    if isinstance(x, dict):
+        for k in [k for k, v in x.items() if v is None]:
+            del x[k]
+        for v in x.values():
+            _strip_nulls(v)
+    elif isinstance(x, list):
+        for v in x:
+            _strip_nulls(v)
+
+
+def lint_workflow(wf):
+    """Offline structural checks of the documented pitfalls. Returns a list of problems."""
+    errs = []
+    nodes = wf.get("nodes") or {}
+    if wf.get("initial_node") not in nodes:
+        errs.append("initial_node missing")
+    if "agent_config" in wf:
+        errs.append("agent_config present")
+
+    def walk(x, path):
+        if x is None:
+            errs.append("null at " + path)
+        elif isinstance(x, dict):
+            for k, v in x.items():
+                walk(v, path + "." + k)
+        elif isinstance(x, list):
+            for i, v in enumerate(x):
+                walk(v, path + "[%d]" % i)
+    walk(wf, "wf")
+    for k, n in nodes.items():
+        t = n.get("node_type")
+        if n.get("name") != k:
+            errs.append("%s: name differs from key" % k)
+        if t != "conversation" and n.get("tools"):
+            errs.append("%s: tools on non-conversation node" % k)
+        if t == "conversation" and n.get("pre_actions"):
+            errs.append("%s: pre_actions on conversation node" % k)
+        if n.get("passthrough"):
+            tr = n.get("transitions") or []
+            if not tr or (tr[-1].get("condition") or {}).get("operator") != "always":
+                errs.append("%s: passthrough node does not end with always" % k)
+            if n.get("passthrough_default_transition") not in nodes:
+                errs.append("%s: passthrough_default_transition unknown" % k)
+        if t == "end_call":
+            if n.get("transitions"):
+                errs.append("%s: end_call with transitions" % k)
+            if not n.get("terminal"):
+                errs.append("%s: end_call without terminal" % k)
+        if n.get("max_node_turns") and n.get("max_turn_transition") not in nodes:
+            errs.append("%s: max_turn_transition missing/unknown" % k)
+        for tr in n.get("transitions") or []:
+            if tr.get("target_node") not in nodes:
+                errs.append("%s: transition to unknown node %s" % (k, tr.get("target_node")))
+            c = tr.get("condition") or {}
+            if c.get("logic") == "and":
+                errs.append("%s: top-level and" % k)
+        for ex in n.get("extraction_schema") or []:
+            if "min_confidence" not in ex:
+                errs.append("%s: extraction %s without min_confidence" % (k, ex.get("name")))
+        for tool in (n.get("tools") or []) + (n.get("pre_actions") or []):
+            for hk in ("pre_process_code", "post_process_code"):
+                if "{{" in tool.get(hk, "") or "}}" in tool.get(hk, ""):
+                    errs.append("%s: braces in %s" % (k, hk))
+            code = (((tool.get("function") or {}).get("parameters") or {}).get("properties") or {}).get("code")
+            if code and ("{{" in code.get("default", "") or "}}" in code.get("default", "")):
+                errs.append("%s: braces in code" % k)
+    # every node reaches an end_call node
+    ends = {k for k, n in nodes.items() if n.get("node_type") == "end_call"}
+    for k in nodes:
+        seen, stack, ok = set(), [k], False
+        while stack:
+            x = stack.pop()
+            if x in ends:
+                ok = True
+                break
+            if x in seen or x not in nodes:
+                continue
+            seen.add(x)
+            stack += [t.get("target_node") for t in nodes[x].get("transitions") or []]
+            if nodes[x].get("max_turn_transition"):
+                stack.append(nodes[x]["max_turn_transition"])
+        if not ok:
+            errs.append("%s: no path to an end_call node" % k)
+    return errs
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("policy")
+    ap.add_argument("-o", "--out")
+    ap.add_argument("--openapi")
+    ap.add_argument("--prompts")
+    ap.add_argument("--validate", action="store_true", help="dry-run validation on Freya (needs FREYA_API_KEY)")
+    ap.add_argument("--save", metavar="SLOT", help="save via freya.save_workflow under this slot")
+    ap.add_argument("--state-file", default=str(HERE.parent / ".freya-agents.json"))
+    a = ap.parse_args(argv)
+    policy = json.loads(pathlib.Path(a.policy).read_text())
+    errors, warnings = policy_schema.check(policy)
+    for w in warnings:
+        print("warning:", w, file=sys.stderr)
+    for e in errors:
+        print("error:", e, file=sys.stderr)
+    openapi = json.loads(pathlib.Path(a.openapi).read_text()) if a.openapi else None
+    prompts = json.loads(pathlib.Path(a.prompts).read_text()) if a.prompts else None
+    wf = generate_workflow(policy, prompts, openapi)
+    problems = lint_workflow(wf)
+    for pr in problems:
+        print("lint:", pr, file=sys.stderr)
+    text = json.dumps(wf, indent=1)
+    if a.out:
+        pathlib.Path(a.out).parent.mkdir(parents=True, exist_ok=True)
+        pathlib.Path(a.out).write_text(text)
+        print("wrote %s (%d nodes, %d bytes)" % (a.out, len(wf["nodes"]), len(text)))
+    else:
+        print(text)
+    if a.validate or a.save:
+        sys.path.insert(0, str(HERE.parent))
+        import freya
+        if a.validate:
+            freya.validate_workflow("dry-run " + pathlib.Path(a.policy).stem, wf)
+            print("dry-run validation: ok")
+        if a.save:
+            print(json.dumps(freya.save_workflow(a.save, wf, state_file=a.state_file)))
+    return 2 if errors else (1 if problems else 0)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

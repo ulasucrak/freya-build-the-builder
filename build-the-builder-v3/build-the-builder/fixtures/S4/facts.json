@@ -1,0 +1,486 @@
+{
+ "bank": "Brightwater Mutual",
+ "form": "raw messy markdown working notes: odd tables, holidays in prose, numbers in words, struck-through rule",
+ "brief_files": [
+  "brightwater-collections-notes.md"
+ ],
+ "openapi": "openapi.json",
+ "live_compatible": false,
+ "variables": [
+  "cust_ref",
+  "first_name",
+  "surname",
+  "honorific",
+  "now_local"
+ ],
+ "clock": {
+  "now_variable": "now_local",
+  "date_format": "DD/MM/YYYY HH:MM"
+ },
+ "customer_id_variable": "cust_ref",
+ "calendar": {
+  "weekend": [
+   6,
+   7
+  ],
+  "holidays": [
+   "2026-11-02",
+   "2026-12-03",
+   "2026-12-25",
+   "2026-12-28",
+   "2027-01-01"
+  ],
+  "roll_rule": "next_business_day",
+  "not_holidays": [
+   "2026-12-08",
+   "2026-11-01",
+   "2026-12-26"
+  ]
+ },
+ "opening": {
+  "text": "Good day, you're speaking with the Brightwater Mutual call assistant; this call is being recorded.",
+  "forbidden_before_verification": [
+   "arrears",
+   "late",
+   "owe",
+   "debt"
+  ],
+  "confirm_question": "Could I speak with {honorific} {surname}, please?",
+  "unclear_asks": 2,
+  "unclear_outcome": [
+   "no_contact",
+   "unclear"
+  ]
+ },
+ "identity": {
+  "questions": [
+   {
+    "order": 1,
+    "tool_field": "date_of_birth",
+    "answer_format": "date",
+    "normalise": "dmy_to_iso"
+   },
+   {
+    "order": 2,
+    "tool_field": "national_id_last3",
+    "answer_format": "digits",
+    "normalise": "digits_only",
+    "length": 3
+   }
+  ],
+  "max_wrong": 4,
+  "max_wrong_scope": "total over both questions (struck-through rule said three)",
+  "swap_hint": null,
+  "fail": {
+   "outcome": "id_fail",
+   "reason": "failed"
+  },
+  "declined": {
+   "outcome": "id_fail",
+   "reason": "declined"
+  }
+ },
+ "products": {
+  "max_count": 3,
+  "floor_field": {
+   "credit_card": "minimum_payment",
+   "loan": "instalment_amount",
+   "overdraft": "min(50, past_due)"
+  }
+ },
+ "bands": [
+  {
+   "name": "one try",
+   "min_days_late": 1,
+   "max_days_late": 15,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 10,
+    "counted_from": "tomorrow"
+   },
+   "attempts": 1
+  },
+  {
+   "name": "two tries (16-45)",
+   "min_days_late": 16,
+   "max_days_late": 45,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 6,
+    "counted_from": "tomorrow"
+   },
+   "attempts": 2
+  },
+  {
+   "name": "two tries (46-75)",
+   "min_days_late": 46,
+   "max_days_late": 75,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 3,
+    "counted_from": "tomorrow"
+   },
+   "attempts": 2
+  }
+ ],
+ "attempts": [
+  {
+   "n": 1,
+   "amount": "full (or floor if full already said too much)",
+   "date": "third working day after today"
+  },
+  {
+   "n": 2,
+   "bands": [
+    "two tries (16-45)",
+    "two tries (46-75)"
+   ],
+   "amount": "floor",
+   "date": "deadline"
+  }
+ ],
+ "next_weekday_rule": "first such weekday after today",
+ "vague_date": "ask once for exact day, then propose the deadline",
+ "high_balance_rule": {
+  "threshold": 3000,
+  "comparison": "total past_due over all products > threshold",
+  "action": "transfer",
+  "queue": "senior_collections",
+  "outcome": "handed_over",
+  "reason": "high_balance",
+  "after": "stating the products"
+ },
+ "deadline_examples": [
+  {
+   "case": "S4-01",
+   "now": "16/10/2026 10:30",
+   "days_late": 7,
+   "band": "one try",
+   "deadline": "2026-10-30",
+   "attempt_1_date": "2026-10-21",
+   "floor": 130.0,
+   "total_past_due": 520.0,
+   "high_balance": false
+  },
+  {
+   "case": "S4-02",
+   "now": "16/11/2026 09:00",
+   "days_late": 20,
+   "band": "two tries (16-45)",
+   "deadline": "2026-11-24",
+   "attempt_1_date": "2026-11-19",
+   "floor": 50.0,
+   "total_past_due": 380.0,
+   "high_balance": false
+  },
+  {
+   "case": "S4-03",
+   "now": "19/11/2026 11:40",
+   "days_late": 12,
+   "band": "one try",
+   "deadline": "2026-12-04",
+   "attempt_1_date": "2026-11-24",
+   "floor": 420.0,
+   "total_past_due": 3300.0,
+   "high_balance": true
+  },
+  {
+   "case": "S4-03",
+   "now": "19/11/2026 11:40",
+   "days_late": 30,
+   "band": "two tries (16-45)",
+   "deadline": "2026-11-27",
+   "attempt_1_date": "2026-11-24",
+   "floor": 475.0,
+   "total_past_due": 3300.0,
+   "high_balance": true
+  },
+  {
+   "case": "S4-04",
+   "now": "01/12/2026 14:00",
+   "days_late": 30,
+   "band": "two tries (16-45)",
+   "deadline": "2026-12-10",
+   "attempt_1_date": "2026-12-07",
+   "floor": 228.0,
+   "total_past_due": 760.0,
+   "high_balance": false
+  },
+  {
+   "case": "S4-05",
+   "now": "30/10/2026 11:00",
+   "days_late": 10,
+   "band": "one try",
+   "deadline": "2026-11-16",
+   "attempt_1_date": "2026-11-05",
+   "floor": 100.0,
+   "total_past_due": 300.0,
+   "high_balance": false
+  },
+  {
+   "case": "S4-06",
+   "now": "21/10/2026 15:30",
+   "days_late": 9,
+   "band": "one try",
+   "deadline": "2026-11-05",
+   "attempt_1_date": "2026-10-26",
+   "floor": 57.0,
+   "total_past_due": 190.0,
+   "high_balance": false
+  },
+  {
+   "case": "S4-07",
+   "now": "07/12/2026 10:05",
+   "days_late": 40,
+   "band": "two tries (16-45)",
+   "deadline": "2026-12-15",
+   "attempt_1_date": "2026-12-10",
+   "floor": 130.0,
+   "total_past_due": 260.0,
+   "high_balance": false
+  },
+  {
+   "case": "S4-08",
+   "now": "24/12/2026 10:00",
+   "days_late": 5,
+   "band": "one try",
+   "deadline": "2027-01-12",
+   "attempt_1_date": "2026-12-31",
+   "floor": 90.0,
+   "total_past_due": 1160.0,
+   "high_balance": false
+  },
+  {
+   "case": "S4-08",
+   "now": "24/12/2026 10:00",
+   "days_late": 50,
+   "band": "two tries (46-75)",
+   "deadline": "2026-12-31",
+   "attempt_1_date": "2026-12-31",
+   "floor": 50.0,
+   "total_past_due": 1160.0,
+   "high_balance": false
+  },
+  {
+   "case": "S4-08",
+   "now": "24/12/2026 10:00",
+   "days_late": 18,
+   "band": "two tries (16-45)",
+   "deadline": "2027-01-06",
+   "attempt_1_date": "2026-12-31",
+   "floor": 160.0,
+   "total_past_due": 1160.0,
+   "high_balance": false
+  },
+  {
+   "case": "S4-09",
+   "now": "11/11/2026 12:00",
+   "days_late": 40,
+   "band": "two tries (16-45)",
+   "deadline": "2026-11-19",
+   "attempt_1_date": "2026-11-16",
+   "floor": 225.0,
+   "total_past_due": 1050.0,
+   "high_balance": false
+  },
+  {
+   "case": "S4-09",
+   "now": "11/11/2026 12:00",
+   "days_late": 3,
+   "band": "one try",
+   "deadline": "2026-11-25",
+   "attempt_1_date": "2026-11-16",
+   "floor": 45.0,
+   "total_past_due": 1050.0,
+   "high_balance": false
+  },
+  {
+   "case": "S4-10",
+   "now": "07/12/2026 17:50",
+   "days_late": 22,
+   "band": "two tries (16-45)",
+   "deadline": "2026-12-15",
+   "attempt_1_date": "2026-12-10",
+   "floor": 123.0,
+   "total_past_due": 410.0,
+   "high_balance": false
+  },
+  {
+   "case": "S4-11",
+   "now": "23/11/2026 17:30",
+   "days_late": 6,
+   "band": "one try",
+   "deadline": "2026-12-08",
+   "attempt_1_date": "2026-11-26",
+   "floor": 39.0,
+   "total_past_due": 130.0,
+   "high_balance": false
+  },
+  {
+   "case": "S4-12",
+   "now": "18/11/2026 13:15",
+   "days_late": 16,
+   "band": "two tries (16-45)",
+   "deadline": "2026-11-26",
+   "attempt_1_date": "2026-11-23",
+   "floor": 35.0,
+   "total_past_due": 35.0,
+   "high_balance": false
+  }
+ ],
+ "callback": {
+  "days": [
+   "today",
+   "next_business_day"
+  ],
+  "start": "09:30",
+  "end": "18:00",
+  "end_inclusive": true,
+  "must_be_after_now": true,
+  "retry_asks": 1,
+  "ok": [
+   "no_contact",
+   "callback"
+  ],
+  "fail": [
+   "no_contact",
+   "no_callback"
+  ]
+ },
+ "queues": {
+  "restructuring": "plans",
+  "human": "agents",
+  "hardship": "welfare",
+  "high_balance": "senior_collections"
+ },
+ "note_reasons": [
+  "refused",
+  "welfare",
+  "dispute",
+  "paid",
+  "system"
+ ],
+ "notes_on_transfer": false,
+ "outcomes": [
+  {
+   "outcome": "ptp",
+   "reason": null
+  },
+  {
+   "outcome": "already_paid",
+   "reason": null
+  },
+  {
+   "outcome": "handed_over",
+   "reason": "plan"
+  },
+  {
+   "outcome": "handed_over",
+   "reason": "agent"
+  },
+  {
+   "outcome": "handed_over",
+   "reason": "welfare"
+  },
+  {
+   "outcome": "handed_over",
+   "reason": "high_balance"
+  },
+  {
+   "outcome": "no_ptp",
+   "reason": "refused"
+  },
+  {
+   "outcome": "no_ptp",
+   "reason": "welfare_declined"
+  },
+  {
+   "outcome": "no_ptp",
+   "reason": "dispute"
+  },
+  {
+   "outcome": "no_ptp",
+   "reason": "system"
+  },
+  {
+   "outcome": "id_fail",
+   "reason": "failed"
+  },
+  {
+   "outcome": "id_fail",
+   "reason": "declined"
+  },
+  {
+   "outcome": "no_contact",
+   "reason": "callback"
+  },
+  {
+   "outcome": "no_contact",
+   "reason": "no_callback"
+  },
+  {
+   "outcome": "no_contact",
+   "reason": "wrong_number"
+  },
+  {
+   "outcome": "no_contact",
+   "reason": "deceased"
+  },
+  {
+   "outcome": "no_contact",
+   "reason": "unclear"
+  }
+ ],
+ "multi_product_closing": {
+  "rule": "ptp if any promise (transfer wins); else already_paid if all notes paid; else no_ptp with reason mapped from the first non-paid note in get_account order",
+  "note_to_close_reason": {
+   "refused": "refused",
+   "welfare": "welfare_declined",
+   "dispute": "dispute",
+   "system": "system"
+  }
+ },
+ "phrases": {
+  "deceased": "I'm very sorry for your loss.",
+  "promise_confirmation": "You'll get a text message with the details.",
+  "readback_question": "Is that all correct?",
+  "today_question": "Would you be able to pay this today?",
+  "already_paid": "payments can take two working days to show up"
+ },
+ "overrides": [
+  {
+   "what": "ID max wrong answers",
+   "old": 3,
+   "new": 4,
+   "how": "struck-through line replaced in the same document"
+  }
+ ],
+ "max_wrong": 4,
+ "close_reasons": {
+  "ptp": [],
+  "already_paid": [],
+  "handed_over": [
+   "plan",
+   "agent",
+   "welfare",
+   "high_balance"
+  ],
+  "no_ptp": [
+   "refused",
+   "welfare_declined",
+   "dispute",
+   "system"
+  ],
+  "id_fail": [
+   "failed",
+   "declined"
+  ],
+  "no_contact": [
+   "callback",
+   "no_callback",
+   "wrong_number",
+   "deceased",
+   "unclear"
+  ]
+ }
+}
