@@ -3,6 +3,7 @@
 #   bash run_edge.sh            test the agent this folder built last (builds one first if there is none)
 #   bash run_edge.sh --build    build a fresh agent from Brief A+B first
 #   bash run_edge.sh --quick    only the 23 hand-written cases (default: all 99, about 40-60 minutes)
+#   AGENT_ID=<id> bash run_edge.sh   test that agent instead
 # Results: results/edge-report.txt (readable) and results/run-edge.json (details, call ids).
 set -e
 cd "$(dirname "$0")"
@@ -20,7 +21,8 @@ echo "=== EDGE TEST $(date) ==="
 if [[ " $* " == *" --build "* ]] || [ ! -f .freya-agents.json ]; then
   $PY build.py briefs/brief-a.md briefs/brief-b.md --openapi tools/openapi.json
 fi
-AGENT=$($PY -c "import json;print(list(json.load(open('.freya-agents.json')).values())[-1]['agent_id'])")
+# the phone agent, not the build's "-selftest" copy (fake bank, needs scenario_json); AGENT_ID=... overrides
+AGENT=${AGENT_ID:-$($PY -c "import json;print([v for k,v in json.load(open('.freya-agents.json')).items() if not k.endswith('-selftest')][-1]['agent_id'])")}
 echo "agent_id: $AGENT"
 $PY tools/edge_cases.py
 SET=results/edge-cases.json; [[ " $* " == *" --quick "* ]] && SET=results/edge-cases-quick.json
