@@ -83,7 +83,11 @@ def main():
 
 def run_once(agent_id, cases, ids):
     """One simulation: every case once. Returns the scored rows."""
-    sessions = {c["id"]: http("/v1/practice/sessions", {"case": c["id"]})["variables"] for c in cases}
+    sessions = {}
+    for c in cases:                                               # edge cases reuse a practice customer (base_id); one at a time, the bank refuses bursts
+        sessions[c["id"]] = http("/v1/practice/sessions", {"case": c.get("base_id", c["id"])})["variables"]
+        if c.get("base_id"): sessions[c["id"]]["now"] = c["variables"]["now"]
+        if len(cases) > 13: time.sleep(1)
     t0 = time.time()
     sim_id, it_id, status = freya.run_simulation(agent_id, f"cases {time.strftime('%H:%M:%S')}", {ids[c["id"]]: sessions[c["id"]] for c in cases})
     took = time.time() - t0
