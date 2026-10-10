@@ -445,6 +445,87 @@ def resolve_offer_amount(expr, full, floor):
     return None
 
 
+def expr_tokens(text):
+    """'min(50, x) * 2' -> [('w','min'), ('o','('), ('n',50.0), ...]; 'N%' is the number N/100."""
+    out = []
+    for m in re.finditer(r"\s*(?:(\d+(?:\.\d+)?)\s*(%?)|([A-Za-z_]\w*)|(\S))", str(text or "")):
+        if m.group(1) is not None:
+            v = float(m.group(1))
+            out.append(("n", v / 100.0 if m.group(2) else v))
+        elif m.group(3) is not None:
+            out.append(("w", m.group(3)))
+        elif m.group(4) is not None:
+            out.append(("o", m.group(4)))
+    return out
+
+
+def expr_value(expr, fields):
+    """Evaluate an amount expression over a product's fields: numbers, field names, + - * /, parentheses, min(),
+    max() and 'N%' (= N/100). Same meaning as the extractor's eval_amount_expr. A number or None; never raises."""
+    try:
+        toks = expr_tokens(expr)
+        pos = [0]
+        fields = fields if isinstance(fields, dict) else dict()
+
+        def peek():
+            return toks[pos[0]] if pos[0] < len(toks) else ("e", "")
+
+        def take():
+            t = peek()
+            pos[0] += 1
+            return t
+
+        def atom():
+            t = take()
+            if t[0] == "n":
+                return t[1]
+            if t == ("o", "-"):
+                return -atom()
+            if t == ("o", "("):
+                v = add()
+                if take() != ("o", ")"):
+                    raise ValueError("paren")
+                return v
+            if t[0] == "w":
+                if peek() == ("o", "("):
+                    take()
+                    vals = [add()]
+                    while peek() == ("o", ","):
+                        take()
+                        vals.append(add())
+                    if take() != ("o", ")") or t[1].lower() not in ("min", "max"):
+                        raise ValueError("call")
+                    return min(vals) if t[1].lower() == "min" else max(vals)
+                v = to_number(fields.get(t[1]))
+                if v is None:
+                    raise ValueError("field")
+                return float(v)
+            raise ValueError("token")
+
+        def mul():
+            v = atom()
+            while peek() in (("o", "*"), ("o", "/")):
+                op = take()[1]
+                r = atom()
+                v = v * r if op == "*" else v / r
+            return v
+
+        def add():
+            v = mul()
+            while peek() in (("o", "+"), ("o", "-")):
+                op = take()[1]
+                r = mul()
+                v = v + r if op == "+" else v - r
+            return v
+
+        out = add()
+        if pos[0] != len(toks):
+            return None
+        return round(out, 2)
+    except Exception:
+        return None
+
+
 def fill_template(text, fields):
     """'card ending {last4}' + product fields -> 'card ending 1234'."""
     try:
@@ -480,6 +561,10 @@ def build_product(raw, index, policy, today, cal):
     floor_field = tinfo.get("floor_field") or prod.get("floor_field") or ""
     full = to_number(raw.get(full_field)) if full_field else None
     floor = to_number(raw.get(floor_field)) if floor_field else None
+    floor_expr = str(tinfo.get("floor_expr") or prod.get("floor_expr") or "")
+    if floor_expr and expr_value(floor_expr, raw) is not None:
+        floor = expr_value(floor_expr, raw)
+        floor_field = floor_expr
     if floor is None and full is not None:
         floor = full
     name = fill_template(tinfo.get("speak_as") or ptype.replace("_", " "), raw)
@@ -766,6 +851,50 @@ def normalise_answer(answer, how, answer_format=""):
     return s
 
 
+def format_date_as(d, pattern):
+    """date + a pattern such as DD-MM-YYYY, MM/DD/YYYY, YYYYMMDD or DD.MM.YY -> text; ISO when no pattern."""
+    try:
+        p = str(pattern or "").upper()
+        if not p or d is None:
+            return iso(d)
+        out = p.replace("YYYY", "%04d" % d.year).replace("YY", "%02d" % (d.year % 100))
+        return out.replace("MM", "%02d" % d.month).replace("DD", "%02d" % d.day)
+    except Exception:
+        return iso(d)
+
+
+def apply_text_ops(text, ops):
+    """Apply the text conversions a tool format asks for: upper, lower, nospace, space_before_last:N."""
+    s = re.sub(r"\s+", " ", str(text if text is not None else "")).strip()
+    try:
+        for op in ops or []:
+            op = str(op)
+            if op == "upper":
+                s = s.upper()
+            elif op == "lower":
+                s = s.lower()
+            elif op == "nospace":
+                s = s.replace(" ", "")
+            elif op.startswith("space_before_last:"):
+                n = int(op.split(":")[1])
+                c = s.replace(" ", "")
+                if 0 < n < len(c):
+                    s = c[:-n] + " " + c[-n:]
+    except Exception:
+        pass
+    return s
+
+
+def format_answer(value, q):
+    """A normalised identity answer -> the exact form the tool expects (question's date_format / text_ops)."""
+    q = q if isinstance(q, dict) else dict()
+    if q.get("date_format") and to_date(value) is not None:
+        return format_date_as(to_date(value), q.get("date_format"))
+    if q.get("text_ops"):
+        return apply_text_ops(value, q.get("text_ops"))
+    return value
+
+
 # ----------------------------------------------------------------------------------------------- checks
 
 def check_promise(product, amount, date_value, today, cal, already=None, next_rule=""):
@@ -835,6 +964,21 @@ def check_promise(product, amount, date_value, today, cal, already=None, next_ru
         return out
 
 
+def callback_hours(d, cb):
+    """(start, end) of the callback window on day d: callback.per_weekday[<ISO weekday 1-7>] when that day is listed
+    (an entry without start or end closes the day: None), otherwise callback.start / callback.end."""
+    try:
+        pw = cb.get("per_weekday") or dict()
+        if d is not None and isinstance(pw, dict) and str(d.isoweekday()) in pw:
+            w = pw.get(str(d.isoweekday()))
+            if isinstance(w, dict) and w.get("start") and w.get("end"):
+                return str(w.get("start")), str(w.get("end"))
+            return None
+    except Exception:
+        pass
+    return str(cb.get("start") or ""), str(cb.get("end") or "")
+
+
 def callback_windows(today, now_time, policy, cal):
     """Allowed callback windows -> list of dict(date, start, end, label). Uses policy.callback:
     days (today, tomorrow, next_business_day, business_days:N), start, end, end_inclusive, must_be_after_now."""
@@ -868,6 +1012,10 @@ def callback_windows(today, now_time, policy, cal):
                 if d is None or iso(d) in seen:
                     continue
                 seen.add(iso(d))
+                hours = callback_hours(d, cb)
+                if hours is None:
+                    continue
+                start, end = hours
                 s = start
                 if cb.get("must_be_after_now", True) and d == today and now_time:
                     if time_to_minutes(now_time) is not None and (time_to_minutes(s) is None or time_to_minutes(now_time) >= time_to_minutes(s)):
@@ -900,8 +1048,8 @@ def check_callback(date_value, time_value, today, now_time, policy, cal, next_ru
             out["message"] = "A callback on " + date_label(d) + " is not allowed. Allowed: " + allowed + "."
             return out
         tm = time_to_minutes(t)
-        st = time_to_minutes(cb.get("start"))
-        en = time_to_minutes(cb.get("end"))
+        st = time_to_minutes(match[0].get("start"))
+        en = time_to_minutes(match[0].get("end"))
         if st is not None and tm < st:
             out["code"] = "too_early"
         elif en is not None and (tm > en or (tm == en and not cb.get("end_inclusive", True))):
@@ -921,6 +1069,58 @@ def check_callback(date_value, time_value, today, now_time, policy, cal, next_ru
 
 
 # ----------------------------------------------------------------------------------------------- closing
+
+def compare(a, op, b):
+    try:
+        op = str(op or ">").strip().lower()
+        a = float(a)
+        b = float(b)
+        if op in (">", "gt", "more_than", "above", "over"):
+            return a > b
+        if op in (">=", "gte", "ge", "at_least"):
+            return a >= b
+        if op in ("<", "lt", "less_than", "below", "under"):
+            return a < b
+        if op in ("<=", "lte", "le", "at_most"):
+            return a <= b
+        if op in ("==", "=", "eq", "equals"):
+            return abs(a - b) < 0.005
+        if op in ("!=", "ne", "not_equals"):
+            return abs(a - b) >= 0.005
+    except Exception:
+        pass
+    return False
+
+
+def condition_holds(cond, products):
+    """A trigger condition {over, field, op, value} on the raw get_account products -> True/False.
+    over: all_products_sum (default), any_product, every_product, max, min, product_count."""
+    try:
+        cond = cond if isinstance(cond, dict) else dict()
+        over = str(cond.get("over") or "all_products_sum").lower()
+        prods = [p for p in products or [] if isinstance(p, dict)]
+        vals = [to_number(p.get(cond.get("field"))) for p in prods]
+        vals = [v for v in vals if v is not None]
+        op = cond.get("op")
+        val = to_number(cond.get("value"))
+        if val is None:
+            return False
+        if "count" in over:
+            return compare(len(prods), op, val)
+        if not vals:
+            return False
+        if over.startswith("any"):
+            return any(compare(v, op, val) for v in vals)
+        if over.startswith("every") or over in ("all", "all_products", "each_product"):
+            return all(compare(v, op, val) for v in vals)
+        if over.startswith("max"):
+            return compare(max(vals), op, val)
+        if over.startswith("min"):
+            return compare(min(vals), op, val)
+        return compare(sum(vals), op, val)
+    except Exception:
+        return False
+
 
 def pair(x):
     if isinstance(x, dict):

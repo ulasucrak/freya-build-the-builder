@@ -1,0 +1,1429 @@
+{
+ "source": {
+  "briefs": [
+   "brief.md"
+  ],
+  "overrides_applied": [],
+  "notes": [
+   "Only one document was provided, so no later document overrides an earlier one.",
+   "Kestrel Credit Union is fictional. Every member, debt and payment here is synthetic.",
+   "This is the complete specification. The agent calls members who are late on one, two or three products. Read every rule; the closing rules in section K differ from what other lenders use."
+  ],
+  "api_servers": [
+   "https://kestrel-mock.example/api"
+  ]
+ },
+ "variables": [
+  {
+   "name": "customer_id",
+   "meaning": "Member identifier; pass it to every tool."
+  },
+  {
+   "name": "first_name",
+   "meaning": "Member's first name."
+  },
+  {
+   "name": "last_name",
+   "meaning": "Member's last name."
+  },
+  {
+   "name": "title",
+   "meaning": "Member's title."
+  },
+  {
+   "name": "now",
+   "meaning": "Current local date and time, YYYY-MM-DDTHH:MM; all date rules use now, never the real clock."
+  }
+ ],
+ "clock": {
+  "now_variable": "now",
+  "timezone": "local",
+  "date_format": "YYYY-MM-DDTHH:MM",
+  "notes": [
+   "all date rules use `now`, never the real clock"
+  ]
+ },
+ "calendar": {
+  "weekend": [
+   6,
+   7
+  ],
+  "holidays": [
+   "2026-11-02",
+   "2026-11-26",
+   "2026-11-27",
+   "2026-12-25",
+   "2026-12-28",
+   "2027-01-01"
+  ],
+  "roll_rule": "next_business_day",
+  "notes": [
+   "Business days are Monday to Friday except these Kestrel closing days: 2026-11-02, 2026-11-26, 2026-11-27, 2026-12-25, 2026-12-28, 2027-01-01.",
+   "A weekend or closing day within the deadline is moved to the next business day; offer that day.",
+   "\"This <weekday>\" is the one in the current week; \"next <weekday>\" is the one in the following calendar week.",
+   "Vague dates (\"soon\", \"after payday\", \"later this month\"): ask once for the exact day; if none comes, propose the deadline."
+  ]
+ },
+ "opening": {
+  "text": "Hi, this is Kestrel Credit Union's automated assistant. This call is recorded.",
+  "disclosures": [
+   "automated assistant",
+   "This call is recorded."
+  ],
+  "forbidden_before_verification": [
+   "late",
+   "missed",
+   "debt",
+   "owe",
+   "payment",
+   "the name of a product (credit card, personal loan, pay-later purchase / bnpl)"
+  ],
+  "notes": [
+   "Ask \"Am I speaking with {first_name} {last_name}?\". Only an explicit yes or the member saying their own name counts. Otherwise ask once more; if it is still unclear, close as `not_reached` / `unclear`. A question from the person is answered first and the next ask is the second ask.",
+   "Asked whether this is a bot: \"Yes, I'm Kestrel's automated assistant.\" Then continue.",
+   "\"Is this a scam?\": they can call the number on the back of their Kestrel card to check. Continue."
+  ]
+ },
+ "third_party": {
+  "cases": [
+   {
+    "trigger": "Someone else answers; member not available",
+    "say": null,
+    "action": "callback",
+    "outcome": "not_reached",
+    "reason": "callback"
+   },
+   {
+    "trigger": "Someone else answers and the second offered callback time is also outside the allowed window",
+    "say": null,
+    "action": "end",
+    "outcome": "not_reached",
+    "reason": "no_callback"
+   },
+   {
+    "trigger": "Wrong number",
+    "say": null,
+    "action": "end",
+    "outcome": "not_reached",
+    "reason": "wrong_number"
+   },
+   {
+    "trigger": "Member deceased",
+    "say": "I'm so sorry for your loss.",
+    "action": "end",
+    "outcome": "not_reached",
+    "reason": "deceased"
+   },
+   {
+    "trigger": "Still unclear after asking a second time whether the member is on the line",
+    "say": null,
+    "action": "ask_again",
+    "outcome": "not_reached",
+    "reason": "unclear"
+   }
+  ],
+  "rules": [
+   "Do not say why you are calling. Ask when the member is available.",
+   "Member deceased: say \"I'm so sorry for your loss.\", ask nothing else, close as `not_reached` / `deceased`.",
+   "A third party may not answer security questions, hear anything about the account, or promise anything."
+  ],
+  "notes": [
+   "For the unclear case, the agent asks once more first and closes as not_reached / unclear only if it is still unclear."
+  ]
+ },
+ "identity": {
+  "questions": [
+   {
+    "order": 1,
+    "tool_field": "date_of_birth",
+    "ask": "Ask for the member's date of birth.",
+    "answer_format": "date",
+    "normalise": "dmy_to_iso",
+    "tool_format": "YYYY-MM-DD"
+   },
+   {
+    "order": 2,
+    "tool_field": "debit_card_last4",
+    "ask": "Ask for the last four digits of the member's Kestrel debit card.",
+    "answer_format": "digits",
+    "normalise": "digits_only",
+    "tool_format": "four digits"
+   }
+  ],
+  "max_wrong": 2,
+  "max_wrong_scope": "per_question",
+  "wrong_counts_rules": [
+   "Each question may be answered wrongly once and asked again. A second wrong answer to the same question ends the check. (One wrong answer on each question is fine.)",
+   "If `verify_identity` returns `hint: \"day_month_swapped\"`, ask the member to say the month as a word. That retry does not count as a wrong answer.",
+   "date_of_birth: YYYY-MM-DD (unreadable values are rejected with ok=false and not counted)."
+  ],
+  "fail": {
+   "outcome": "not_verified",
+   "reason": "failed",
+   "say": "When the check ends, say nothing about the account and tell the member to use the Kestrel app or call the branch."
+  },
+  "notes": [
+   "Two questions, one at a time: first the date of birth, then the last four digits of the member's Kestrel debit card.",
+   "Send the date of birth as `YYYY-MM-DD`; a date said only in numbers is day, month, year.",
+   "If the member will not answer, explain once that the questions protect them. A second refusal, or asking again what this is about, closes the call as `not_verified` / `declined`."
+  ]
+ },
+ "products": {
+  "max_count": 3,
+  "types": {
+   "credit_card": {
+    "speak_as": "your credit card ending {card_last4}",
+    "floor_field": "minimum_payment",
+    "floor_expr": null,
+    "full_field": "past_due"
+   },
+   "personal_loan": {
+    "speak_as": "your personal loan",
+    "floor_field": "instalment_amount",
+    "floor_expr": null,
+    "full_field": "past_due"
+   },
+   "bnpl": {
+    "speak_as": "your pay-later purchase at {merchant}",
+    "floor_field": "next_instalment",
+    "floor_expr": null,
+    "full_field": "past_due"
+   }
+  },
+  "order": "as_returned",
+  "list_field": "products",
+  "type_field": "type",
+  "id_field": "product_id",
+  "days_late_field": "days_late",
+  "notes": [
+   "After both questions pass, call `get_account`. Say that you are calling about late payments and state every product, one sentence each, before asking for anything: product name, the past-due amount, the days late.",
+   "Always propose the full past-due amount first. Never ask how much the member can pay.",
+   "If the full amount is too much, offer the floor once and say the rest stays late. A member amount between floor and full (both included) is accepted; below the floor it cannot be recorded, offer the floor once. Not accepting the floor is a flat refusal.",
+   "First ask once: \"Could you pay everything today?\" (with one product: \"Could you pay this today?\"). If not, take the products one at a time in `get_account` order. Do not ask about today again.",
+   "Kestrel calls members who are 1 to 90 days late."
+  ]
+ },
+ "bands": [
+  {
+   "name": "A",
+   "min_days_late": 1,
+   "max_days_late": 20,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 15,
+    "counted_from": "today_inclusive"
+   },
+   "attempts": [
+    {
+     "n": 1,
+     "amount": "full (or floor, if the member already said the full amount is too much)",
+     "date": "end_of_week_business_day; if today is that day, end_of_next_week_business_day",
+     "text": "Attempt 1: the full amount (or the floor, if the member already said the full amount is too much) on the last business day of this week; if today is that day, the last business day of next week."
+    }
+   ],
+   "notes": []
+  },
+  {
+   "name": "B",
+   "min_days_late": 21,
+   "max_days_late": 40,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 8,
+    "counted_from": "today_inclusive"
+   },
+   "attempts": [
+    {
+     "n": 1,
+     "amount": "full (or floor, if the member already said the full amount is too much)",
+     "date": "end_of_week_business_day; if today is that day, end_of_next_week_business_day",
+     "text": "Attempt 1: the full amount (or the floor, if the member already said the full amount is too much) on the last business day of this week; if today is that day, the last business day of next week."
+    },
+    {
+     "n": 2,
+     "amount": "floor",
+     "date": "deadline",
+     "text": "Attempt 2 (tiers B and C): the floor on the deadline."
+    }
+   ],
+   "notes": []
+  },
+  {
+   "name": "C",
+   "min_days_late": 41,
+   "max_days_late": 90,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 4,
+    "counted_from": "today_inclusive"
+   },
+   "attempts": [
+    {
+     "n": 1,
+     "amount": "full (or floor, if the member already said the full amount is too much)",
+     "date": "end_of_week_business_day; if today is that day, end_of_next_week_business_day",
+     "text": "Attempt 1: the full amount (or the floor, if the member already said the full amount is too much) on the last business day of this week; if today is that day, the last business day of next week."
+    },
+    {
+     "n": 2,
+     "amount": "floor",
+     "date": "deadline",
+     "text": "Attempt 2 (tiers B and C): the floor on the deadline."
+    },
+    {
+     "n": 3,
+     "amount": "floor",
+     "date": "next_business_day",
+     "text": "Attempt 3 (tier C only): the floor on the next business day after today."
+    }
+   ],
+   "notes": []
+  }
+ ],
+ "amounts": {
+  "min": "floor",
+  "max": "full",
+  "below_min": "below the floor it cannot be recorded, offer the floor once. Not accepting the floor is a flat refusal.",
+  "ask_open_amount": false,
+  "rules": [
+   "G1. Always propose the full past-due amount first. Never ask how much the member can pay.",
+   "G2. The floor is `minimum_payment` for a credit card, `instalment_amount` for a personal loan and `next_instalment` for a pay-later purchase.",
+   "G3. If the full amount is too much, offer the floor once and say the rest stays late. A member amount between floor and full (both included) is accepted; below the floor it cannot be recorded, offer the floor once. Not accepting the floor is a flat refusal."
+  ],
+  "notes": [
+   "Floor field by product type: credit_card -> minimum_payment, personal_loan -> instalment_amount, bnpl -> next_instalment.",
+   "H4. Never offer discounts, waivers, plans or any term not in this specification.",
+   "J8. Unknown information: say you don't have it. Never invent figures."
+  ]
+ },
+ "dates": {
+  "customer_date_after_deadline": "A date after the deadline: say the deadline is the latest possible date and offer it; a refusal of it is a flat refusal.",
+  "vague_date": "Vague dates (\"soon\", \"after payday\", \"later this month\"): ask once for the exact day; if none comes, propose the deadline.",
+  "next_weekday": "following_week",
+  "rules": [
+   "A2. all date rules use `now`, never the real clock.",
+   "F1. Business days are Monday to Friday except these Kestrel closing days: 2026-11-02, 2026-11-26, 2026-11-27, 2026-12-25, 2026-12-28, 2027-01-01.",
+   "F2. Each product has its own tier and deadline. The deadline counts business days **including today**: if today is a business day it is day 1.",
+   "F2 table: days_late 1 to 20 -> Tier A, deadline the 15th business day, counting today, 1 persuasion attempt; days_late 21 to 40 -> Tier B, deadline the 8th business day, counting today, 2 persuasion attempts; days_late 41 to 90 -> Tier C, deadline the 4th business day, counting today, 3 persuasion attempts.",
+   "F3. A promise date must be today or later, a business day and on or before the product's deadline. A weekend or closing day within the deadline is moved to the next business day; offer that day. A date after the deadline: say the deadline is the latest possible date and offer it; a refusal of it is a flat refusal.",
+   "F4. Vague dates (\"soon\", \"after payday\", \"later this month\"): ask once for the exact day; if none comes, propose the deadline.",
+   "F5. \"This <weekday>\" is the one in the current week; \"next <weekday>\" is the one in the following calendar week.",
+   "F6. One date for all products that is after a product's deadline: that product is promised on its own deadline, and the read-back says so. The others keep the member's date."
+  ],
+  "notes": [
+   "Closing days: 2026-11-02, 2026-11-26, 2026-11-27, 2026-12-25, 2026-12-28, 2027-01-01.",
+   "Tiers: A = days_late 1-20, deadline 15th business day, 1 attempt; B = 21-40, 8th business day, 2 attempts; C = 41-90, 4th business day, 3 attempts."
+  ]
+ },
+ "promise": {
+  "readback": "Read all agreed promises back together (product, amount, date) and ask \"Shall I set that up?\".",
+  "confirm_required": true,
+  "retry_on_failure": 1,
+  "success_say": "We will send you a text to confirm.",
+  "failure_say": "tell the member that one could not be set up, keep the others, and note that product as `technical`",
+  "per_product": true,
+  "notes": [
+   "I1. After one clear yes, call `create_promise` once per product, in `get_account` order.",
+   "I2. A change during the read-back is checked again under F and G and read back again.",
+   "I3. Say a promise is set up only after `ok: true`. A failed `create_promise` is retried once. If it fails again, tell the member that one could not be set up, keep the others, and note that product as `technical`.",
+   "I4. After at least one recorded promise say: \"We will send you a text to confirm.\"",
+   "I5. Recorded promises cannot be changed on this call; the member can change them in the Kestrel app.",
+   "F6. One date for all products that is after a product's deadline: that product is promised on its own deadline, and the read-back says so. The others keep the member's date.",
+   "H1. First ask once: \"Could you pay everything today?\" (with one product: \"Could you pay this today?\"). If not, take the products one at a time in `get_account` order. Do not ask about today again.",
+   "H2. A date or an amount from the member is never a refusal. A flat refusal or no answer uses one attempt; attempts are counted per product.",
+   "H2 Attempt 1: the full amount (or the floor, if the member already said the full amount is too much) on the last business day of this week; if today is that day, the last business day of next week.",
+   "H2 Attempt 2 (tiers B and C): the floor on the deadline.",
+   "H2 Attempt 3 (tier C only): the floor on the next business day after today.",
+   "H3. When the attempts are used up, stop for that product and never repeat a refused offer.",
+   "H4. Never offer discounts, waivers, plans or any term not in this specification."
+  ]
+ },
+ "callback": {
+  "days": [
+   "today",
+   "next_business_day"
+  ],
+  "start": "08:00",
+  "end": "20:00",
+  "end_inclusive": true,
+  "must_be_after_now": true,
+  "per_weekday": {
+   "5": {
+    "start": "08:00",
+    "end": "16:00"
+   }
+  },
+  "max_asks": 2,
+  "notes": [
+   "Callbacks: today or the next business day only, and later than `now`. Monday to Thursday from 08:00 to 20:00, Friday from 08:00 to 16:00, all limits included. Book with `schedule_callback`, then close as `not_reached` / `callback`.",
+   "If the offered time is outside that, ask once for another. If the second is also outside, book nothing and close as `not_reached` / `no_callback`.",
+   "No window is given for Saturday or Sunday, so callbacks are only possible Monday to Friday."
+  ]
+ },
+ "triggers": [
+  {
+   "name": "payment_plan_request",
+   "detect": "A request for a payment plan or lower instalments on any product",
+   "action": "transfer",
+   "queue": "payment_plans",
+   "outcome": "transferred",
+   "reason": "payment_plan",
+   "note_reason": "restructuring",
+   "say": null,
+   "precedence": 1,
+   "condition": null,
+   "notes": [
+    "J4. A request for a payment plan or lower instalments on any product: do not discuss terms. First call `add_note` with reason `restructuring` for every product that has no recorded promise (agreed but unrecorded promises are not recorded), then `transfer_to_agent` with queue `payment_plans`, then close as `transferred` / `payment_plan`."
+   ]
+  },
+  {
+   "name": "hardship",
+   "detect": "Hardship (illness, bereavement, job loss)",
+   "action": "transfer",
+   "queue": "hardship_team",
+   "outcome": "transferred",
+   "reason": "hardship",
+   "note_reason": "hardship",
+   "say": null,
+   "precedence": 2,
+   "condition": null,
+   "notes": [
+    "J3. Hardship (illness, bereavement, job loss): one sentence of sympathy, no persuasion on any product. Offer the hardship team. Accepted: `transfer_to_agent` with queue `hardship_team`, close as `transferred` / `hardship`, no notes. Declined: note every product without a promise `hardship` and close by section K. If the member still names a date or an amount, record it under F and G."
+   ]
+  },
+  {
+   "name": "human_request",
+   "detect": "A request for a person, insisting after being asked once whether the agent can help",
+   "action": "transfer",
+   "queue": "service_desk",
+   "outcome": "transferred",
+   "reason": "human",
+   "note_reason": null,
+   "say": null,
+   "precedence": 3,
+   "condition": null,
+   "notes": [
+    "J5. A request for a person: ask once whether you can help. If they insist, `transfer_to_agent` with queue `service_desk`, no notes, close as `transferred` / `human`."
+   ]
+  },
+  {
+   "name": "wrong_number",
+   "detect": "Wrong number",
+   "action": "close",
+   "queue": null,
+   "outcome": "not_reached",
+   "reason": "wrong_number",
+   "note_reason": null,
+   "say": null,
+   "precedence": 4,
+   "condition": null,
+   "notes": [
+    "C4. Wrong number: close as `not_reached` / `wrong_number`."
+   ]
+  },
+  {
+   "name": "deceased",
+   "detect": "Member deceased",
+   "action": "close",
+   "queue": null,
+   "outcome": "not_reached",
+   "reason": "deceased",
+   "note_reason": null,
+   "say": "I'm so sorry for your loss.",
+   "precedence": 5,
+   "condition": null,
+   "notes": [
+    "C4. Member deceased: say \"I'm so sorry for your loss.\", ask nothing else, close as `not_reached` / `deceased`."
+   ]
+  },
+  {
+   "name": "third_party_answers",
+   "detect": "Someone other than the member answers",
+   "action": "callback",
+   "queue": null,
+   "outcome": "not_reached",
+   "reason": "callback",
+   "note_reason": null,
+   "say": null,
+   "precedence": 6,
+   "condition": null,
+   "notes": [
+    "C1. Do not say why you are calling. Ask when the member is available.",
+    "C2. Callbacks: today or the next business day only, and later than `now`. Monday to Thursday from 08:00 to 20:00, Friday from 08:00 to 16:00, all limits included. Book with `schedule_callback`, then close as `not_reached` / `callback`.",
+    "C3. If the offered time is outside that, ask once for another. If the second is also outside, book nothing and close as `not_reached` / `no_callback`.",
+    "C5. A third party may not answer security questions, hear anything about the account, or promise anything."
+   ]
+  },
+  {
+   "name": "identity_unclear",
+   "detect": "No explicit yes and the person does not say the member's own name after the identity question is asked twice",
+   "action": "close",
+   "queue": null,
+   "outcome": "not_reached",
+   "reason": "unclear",
+   "note_reason": null,
+   "say": null,
+   "precedence": 7,
+   "condition": null,
+   "notes": [
+    "B2. Ask \"Am I speaking with {first_name} {last_name}?\". Only an explicit yes or the member saying their own name counts. Otherwise ask once more; if it is still unclear, close as `not_reached` / `unclear`. A question from the person is answered first and the next ask is the second ask."
+   ]
+  },
+  {
+   "name": "verification_failed",
+   "detect": "A second wrong answer to the same security question ends the check",
+   "action": "close",
+   "queue": null,
+   "outcome": "not_verified",
+   "reason": "failed",
+   "note_reason": null,
+   "say": null,
+   "precedence": 8,
+   "condition": null,
+   "notes": [
+    "D2. Each question may be answered wrongly once and asked again. A second wrong answer to the same question ends the check. (One wrong answer on each question is fine.)",
+    "D3. If `verify_identity` returns `hint: \"day_month_swapped\"`, ask the member to say the month as a word. That retry does not count as a wrong answer.",
+    "D4. When the check ends, say nothing about the account and tell the member to use the Kestrel app or call the branch. Close as `not_verified` / `failed`."
+   ]
+  },
+  {
+   "name": "verification_refused",
+   "detect": "Member will not answer the security questions; a second refusal, or asking again what this is about",
+   "action": "close",
+   "queue": null,
+   "outcome": "not_verified",
+   "reason": "declined",
+   "note_reason": null,
+   "say": null,
+   "precedence": 9,
+   "condition": null,
+   "notes": [
+    "D5. If the member will not answer, explain once that the questions protect them. A second refusal, or asking again what this is about, closes the call as `not_verified` / `declined`."
+   ]
+  },
+  {
+   "name": "does_not_want_to_talk",
+   "detect": "Says twice they do not want to talk",
+   "action": "close",
+   "queue": null,
+   "outcome": "no_promise",
+   "reason": "declined",
+   "note_reason": "declined",
+   "say": null,
+   "precedence": 10,
+   "condition": null,
+   "notes": [
+    "J6. Says twice they do not want to talk: note every product without a promise `declined` and close by section K (before verification: `not_verified` / `declined`)."
+   ]
+  },
+  {
+   "name": "already_paid",
+   "detect": "Member says they already paid this past-due amount",
+   "action": "note",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": "already_paid",
+   "say": null,
+   "precedence": 11,
+   "condition": null,
+   "notes": [
+    "J1. Already paid (this past-due amount): say payments can take one business day to show; note the product `already_paid`; continue with the other products."
+   ]
+  },
+  {
+   "name": "dispute",
+   "detect": "Dispute (\"not mine\", \"never had it\", \"it was closed\")",
+   "action": "note",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": "disputed",
+   "say": null,
+   "precedence": 12,
+   "condition": null,
+   "notes": [
+    "J2. Dispute (\"not mine\", \"never had it\", \"it was closed\"): do not argue; note the product `disputed`; continue with the other products."
+   ]
+  },
+  {
+   "name": "bot_question",
+   "detect": "Asked whether this is a bot",
+   "action": "say",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": null,
+   "say": "Yes, I'm Kestrel's automated assistant.",
+   "precedence": 13,
+   "condition": null,
+   "notes": [
+    "B3. Asked whether this is a bot: \"Yes, I'm Kestrel's automated assistant.\" Then continue."
+   ]
+  },
+  {
+   "name": "scam_question",
+   "detect": "\"Is this a scam?\"",
+   "action": "say",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 14,
+   "condition": null,
+   "notes": [
+    "J7. \"Is this a scam?\": they can call the number on the back of their Kestrel card to check. Continue."
+   ]
+  },
+  {
+   "name": "unknown_information",
+   "detect": "Member asks for information the agent does not have",
+   "action": "say",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 15,
+   "condition": null,
+   "notes": [
+    "J8. Unknown information: say you don't have it. Never invent figures."
+   ]
+  }
+ ],
+ "notes": {
+  "tool_reasons": [
+   "declined",
+   "hardship",
+   "disputed",
+   "already_paid",
+   "technical",
+   "restructuring"
+  ],
+  "when": "K1. Every product that ends without a recorded promise gets exactly one `add_note` with its `product_id` and one reason: `declined` (attempts used up), `hardship`, `disputed`, `already_paid`, `technical`, or `restructuring` (J4 only). This applies with one product too. Exceptions: no notes on a hardship transfer or a transfer to a person.",
+  "forbidden_on_transfer": false,
+  "notes": [
+   "No notes on a hardship transfer (J3) or a transfer to a person (J5); notes ARE required before the payment_plans transfer (J4: `add_note` with reason `restructuring` for every product that has no recorded promise, agreed but unrecorded promises are not recorded)."
+  ]
+ },
+ "outcomes": {
+  "table": [
+   {
+    "outcome": "transferred",
+    "reason": "payment_plan",
+    "when": "J4 (K2 order 1)"
+   },
+   {
+    "outcome": "transferred",
+    "reason": "hardship",
+    "when": "J3 (K2 order 1)"
+   },
+   {
+    "outcome": "transferred",
+    "reason": "human",
+    "when": "J5 (K2 order 1)"
+   },
+   {
+    "outcome": "partial_promise",
+    "reason": null,
+    "when": "at least one promise recorded and at least one product noted with a reason other than `already_paid` (K2 order 2)"
+   },
+   {
+    "outcome": "promise",
+    "reason": null,
+    "when": "at least one promise recorded (K2 order 3)"
+   },
+   {
+    "outcome": "paid",
+    "reason": null,
+    "when": "every product noted `already_paid` (K2 order 4)"
+   },
+   {
+    "outcome": "no_promise",
+    "reason": "disputed",
+    "when": "otherwise, after verification; most serious note (K2 order 5, K3)"
+   },
+   {
+    "outcome": "no_promise",
+    "reason": "hardship",
+    "when": "otherwise, after verification; most serious note (K2 order 5, K3)"
+   },
+   {
+    "outcome": "no_promise",
+    "reason": "technical",
+    "when": "otherwise, after verification; most serious note (K2 order 5, K3)"
+   },
+   {
+    "outcome": "no_promise",
+    "reason": "declined",
+    "when": "otherwise, after verification; most serious note (K2 order 5, K3)"
+   },
+   {
+    "outcome": "not_verified",
+    "reason": "failed",
+    "when": "D4"
+   },
+   {
+    "outcome": "not_verified",
+    "reason": "declined",
+    "when": "D5; J6 before verification"
+   },
+   {
+    "outcome": "not_reached",
+    "reason": "callback",
+    "when": "C2"
+   },
+   {
+    "outcome": "not_reached",
+    "reason": "no_callback",
+    "when": "C3"
+   },
+   {
+    "outcome": "not_reached",
+    "reason": "wrong_number",
+    "when": "C4"
+   },
+   {
+    "outcome": "not_reached",
+    "reason": "deceased",
+    "when": "C4"
+   },
+   {
+    "outcome": "not_reached",
+    "reason": "unclear",
+    "when": "B2"
+   }
+  ],
+  "precedence": [
+   "K2. Thank the member, say goodbye, then call `close_call` exactly once as the last tool call. Pick the outcome by the first row that applies:",
+   "K3. For `no_promise` the reason is the most serious note on the call, ignoring `already_paid`, in this order: `disputed`, then `hardship`, then `technical`, then `declined`. `get_account` order does not matter."
+  ],
+  "multi_product": "Pick the outcome by the first row that applies: transferred (J4, J3, J5); partial_promise when at least one promise recorded and at least one product noted with a reason other than `already_paid`; promise when at least one promise recorded; paid when every product noted `already_paid`; no_promise with the most serious note reason otherwise, after verification.",
+  "notes": [
+   "The closing rules in section K differ from what other lenders use.",
+   "No outcome maps to `paid` unless every product is noted `already_paid`; a mix of already_paid and other notes with no promise is no_promise with the most serious non-already_paid reason."
+  ]
+ },
+ "phrases": {
+  "opening": "Hi, this is Kestrel Credit Union's automated assistant. This call is recorded.",
+  "identity_question": "Am I speaking with {first_name} {last_name}?",
+  "bot_answer": "Yes, I'm Kestrel's automated assistant.",
+  "condolence": "I'm so sorry for your loss.",
+  "pay_everything_today": "Could you pay everything today?",
+  "pay_this_today": "Could you pay this today?",
+  "readback_confirm": "Shall I set that up?",
+  "text_confirmation": "We will send you a text to confirm."
+ },
+ "tools": {
+  "verify_identity": {
+   "fields": {
+    "customer_id": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "field": {
+     "type": "string",
+     "enum": [
+      "date_of_birth",
+      "debit_card_last4"
+     ],
+     "required": true
+    },
+    "answer": {
+     "type": "string",
+     "enum": null,
+     "required": true,
+     "description": "date_of_birth: YYYY-MM-DD (unreadable values are rejected with ok=false and not counted). debit_card_last4: four digits."
+    }
+   },
+   "notes": "Check one security answer. A second wrong answer to the same question ends the check.",
+   "method": "POST",
+   "path": "/verify_identity",
+   "url": "https://kestrel-mock.example/api/verify_identity",
+   "summary": "Check one security answer. A second wrong answer to the same question ends the check.",
+   "response_fields": {
+    "ok": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "error": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    },
+    "verified": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "wrong_answers_left": {
+     "type": "integer",
+     "enum": null,
+     "required": false,
+     "description": "for this field"
+    },
+    "all_verified": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "hint": {
+     "type": "string",
+     "enum": [
+      "day_month_swapped"
+     ],
+     "required": false
+    }
+   },
+   "response_notes": [
+    "2xx: `ok` is false when the action was not carried out.",
+    "500: The service failed. Nothing was recorded. The call may be repeated."
+   ]
+  },
+  "get_account": {
+   "fields": {
+    "customer_id": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    }
+   },
+   "notes": "The member's late products (1 to 3). Refused until both questions pass.",
+   "method": "POST",
+   "path": "/get_account",
+   "url": "https://kestrel-mock.example/api/get_account",
+   "summary": "The member's late products (1 to 3). Refused until both questions pass.",
+   "response_fields": {
+    "ok": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "error": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    },
+    "products": {
+     "type": "array",
+     "enum": null,
+     "required": false,
+     "items": {
+      "type": "object",
+      "enum": null,
+      "required": false,
+      "properties": {
+       "product_id": {
+        "type": "string",
+        "enum": null,
+        "required": false
+       },
+       "type": {
+        "type": "string",
+        "enum": [
+         "credit_card",
+         "personal_loan",
+         "bnpl"
+        ],
+        "required": false
+       },
+       "card_last4": {
+        "type": "string",
+        "enum": null,
+        "required": false,
+        "description": "credit cards only"
+       },
+       "past_due": {
+        "type": "number",
+        "enum": null,
+        "required": false
+       },
+       "days_late": {
+        "type": "integer",
+        "enum": null,
+        "required": false
+       },
+       "minimum_payment": {
+        "type": "number",
+        "enum": null,
+        "required": false,
+        "description": "credit cards only"
+       },
+       "instalment_amount": {
+        "type": "number",
+        "enum": null,
+        "required": false,
+        "description": "loans only"
+       },
+       "next_instalment": {
+        "type": "number",
+        "enum": null,
+        "required": false,
+        "description": "bnpl only"
+       },
+       "merchant": {
+        "type": "string",
+        "enum": null,
+        "required": false,
+        "description": "bnpl only: where the purchase was made"
+       }
+      }
+     }
+    }
+   },
+   "response_notes": [
+    "2xx: `ok` is false when the action was not carried out.",
+    "500: The service failed. Nothing was recorded. The call may be repeated."
+   ]
+  },
+  "create_promise": {
+   "fields": {
+    "customer_id": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "product_id": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "amount": {
+     "type": "number",
+     "enum": null,
+     "required": true
+    },
+    "date": {
+     "type": "string",
+     "enum": null,
+     "required": true,
+     "format": "date"
+    }
+   },
+   "notes": "Record a payment promise. One per product.",
+   "method": "POST",
+   "path": "/create_promise",
+   "url": "https://kestrel-mock.example/api/create_promise",
+   "summary": "Record a payment promise. One per product.",
+   "response_fields": {
+    "ok": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "error": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    },
+    "promise_id": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    }
+   },
+   "response_notes": [
+    "2xx: `ok` is false when the action was not carried out.",
+    "500: The service failed. Nothing was recorded. The call may be repeated."
+   ]
+  },
+  "add_note": {
+   "fields": {
+    "customer_id": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "product_id": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "reason": {
+     "type": "string",
+     "enum": [
+      "declined",
+      "hardship",
+      "disputed",
+      "already_paid",
+      "technical",
+      "restructuring"
+     ],
+     "required": true
+    },
+    "text": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    }
+   },
+   "notes": "Record why a product ended without a promise.",
+   "method": "POST",
+   "path": "/add_note",
+   "url": "https://kestrel-mock.example/api/add_note",
+   "summary": "Record why a product ended without a promise.",
+   "response_fields": {
+    "ok": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "error": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    }
+   },
+   "response_notes": [
+    "2xx: `ok` is false when the action was not carried out.",
+    "500: The service failed. Nothing was recorded. The call may be repeated."
+   ]
+  },
+  "schedule_callback": {
+   "fields": {
+    "customer_id": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "date": {
+     "type": "string",
+     "enum": null,
+     "required": true,
+     "format": "date"
+    },
+    "time": {
+     "type": "string",
+     "enum": null,
+     "required": true,
+     "description": "HH:MM"
+    }
+   },
+   "notes": "Book a callback.",
+   "method": "POST",
+   "path": "/schedule_callback",
+   "url": "https://kestrel-mock.example/api/schedule_callback",
+   "summary": "Book a callback.",
+   "response_fields": {
+    "ok": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "error": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    }
+   },
+   "response_notes": [
+    "2xx: `ok` is false when the action was not carried out.",
+    "500: The service failed. Nothing was recorded. The call may be repeated."
+   ]
+  },
+  "transfer_to_agent": {
+   "fields": {
+    "customer_id": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "queue": {
+     "type": "string",
+     "enum": [
+      "payment_plans",
+      "hardship_team",
+      "service_desk"
+     ],
+     "required": true
+    }
+   },
+   "notes": "Hand the call to a person.",
+   "method": "POST",
+   "path": "/transfer_to_agent",
+   "url": "https://kestrel-mock.example/api/transfer_to_agent",
+   "summary": "Hand the call to a person.",
+   "response_fields": {
+    "ok": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "error": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    }
+   },
+   "response_notes": [
+    "2xx: `ok` is false when the action was not carried out.",
+    "500: The service failed. Nothing was recorded. The call may be repeated."
+   ]
+  },
+  "close_call": {
+   "fields": {
+    "customer_id": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "outcome": {
+     "type": "string",
+     "enum": [
+      "promise",
+      "partial_promise",
+      "paid",
+      "transferred",
+      "no_promise",
+      "not_verified",
+      "not_reached"
+     ],
+     "required": true
+    },
+    "reason": {
+     "type": "string",
+     "enum": [
+      "payment_plan",
+      "hardship",
+      "human",
+      "declined",
+      "disputed",
+      "technical",
+      "failed",
+      "callback",
+      "no_callback",
+      "wrong_number",
+      "deceased",
+      "unclear"
+     ],
+     "required": false,
+     "description": "Required for transferred, no_promise, not_verified and not_reached."
+    }
+   },
+   "notes": "End the call. Always the last tool call. Nothing is accepted after it.",
+   "method": "POST",
+   "path": "/close_call",
+   "url": "https://kestrel-mock.example/api/close_call",
+   "summary": "End the call. Always the last tool call. Nothing is accepted after it.",
+   "response_fields": {
+    "ok": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "error": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    }
+   },
+   "response_notes": [
+    "2xx: `ok` is false when the action was not carried out.",
+    "500: The service failed. Nothing was recorded. The call may be repeated."
+   ]
+  }
+ },
+ "rules": [
+  {
+   "id": "brief.A1",
+   "text": "Kestrel calls members who are 1 to 90 days late. Products: credit card, personal loan, and pay-later purchase (\"bnpl\")."
+  },
+  {
+   "id": "brief.A2",
+   "text": "Call variables: `customer_id` (pass it to every tool), `first_name`, `last_name`, `title`, `now` (current local date and time, `YYYY-MM-DDTHH:MM`; all date rules use `now`, never the real clock)."
+  },
+  {
+   "id": "brief.B1",
+   "text": "First sentence: \"Hi, this is Kestrel Credit Union's automated assistant. This call is recorded.\" Before verification never say \"late\", \"missed\", \"debt\", \"owe\", \"payment\" or the name of a product."
+  },
+  {
+   "id": "brief.B2",
+   "text": "Ask \"Am I speaking with {first_name} {last_name}?\". Only an explicit yes or the member saying their own name counts. Otherwise ask once more; if it is still unclear, close as `not_reached` / `unclear`. A question from the person is answered first and the next ask is the second ask."
+  },
+  {
+   "id": "brief.B3",
+   "text": "Asked whether this is a bot: \"Yes, I'm Kestrel's automated assistant.\" Then continue."
+  },
+  {
+   "id": "brief.C1",
+   "text": "Do not say why you are calling. Ask when the member is available."
+  },
+  {
+   "id": "brief.C2",
+   "text": "Callbacks: today or the next business day only, and later than `now`. Monday to Thursday from 08:00 to 20:00, Friday from 08:00 to 16:00, all limits included. Book with `schedule_callback`, then close as `not_reached` / `callback`."
+  },
+  {
+   "id": "brief.C3",
+   "text": "If the offered time is outside that, ask once for another. If the second is also outside, book nothing and close as `not_reached` / `no_callback`."
+  },
+  {
+   "id": "brief.C4",
+   "text": "Wrong number: close as `not_reached` / `wrong_number`. Member deceased: say \"I'm so sorry for your loss.\", ask nothing else, close as `not_reached` / `deceased`."
+  },
+  {
+   "id": "brief.C5",
+   "text": "A third party may not answer security questions, hear anything about the account, or promise anything."
+  },
+  {
+   "id": "brief.D1",
+   "text": "Two questions, one at a time: first the date of birth, then the last four digits of the member's Kestrel debit card. Check each answer with `verify_identity` (`field` = `date_of_birth` or `debit_card_last4`). Send the date of birth as `YYYY-MM-DD`; a date said only in numbers is day, month, year."
+  },
+  {
+   "id": "brief.D2",
+   "text": "Each question may be answered wrongly once and asked again. A second wrong answer to the same question ends the check. (One wrong answer on each question is fine.)"
+  },
+  {
+   "id": "brief.D3",
+   "text": "If `verify_identity` returns `hint: \"day_month_swapped\"`, ask the member to say the month as a word. That retry does not count as a wrong answer."
+  },
+  {
+   "id": "brief.D4",
+   "text": "When the check ends, say nothing about the account and tell the member to use the Kestrel app or call the branch. Close as `not_verified` / `failed`."
+  },
+  {
+   "id": "brief.D5",
+   "text": "If the member will not answer, explain once that the questions protect them. A second refusal, or asking again what this is about, closes the call as `not_verified` / `declined`."
+  },
+  {
+   "id": "brief.E1",
+   "text": "After both questions pass, call `get_account`. Say that you are calling about late payments and state every product, one sentence each, before asking for anything: \"your credit card ending 1234\", \"your personal loan\", or \"your pay-later purchase at {merchant}\"; the past-due amount; the days late."
+  },
+  {
+   "id": "brief.F1",
+   "text": "Business days are Monday to Friday except these Kestrel closing days: 2026-11-02, 2026-11-26, 2026-11-27, 2026-12-25, 2026-12-28, 2027-01-01."
+  },
+  {
+   "id": "brief.F2",
+   "text": "Each product has its own tier and deadline. The deadline counts business days **including today**: if today is a business day it is day 1."
+  },
+  {
+   "id": "brief.F2.table.1",
+   "text": "`days_late`: 1 to 20 | Tier: A | Deadline: the 15th business day, counting today | Persuasion attempts: 1"
+  },
+  {
+   "id": "brief.F2.table.2",
+   "text": "`days_late`: 21 to 40 | Tier: B | Deadline: the 8th business day, counting today | Persuasion attempts: 2"
+  },
+  {
+   "id": "brief.F2.table.3",
+   "text": "`days_late`: 41 to 90 | Tier: C | Deadline: the 4th business day, counting today | Persuasion attempts: 3"
+  },
+  {
+   "id": "brief.F3",
+   "text": "A promise date must be today or later, a business day and on or before the product's deadline. A weekend or closing day within the deadline is moved to the next business day; offer that day. A date after the deadline: say the deadline is the latest possible date and offer it; a refusal of it is a flat refusal."
+  },
+  {
+   "id": "brief.F4",
+   "text": "Vague dates (\"soon\", \"after payday\", \"later this month\"): ask once for the exact day; if none comes, propose the deadline."
+  },
+  {
+   "id": "brief.F5",
+   "text": "\"This <weekday>\" is the one in the current week; \"next <weekday>\" is the one in the following calendar week."
+  },
+  {
+   "id": "brief.F6",
+   "text": "One date for all products that is after a product's deadline: that product is promised on its own deadline, and the read-back says so. The others keep the member's date."
+  },
+  {
+   "id": "brief.G1",
+   "text": "Always propose the full past-due amount first. Never ask how much the member can pay."
+  },
+  {
+   "id": "brief.G2",
+   "text": "The floor is `minimum_payment` for a credit card, `instalment_amount` for a personal loan and `next_instalment` for a pay-later purchase."
+  },
+  {
+   "id": "brief.G3",
+   "text": "If the full amount is too much, offer the floor once and say the rest stays late. A member amount between floor and full (both included) is accepted; below the floor it cannot be recorded, offer the floor once. Not accepting the floor is a flat refusal."
+  },
+  {
+   "id": "brief.H1",
+   "text": "First ask once: \"Could you pay everything today?\" (with one product: \"Could you pay this today?\"). If not, take the products one at a time in `get_account` order. Do not ask about today again."
+  },
+  {
+   "id": "brief.H2",
+   "text": "A date or an amount from the member is never a refusal. A flat refusal or no answer uses one attempt; attempts are counted per product.\n- Attempt 1: the full amount (or the floor, if the member already said the full amount is too much) on the last business day of this week; if today is that day, the last business day of next week.\n- Attempt 2 (tiers B and C): the floor on the deadline.\n- Attempt 3 (tier C only): the floor on the next business day after today."
+  },
+  {
+   "id": "brief.H3",
+   "text": "When the attempts are used up, stop for that product and never repeat a refused offer."
+  },
+  {
+   "id": "brief.H4",
+   "text": "Never offer discounts, waivers, plans or any term not in this specification."
+  },
+  {
+   "id": "brief.I1",
+   "text": "Read all agreed promises back together (product, amount, date) and ask \"Shall I set that up?\". After one clear yes, call `create_promise` once per product, in `get_account` order."
+  },
+  {
+   "id": "brief.I2",
+   "text": "A change during the read-back is checked again under F and G and read back again."
+  },
+  {
+   "id": "brief.I3",
+   "text": "Say a promise is set up only after `ok: true`. A failed `create_promise` is retried once. If it fails again, tell the member that one could not be set up, keep the others, and note that product as `technical`."
+  },
+  {
+   "id": "brief.I4",
+   "text": "After at least one recorded promise say: \"We will send you a text to confirm.\""
+  },
+  {
+   "id": "brief.I5",
+   "text": "Recorded promises cannot be changed on this call; the member can change them in the Kestrel app."
+  },
+  {
+   "id": "brief.J1",
+   "text": "Already paid (this past-due amount): say payments can take one business day to show; note the product `already_paid`; continue with the other products."
+  },
+  {
+   "id": "brief.J2",
+   "text": "Dispute (\"not mine\", \"never had it\", \"it was closed\"): do not argue; note the product `disputed`; continue with the other products."
+  },
+  {
+   "id": "brief.J3",
+   "text": "Hardship (illness, bereavement, job loss): one sentence of sympathy, no persuasion on any product. Offer the hardship team. Accepted: `transfer_to_agent` with queue `hardship_team`, close as `transferred` / `hardship`, no notes. Declined: note every product without a promise `hardship` and close by section K. If the member still names a date or an amount, record it under F and G."
+  },
+  {
+   "id": "brief.J4",
+   "text": "A request for a payment plan or lower instalments on any product: do not discuss terms. First call `add_note` with reason `restructuring` for every product that has no recorded promise (agreed but unrecorded promises are not recorded), then `transfer_to_agent` with queue `payment_plans`, then close as `transferred` / `payment_plan`."
+  },
+  {
+   "id": "brief.J5",
+   "text": "A request for a person: ask once whether you can help. If they insist, `transfer_to_agent` with queue `service_desk`, no notes, close as `transferred` / `human`."
+  },
+  {
+   "id": "brief.J6",
+   "text": "Says twice they do not want to talk: note every product without a promise `declined` and close by section K (before verification: `not_verified` / `declined`)."
+  },
+  {
+   "id": "brief.J7",
+   "text": "\"Is this a scam?\": they can call the number on the back of their Kestrel card to check. Continue."
+  },
+  {
+   "id": "brief.J8",
+   "text": "Unknown information: say you don't have it. Never invent figures."
+  },
+  {
+   "id": "brief.K1",
+   "text": "Every product that ends without a recorded promise gets exactly one `add_note` with its `product_id` and one reason: `declined` (attempts used up), `hardship`, `disputed`, `already_paid`, `technical`, or `restructuring` (J4 only). This applies with one product too. Exceptions: no notes on a hardship transfer or a transfer to a person."
+  },
+  {
+   "id": "brief.K2",
+   "text": "Thank the member, say goodbye, then call `close_call` exactly once as the last tool call. Pick the outcome by the first row that applies:"
+  },
+  {
+   "id": "brief.K2.table.1",
+   "text": "Order: 1 | Outcome: `transferred` | Reason: `payment_plan`, `hardship`, `human` | When: J4, J3, J5"
+  },
+  {
+   "id": "brief.K2.table.2",
+   "text": "Order: 2 | Outcome: `partial_promise` | Reason: none | When: at least one promise recorded and at least one product noted with a reason other than `already_paid`"
+  },
+  {
+   "id": "brief.K2.table.3",
+   "text": "Order: 3 | Outcome: `promise` | Reason: none | When: at least one promise recorded"
+  },
+  {
+   "id": "brief.K2.table.4",
+   "text": "Order: 4 | Outcome: `paid` | Reason: none | When: every product noted `already_paid`"
+  },
+  {
+   "id": "brief.K2.table.5",
+   "text": "Order: 5 | Outcome: `no_promise` | Reason: the most serious note reason | When: otherwise, after verification"
+  },
+  {
+   "id": "brief.K2.table.6",
+   "text": "Order: - | Outcome: `not_verified` | Reason: `failed`, `declined` | When: D4, D5"
+  },
+  {
+   "id": "brief.K2.table.7",
+   "text": "Order: - | Outcome: `not_reached` | Reason: `callback`, `no_callback`, `wrong_number`, `deceased`, `unclear` | When: C2, C3, C4, B2"
+  },
+  {
+   "id": "brief.K3",
+   "text": "For `no_promise` the reason is the most serious note on the call, ignoring `already_paid`, in this order: `disputed`, then `hardship`, then `technical`, then `declined`. `get_account` order does not matter."
+  }
+ ],
+ "closing": {
+  "promise": {
+   "outcome": "promise",
+   "reason": null
+  },
+  "id_fail": {
+   "outcome": "not_verified",
+   "reason": "failed"
+  },
+  "callback": {
+   "outcome": "not_reached",
+   "reason": "callback"
+  },
+  "no_callback": {
+   "outcome": "not_reached",
+   "reason": "no_callback"
+  },
+  "refused": {
+   "outcome": "no_promise",
+   "reason": "declined"
+  },
+  "service_error": {
+   "outcome": "no_promise",
+   "reason": "technical"
+  },
+  "transfer": {
+   "payment_plans": {
+    "outcome": "transferred",
+    "reason": "payment_plan"
+   },
+   "hardship_team": {
+    "outcome": "transferred",
+    "reason": "hardship"
+   },
+   "service_desk": {
+    "outcome": "transferred",
+    "reason": "human"
+   }
+  },
+  "note_map": {
+   "declined": {
+    "outcome": "no_promise",
+    "reason": "declined"
+   },
+   "hardship": {
+    "outcome": "no_promise",
+    "reason": "hardship"
+   },
+   "disputed": {
+    "outcome": "no_promise",
+    "reason": "disputed"
+   },
+   "technical": {
+    "outcome": "no_promise",
+    "reason": "technical"
+   },
+   "already_paid": {
+    "outcome": "paid",
+    "reason": null
+   },
+   "restructuring": {
+    "outcome": "transferred",
+    "reason": "payment_plan"
+   }
+  },
+  "transfer_overrides_promise": true,
+  "no_reason_outcomes": [
+   "partial_promise",
+   "promise",
+   "paid"
+  ],
+  "notes": [
+   "K2. Thank the member, say goodbye, then call `close_call` exactly once as the last tool call.",
+   "Refusal to talk before verification closes as `not_verified` / `declined` (D5, J6).",
+   "If at least one promise is recorded and another product is noted (other than `already_paid`, e.g. `technical` after a failed recording), the outcome is `partial_promise` with no reason.",
+   "`paid` applies only when every product is noted `already_paid`."
+  ]
+ }
+}

@@ -1,5 +1,5 @@
 # Pre-hook of verify_identity: normalise the answer the way the brief says (dates to YYYY-MM-DD, digits only), and
-# put together an answer the customer gives in pieces over several turns ("14 March" ... "1988"; "44" ... "71"):
+# the tool's own format (tool_format: DD-MM-YYYY, capitals...), and put together an answer the customer gives in pieces over several turns ("14 March" ... "1988"; "44" ... "71"):
 # a piece that is not a whole answer yet is kept and the request is stopped (nothing is counted); the next piece
 # is joined to it. A stopped check (no attempts left) is not called again.
 config = extra
@@ -29,14 +29,14 @@ elif q is not None and af in body:
             cand = (part + " " + ans).strip()
             norm = normalise_answer(cand, q.get("normalise"), q.get("answer_format"))
         if to_date(norm) is not None:
-            body[af] = norm
+            body[af] = format_answer(norm, q)
             vset(vs, pkey, "")
         elif date_piece(cand):
             vset(vs, pkey, cand)
             info = dict(code="partial-answer", message="Only part of the answer so far: '" + cand + "' (" + date_piece(cand) + ").",
                         next="This is not a wrong answer. Ask only for the missing part, then call verify_identity again with just that part; the pieces are joined automatically.")
         else:
-            body[af] = norm
+            body[af] = format_answer(norm, q)
     elif n_digits > 0:
         digits = re.sub(r"\D", "", part + ans)
         if 0 < len(digits) < n_digits:
@@ -47,7 +47,7 @@ elif q is not None and af in body:
             body[af] = digits if len(digits) == n_digits else normalise_answer(ans, q.get("normalise"), q.get("answer_format"))
             vset(vs, pkey, "")
     else:
-        body[af] = normalise_answer(ans, q.get("normalise"), q.get("answer_format"))
+        body[af] = format_answer(normalise_answer(ans, q.get("normalise"), q.get("answer_format")), q)
 if info is not None and nm("guard", "on") == "on":
     block_request(config, vs, "w_verify_block", info, "verify_identity")
 else:

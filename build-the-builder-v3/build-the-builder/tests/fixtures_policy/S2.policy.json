@@ -1,0 +1,1551 @@
+{
+ "source": {
+  "briefs": [
+   "01-email.md",
+   "02-policy-extract.md",
+   "03-memo-2026-10-02.md",
+   "04-codes.csv"
+  ],
+  "overrides_applied": [
+   "Stage 1 deadline: 8th working day after today -> 10th working day after today (memo (1): \"The latest promise date for Stage 1 (1-14 days overdue) is now the 10th working day after today, not the 8th.\")",
+   "Closure day Wednesday 11 November 2026 removed: 2026-11-11 is now a working day (memo (2): \"The closure on Wednesday 11 November 2026 is cancelled; branches and payments operate normally that day, so it is a working day.\")",
+   "Closure day added: Friday 13 November 2026, 2026-11-13 is not a working day (memo (2): \"Instead the bank is closed on Friday 13 November 2026 for the core systems migration; that day is not a working day.\")",
+   "Callback hours: 09:00-17:00 inclusive -> 08:30-19:30 inclusive (memo (3): \"Callbacks may now be booked from 08:30 to 19:30, both times included.\")",
+   "Security: three incorrect answers in total -> two incorrect answers in total (memo (4): \"Two incorrect answers in total now end the security check (previously three).\")",
+   "Code names in the policy (e.g. \"callback-booked code\", \"security-failed code\") are resolved to the MI code list values (04-codes.csv), which the email says close_call and add_note accept exclusively (\"The close_call and add_note tools only take those codes, nothing else.\")"
+  ],
+  "notes": [
+   "01-email.md: \"Where the memo and the policy disagree, the memo wins. Please do not build anything from the old numbers.\"",
+   "03-memo: \"Everything not mentioned here is unchanged.\""
+  ],
+  "api_servers": [
+   "https://harbourline-mock.example/voice/v2"
+  ]
+ },
+ "variables": [
+  {
+   "name": "customer_id",
+   "meaning": "send with every tool call"
+  },
+  {
+   "name": "first_name",
+   "meaning": "customer's first name"
+  },
+  {
+   "name": "last_name",
+   "meaning": "customer's last name"
+  },
+  {
+   "name": "title",
+   "meaning": "customer's title (Mr/Ms/Mx)"
+  },
+  {
+   "name": "call_time",
+   "meaning": "the current date and time, format YYYY-MM-DDTHH:MM; all date logic uses call_time and never the system clock"
+  }
+ ],
+ "clock": {
+  "now_variable": "call_time",
+  "timezone": null,
+  "date_format": "YYYY-MM-DDTHH:MM",
+  "notes": [
+   "all date logic uses call_time and never the system clock",
+   "No timezone is specified in the documents."
+  ]
+ },
+ "calendar": {
+  "weekend": [
+   6,
+   7
+  ],
+  "holidays": [
+   "2026-11-13",
+   "2026-12-25",
+   "2026-12-28",
+   "2027-01-01"
+  ],
+  "roll_rule": "next_business_day",
+  "notes": [
+   "Working days are Monday to Friday excluding bank closure days.",
+   "A non-working day that is within the deadline is moved to the next working day (offer it to the customer).",
+   "\"Next Friday\" etc. means the Friday of the following calendar week. \"This Friday\" means the Friday of the current week.",
+   "Vague answers (\"next week\", \"payday\", \"end of the month\"): ask once for the exact date. If none is given, propose the deadline.",
+   "A promise date has to be today or later, a working day and not later than that product's deadline.",
+   "A date beyond the deadline: tell the customer the latest date that can be booked is the deadline and offer it; refusing it counts as a refusal.",
+   "The Christmas and New Year closures stay as they are."
+  ]
+ },
+ "opening": {
+  "text": "Hello, this is the automated assistant of Harbourline Savings Bank. This call is recorded.",
+  "disclosures": [
+   "automated assistant of Harbourline Savings Bank",
+   "This call is recorded."
+  ],
+  "forbidden_before_verification": [
+   "arrears",
+   "overdue",
+   "owe",
+   "balance",
+   "payment",
+   "card",
+   "loan",
+   "overdraft",
+   "the reason for the call"
+  ],
+  "notes": [
+   "Nothing about the reason for the call may be said before security is passed: no \"arrears\", \"overdue\", \"owe\", \"balance\", \"payment\", \"card\", \"loan\" or \"overdraft\".",
+   "Then ask: \"May I speak to {title} {last_name}?\". Accept only a clear yes or the customer giving their own name. Otherwise ask once more; if still unclear, close with the \"could not confirm\" code.",
+   "If asked whether they are speaking to a machine, say it is Harbourline's automated assistant, then continue.",
+   "If someone asks whether the call is a scam, tell them to ring the number on the back of their card or on their statement, then carry on.",
+   "Customer says twice they do not want to talk: close as refused (before security: security-declined)."
+  ]
+ },
+ "third_party": {
+  "cases": [
+   {
+    "trigger": "Someone else answers (third party)",
+    "say": null,
+    "action": "callback",
+    "outcome": "CBK",
+    "reason": null
+   },
+   {
+    "trigger": "Third party: offered callback time outside the window twice",
+    "say": null,
+    "action": "end",
+    "outcome": "NCB",
+    "reason": null
+   },
+   {
+    "trigger": "Wrong number",
+    "say": null,
+    "action": "end",
+    "outcome": "WRN",
+    "reason": null
+   },
+   {
+    "trigger": "Customer deceased",
+    "say": "I'm very sorry to hear that.",
+    "action": "end",
+    "outcome": "DEC",
+    "reason": null
+   },
+   {
+    "trigger": "Still unclear who answered after the second ask",
+    "say": null,
+    "action": "end",
+    "outcome": "UNC",
+    "reason": null
+   }
+  ],
+  "rules": [
+   "If someone else answers, do not give the reason for the call or any detail. Ask when the customer can be reached.",
+   "Callbacks may be booked for the same day or the next working day only, between 09:00 and 17:00 inclusive, and must be later than call_time. Use schedule_callback, then close with the callback-booked code. [hours overridden by memo to 08:30-19:30 inclusive]",
+   "If the offered time is outside this, ask once for another. If the second is also outside, do not book; close with the no-suitable-time code.",
+   "Wrong number: close with the wrong-number code. Customer deceased: say \"I'm very sorry to hear that.\", ask nothing more and close with the deceased code.",
+   "Third parties may not answer security questions, make promises or be told anything, even if they offer to pay."
+  ],
+  "notes": []
+ },
+ "identity": {
+  "questions": [
+   {
+    "order": 1,
+    "tool_field": "dob",
+    "ask": "date of birth",
+    "answer_format": "date",
+    "normalise": "convert the spoken date to DD-MM-YYYY; a date given in numbers only is day, month, year",
+    "tool_format": "DD-MM-YYYY"
+   },
+   {
+    "order": 2,
+    "tool_field": "postcode",
+    "ask": "the postcode of the home address on file",
+    "answer_format": "text",
+    "normalise": "uppercase, with one space before the last three characters",
+    "tool_format": "capitals, one space before the last three characters (e.g. \"HB4 7QD\")"
+   }
+  ],
+  "max_wrong": 2,
+  "max_wrong_scope": "total",
+  "wrong_counts_rules": [
+   "Two incorrect answers in total now end the security check (previously three).",
+   "A value in the wrong format is rejected with ok=false and does not count as incorrect.",
+   "If the customer will not answer, explain once that the questions protect them. A second refusal (or asking again what the call is about instead of answering) closes the call with the security-declined code."
+  ],
+  "fail": {
+   "outcome": "IDF",
+   "reason": null,
+   "say": "tell the customer to use the app or visit a branch"
+  },
+  "notes": [
+   "The memo of 2 October 2026 overrides the policy's three incorrect answers with two.",
+   "verify_identity returns correct, attempts_left and all_passed.",
+   "Nothing about the account may be said.",
+   "get_account is refused until security is passed.",
+   "Third parties may not answer security questions.",
+   "The tool wants the date as DD-MM-YYYY, not ISO, so no *_to_iso normalisation is used."
+  ]
+ },
+ "products": {
+  "max_count": 3,
+  "types": {
+   "card": {
+    "speak_as": "your credit card ending {card_ending}",
+    "floor_field": "min_due",
+    "floor_expr": null,
+    "full_field": "amount_overdue"
+   },
+   "personal_loan": {
+    "speak_as": "your personal loan",
+    "floor_field": "instalment",
+    "floor_expr": null,
+    "full_field": "amount_overdue"
+   },
+   "overdraft": {
+    "speak_as": "your overdraft",
+    "floor_field": "min_due",
+    "floor_expr": null,
+    "full_field": "amount_overdue"
+   }
+  },
+  "order": "as_returned",
+  "list_field": "items",
+  "type_field": "kind",
+  "id_field": "product_id",
+  "days_late_field": "days_overdue",
+  "notes": [
+   "Say you are calling from Harbourline's customer finance team about overdue payments, and give each product its own sentence: what it is, the overdue amount and how many days overdue it is. Mention every product before asking for anything.",
+   "Ask for the full overdue amount. The lowest acceptable amount is min_due for a credit card or overdraft and the instalment for a personal loan.",
+   "If the full amount is too much, offer the lowest acceptable amount once, telling the customer the remainder stays overdue. Customer amounts between the lowest acceptable and the full amount (inclusive) are accepted. Below the lowest acceptable: explain it cannot be booked and offer the lowest acceptable amount once. A no counts as a refusal.",
+   "Ask first: \"Are you able to pay this today?\" With several products, ask once whether everything can be paid today, then go product by product in the order get_account gives them.",
+   "The bot never asks \"how much can you pay?\". We tell the customer what we need. Always start with the full overdue amount.",
+   "One promise per product, and once it is in, it is in. If they want to change it, they can do it in the Harbourline app.",
+   "One date for all products that is past one product's deadline: book that product on its own deadline and say so; the other products keep the customer's date.",
+   "Read back every promise (product, amount, date) together and ask: \"Shall I go ahead and book that?\" Book only after a clear yes, one create_promise per product. If the customer changes something during the read-back, check it again and read back again.",
+   "After a successful booking say: \"You'll get a text message confirming the arrangement.\" Only say it is booked when create_promise returned ok.",
+   "If the promise system falls over, try once more. If it fails again, say sorry, tell them it could not be booked, and close with the system error code. Never tell a customer something is booked when it is not.",
+   "Never offer a discount, a freeze, a waiver or a plan. Plans are for the Arrangements team, full stop.",
+   "If you do not know something (interest, fees, balances other than what the system shows), say we do not have that information on this call. Do not make anything up.",
+   "Already paid: payments can take up to three working days to reach the account. No promise.",
+   "Dispute (\"not mine\", \"never had it\", \"closed it years ago\"): do not argue, no promise.",
+   "Hardship (illness, bereavement, job loss): one sentence of sympathy, no persuasion. Offer a transfer to the Customer Care team (queue \"care\"). If accepted, transfer and close with the care-transfer code; if declined, close with the hardship code. If the customer still offers a date or an amount on their own, book it under 4.6 and 4.7.",
+   "Request for a repayment plan, reduced payments or a payment holiday: do not discuss terms; transfer to the Arrangements team (queue \"arrangements\"), close with the arrangements-transfer code. Promises booked before the request stay; anything agreed but not yet booked is not booked.",
+   "Customer wants a person: ask once if you can help. If they insist, transfer to the Contact Centre (queue \"contact_centre\").",
+   "Every product that ends the call without a promise gets an add_note with its product_id and the matching note code (refused, hardship, dispute, already paid, system error). A dispute or already-paid claim on one product does not end the call. No notes at all when the call is transferred.",
+   "Exactly one close_call, last, after thanking the customer and saying goodbye.",
+   "Which code: any promise booked -> promise code (unless the call was transferred, then the transfer code). No promise: if every product was noted as already paid, the paid code; otherwise the no-promise code matching the note of the first product (get_account order) that is not noted as paid.",
+   "no-promise close for several products: N-REF->NRF, N-HRD->NHS, N-DSP->NDS, N-ERR->NSE"
+  ]
+ },
+ "bands": [
+  {
+   "name": "Stage 1",
+   "min_days_late": 1,
+   "max_days_late": 14,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 10,
+    "counted_from": "today"
+   },
+   "attempts": [
+    {
+     "n": 1,
+     "amount": "full (or floor if the customer already said the full amount is too much)",
+     "date": "end_of_week_business_day (if today is that day: end_of_next_week_business_day)",
+     "text": "Attempt 1: the full amount (or the lowest acceptable, if the customer already said the full amount is too much) on the last working day of the current week; if today is that day, the last working day of next week."
+    }
+   ],
+   "notes": [
+    "The memo of 2 October 2026 changed the deadline from the 8th to the 10th working day after today.",
+    "\"After today\" means today is not counted, the count starts on the next working day.",
+    "A date or amount from the customer is never a refusal. A refusal or a non-answer uses one attempt (counted per product).",
+    "When the attempts are used, stop, and do not repeat an offer that was turned down."
+   ]
+  },
+  {
+   "name": "Stage 2",
+   "min_days_late": 15,
+   "max_days_late": 60,
+   "deadline": {
+    "kind": "nth_business_day",
+    "n": 5,
+    "counted_from": "today"
+   },
+   "attempts": [
+    {
+     "n": 1,
+     "amount": "full (or floor if the customer already said the full amount is too much)",
+     "date": "end_of_week_business_day (if today is that day: end_of_next_week_business_day)",
+     "text": "Attempt 1: the full amount (or the lowest acceptable, if the customer already said the full amount is too much) on the last working day of the current week; if today is that day, the last working day of next week."
+    },
+    {
+     "n": 2,
+     "amount": "floor",
+     "date": "deadline",
+     "text": "Attempt 2 (Stage 2 only): the lowest acceptable amount on the deadline."
+    }
+   ],
+   "notes": [
+    "\"After today\" means today is not counted, the count starts on the next working day.",
+    "A date or amount from the customer is never a refusal. A refusal or a non-answer uses one attempt (counted per product).",
+    "When the attempts are used, stop, and do not repeat an offer that was turned down."
+   ]
+  }
+ ],
+ "amounts": {
+  "min": "floor",
+  "max": "full",
+  "below_min": "Below the lowest acceptable: explain it cannot be booked and offer the lowest acceptable amount once. A no counts as a refusal.",
+  "ask_open_amount": false,
+  "rules": [
+   "Ask for the full overdue amount. The lowest acceptable amount is min_due for a credit card or overdraft and the instalment for a personal loan.",
+   "If the full amount is too much, offer the lowest acceptable amount once, telling the customer the remainder stays overdue. Customer amounts between the lowest acceptable and the full amount (inclusive) are accepted. Below the lowest acceptable: explain it cannot be booked and offer the lowest acceptable amount once. A no counts as a refusal.",
+   "The bot never asks \"how much can you pay?\". We tell the customer what we need. Always start with the full overdue amount.",
+   "Never offer a discount, a freeze, a waiver or a plan. Plans are for the Arrangements team, full stop."
+  ],
+  "notes": [
+   "Source: policy 4.7.1, 4.7.2 and email of 2026-10-05.",
+   "min = min_due for card and overdraft; instalment for personal_loan. max = amount_overdue."
+  ]
+ },
+ "dates": {
+  "customer_date_after_deadline": "A date beyond the deadline: tell the customer the latest date that can be booked is the deadline and offer it; refusing it counts as a refusal.",
+  "vague_date": "Vague answers (\"next week\", \"payday\", \"end of the month\"): ask once for the exact date. If none is given, propose the deadline.",
+  "next_weekday": "following_week",
+  "rules": [
+   "all date logic uses call_time and never the system clock.",
+   "Working days are Monday to Friday excluding bank closure days.",
+   "Closure days (after memo 2026-10-02): 2026-11-13, 2026-12-25, 2026-12-28, 2027-01-01. 2026-11-11 is a working day.",
+   "Stage 1: 1-14 days overdue, latest promise date 10th working day after today, 1 attempt.",
+   "Stage 2: 15-60 days overdue, latest promise date 5th working day after today, 2 attempts.",
+   "\"After today\" means today is not counted, the count starts on the next working day.",
+   "A promise date has to be today or later, a working day and not later than that product's deadline. A non-working day that is within the deadline is moved to the next working day (offer it to the customer). A date beyond the deadline: tell the customer the latest date that can be booked is the deadline and offer it; refusing it counts as a refusal.",
+   "Vague answers (\"next week\", \"payday\", \"end of the month\"): ask once for the exact date. If none is given, propose the deadline.",
+   "\"Next Friday\" etc. means the Friday of the following calendar week. \"This Friday\" means the Friday of the current week.",
+   "One date for all products that is past one product's deadline: book that product on its own deadline and say so; the other products keep the customer's date."
+  ],
+  "notes": [
+   "Override: memo (1) changes the Stage 1 deadline from the 8th to the 10th working day after today.",
+   "Override: memo (2) cancels the closure on Wednesday 2026-11-11 (now a working day) and adds Friday 2026-11-13 as a closure day; Christmas and New Year closures unchanged.",
+   "Each product's deadline comes from its own days overdue.",
+   "The service does not enforce the policy: it books promises on closure days or past deadlines without complaint."
+  ]
+ },
+ "promise": {
+  "readback": "Read back every promise (product, amount, date) together and ask: \"Shall I go ahead and book that?\"",
+  "confirm_required": true,
+  "retry_on_failure": 1,
+  "success_say": "You'll get a text message confirming the arrangement.",
+  "failure_say": "Say sorry, tell them it could not be booked, and close with the system error code (NSE). Never tell a customer something is booked when it is not.",
+  "per_product": true,
+  "notes": [
+   "Book only after a clear yes, one create_promise per product. If the customer changes something during the read-back, check it again and read back again.",
+   "Only say it is booked when create_promise returned ok.",
+   "If the promise system falls over, try once more. If it fails again, say sorry, tell them it could not be booked, and close with the system error code. Never tell a customer something is booked when it is not.",
+   "One promise per product, and once it is in, it is in. If they want to change it, they can do it in the Harbourline app.",
+   "Ask first: \"Are you able to pay this today?\" With several products, ask once whether everything can be paid today, then go product by product in the order get_account gives them.",
+   "A date or amount from the customer is never a refusal. A refusal or a non-answer uses one attempt (counted per product):",
+   "Attempt 1: the full amount (or the lowest acceptable, if the customer already said the full amount is too much) on the last working day of the current week; if today is that day, the last working day of next week.",
+   "Attempt 2 (Stage 2 only): the lowest acceptable amount on the deadline.",
+   "When the attempts are used, stop, and do not repeat an offer that was turned down.",
+   "A failed promise (twice) gets add_note code N-ERR for that product."
+  ]
+ },
+ "callback": {
+  "days": [
+   "today",
+   "next_business_day"
+  ],
+  "start": "08:30",
+  "end": "19:30",
+  "end_inclusive": true,
+  "must_be_after_now": true,
+  "per_weekday": {},
+  "max_asks": 2,
+  "notes": [
+   "Callbacks may now be booked from 08:30 to 19:30, both times included. Same day or next working day, and later than the time of the call, as before.",
+   "Use schedule_callback, then close with the callback-booked code (CBK).",
+   "If the offered time is outside this, ask once for another. If the second is also outside, do not book; close with the no-suitable-time code (NCB)."
+  ]
+ },
+ "triggers": [
+  {
+   "name": "identity_unclear",
+   "detect": "The answer to \"May I speak to {title} {last_name}?\" is not a clear yes and the customer does not give their own name, even after asking a second time",
+   "action": "close",
+   "queue": null,
+   "outcome": "UNC",
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 1,
+   "condition": null,
+   "notes": [
+    "Accept only a clear yes or the customer giving their own name. Otherwise ask once more; if still unclear, close with the \"could not confirm\" code."
+   ]
+  },
+  {
+   "name": "wrong_number",
+   "detect": "The number is not the customer's",
+   "action": "close",
+   "queue": null,
+   "outcome": "WRN",
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 2,
+   "condition": null,
+   "notes": [
+    "Wrong number: close with the wrong-number code."
+   ]
+  },
+  {
+   "name": "customer_deceased",
+   "detect": "The caller says the customer has died",
+   "action": "close",
+   "queue": null,
+   "outcome": "DEC",
+   "reason": null,
+   "note_reason": null,
+   "say": "I'm very sorry to hear that.",
+   "precedence": 3,
+   "condition": null,
+   "notes": [
+    "Customer deceased: say \"I'm very sorry to hear that.\", ask nothing more and close with the deceased code."
+   ]
+  },
+  {
+   "name": "third_party_callback",
+   "detect": "Someone other than the customer answers",
+   "action": "callback",
+   "queue": null,
+   "outcome": "CBK",
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 4,
+   "condition": null,
+   "notes": [
+    "If someone else answers, do not give the reason for the call or any detail. Ask when the customer can be reached.",
+    "Callbacks may now be booked from 08:30 to 19:30, both times included. Same day or next working day, and later than the time of the call, as before. (The memo overrides 09:00-17:00.)",
+    "Use schedule_callback, then close with the callback-booked code.",
+    "If the offered time is outside this, ask once for another. If the second is also outside, do not book; close with the no-suitable-time code (NCB).",
+    "Third parties may not answer security questions, make promises or be told anything, even if they offer to pay."
+   ]
+  },
+  {
+   "name": "machine_question",
+   "detect": "The customer asks whether they are speaking to a machine",
+   "action": "say",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 5,
+   "condition": null,
+   "notes": [
+    "If asked whether they are speaking to a machine, say it is Harbourline's automated assistant, then continue."
+   ]
+  },
+  {
+   "name": "scam_question",
+   "detect": "The customer asks whether the call is a scam",
+   "action": "say",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 6,
+   "condition": null,
+   "notes": [
+    "If someone asks whether the call is a scam, tell them to ring the number on the back of their card or on their statement, then carry on."
+   ]
+  },
+  {
+   "name": "security_declined",
+   "detect": "The customer refuses to answer the security questions a second time, or asks again what the call is about instead of answering",
+   "action": "close",
+   "queue": null,
+   "outcome": "IDD",
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 7,
+   "condition": null,
+   "notes": [
+    "If the customer will not answer, explain once that the questions protect them. A second refusal (or asking again what the call is about instead of answering) closes the call with the security-declined code."
+   ]
+  },
+  {
+   "name": "security_failed",
+   "detect": "Two incorrect security answers in total across both questions",
+   "action": "close",
+   "queue": null,
+   "outcome": "IDF",
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 8,
+   "condition": null,
+   "notes": [
+    "Two incorrect answers in total now end the security check (previously three).",
+    "Close with the security-failed code and tell the customer to use the app or visit a branch. Nothing about the account may be said.",
+    "A value in the wrong format is rejected with ok=false and does not count as incorrect."
+   ]
+  },
+  {
+   "name": "does_not_want_to_talk",
+   "detect": "The customer says twice that they do not want to talk",
+   "action": "close",
+   "queue": null,
+   "outcome": "NRF",
+   "reason": null,
+   "note_reason": "N-REF",
+   "say": null,
+   "precedence": 9,
+   "condition": null,
+   "notes": [
+    "Customer says twice they do not want to talk: close as refused (before security: security-declined).",
+    "Before security is passed, the outcome is IDD."
+   ]
+  },
+  {
+   "name": "repayment_plan_request",
+   "detect": "The customer asks for a repayment plan, reduced payments or a payment holiday",
+   "action": "transfer",
+   "queue": "arrangements",
+   "outcome": "TRA",
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 10,
+   "condition": null,
+   "notes": [
+    "Request for a repayment plan, reduced payments or a payment holiday: do not discuss terms; transfer to the Arrangements team (queue \"arrangements\"), close with the arrangements-transfer code. Promises booked before the request stay; anything agreed but not yet booked is not booked.",
+    "Never offer a discount, a freeze, a waiver or a plan. Plans are for the Arrangements team, full stop.",
+    "No notes at all when the call is transferred."
+   ]
+  },
+  {
+   "name": "hardship",
+   "detect": "The customer mentions hardship (illness, bereavement, job loss)",
+   "action": "transfer",
+   "queue": "care",
+   "outcome": "TCC",
+   "reason": null,
+   "note_reason": "N-HRD",
+   "say": null,
+   "precedence": 11,
+   "condition": null,
+   "notes": [
+    "Hardship (illness, bereavement, job loss): one sentence of sympathy, no persuasion. Offer a transfer to the Customer Care team (queue \"care\"). If accepted, transfer and close with the care-transfer code; if declined, close with the hardship code. If the customer still offers a date or an amount on their own, book it under 4.6 and 4.7.",
+    "If the transfer is declined: add_note N-HRD and close NHS.",
+    "No notes at all when the call is transferred."
+   ]
+  },
+  {
+   "name": "wants_person",
+   "detect": "The customer wants to speak to a person and still insists after being asked once whether the agent can help",
+   "action": "transfer",
+   "queue": "contact_centre",
+   "outcome": "TCT",
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 12,
+   "condition": null,
+   "notes": [
+    "Customer wants a person: ask once if you can help. If they insist, transfer to the Contact Centre (queue \"contact_centre\").",
+    "No notes at all when the call is transferred."
+   ]
+  },
+  {
+   "name": "already_paid",
+   "detect": "The customer says the product is already paid",
+   "action": "note",
+   "queue": null,
+   "outcome": "PIF",
+   "reason": null,
+   "note_reason": "N-PAID",
+   "say": null,
+   "precedence": 13,
+   "condition": null,
+   "notes": [
+    "Already paid: payments can take up to three working days to reach the account. No promise.",
+    "A dispute or already-paid claim on one product does not end the call.",
+    "Close PIF only if every product was noted as already paid."
+   ]
+  },
+  {
+   "name": "dispute",
+   "detect": "The customer disputes the debt (\"not mine\", \"never had it\", \"closed it years ago\")",
+   "action": "note",
+   "queue": null,
+   "outcome": "NDS",
+   "reason": null,
+   "note_reason": "N-DSP",
+   "say": null,
+   "precedence": 14,
+   "condition": null,
+   "notes": [
+    "Dispute (\"not mine\", \"never had it\", \"closed it years ago\"): do not argue, no promise.",
+    "A dispute or already-paid claim on one product does not end the call."
+   ]
+  },
+  {
+   "name": "unknown_information",
+   "detect": "The customer asks about something the system does not show (interest, fees, other balances)",
+   "action": "say",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 15,
+   "condition": null,
+   "notes": [
+    "If you do not know something (interest, fees, balances other than what the system shows), say we do not have that information on this call. Do not make anything up."
+   ]
+  },
+  {
+   "name": "change_promise_request",
+   "detect": "The customer wants to change a promise that is already booked",
+   "action": "say",
+   "queue": null,
+   "outcome": null,
+   "reason": null,
+   "note_reason": null,
+   "say": null,
+   "precedence": 16,
+   "condition": null,
+   "notes": [
+    "One promise per product, and once it is in, it is in. If they want to change it, they can do it in the Harbourline app."
+   ]
+  },
+  {
+   "name": "promise_system_error",
+   "detect": "create_promise fails, then fails again on the retry",
+   "action": "close",
+   "queue": null,
+   "outcome": "NSE",
+   "reason": null,
+   "note_reason": "N-ERR",
+   "say": null,
+   "precedence": 17,
+   "condition": null,
+   "notes": [
+    "If the promise system falls over, try once more. If it fails again, say sorry, tell them it could not be booked, and close with the system error code. Never tell a customer something is booked when it is not."
+   ]
+  },
+  {
+   "name": "refusal_attempts_used",
+   "detect": "The customer refuses or does not answer and all persuasion attempts for the product are used",
+   "action": "note",
+   "queue": null,
+   "outcome": "NRF",
+   "reason": null,
+   "note_reason": "N-REF",
+   "say": null,
+   "precedence": 18,
+   "condition": null,
+   "notes": [
+    "A refusal or a non-answer uses one attempt (counted per product).",
+    "When the attempts are used, stop, and do not repeat an offer that was turned down."
+   ]
+  }
+ ],
+ "notes": {
+  "tool_reasons": [
+   "N-REF",
+   "N-HRD",
+   "N-DSP",
+   "N-PAID",
+   "N-ERR"
+  ],
+  "when": "Every product that ends the call without a promise gets an add_note with its product_id and the matching note code (refused, hardship, dispute, already paid, system error). A dispute or already-paid claim on one product does not end the call. No notes at all when the call is transferred.",
+  "forbidden_on_transfer": true,
+  "notes": [
+   "The add_note field is \"code\" (no reason field).",
+   "N-ERR: promise for this product failed twice."
+  ]
+ },
+ "outcomes": {
+  "table": [
+   {
+    "outcome": "PTP",
+    "reason": null,
+    "when": "at least one promise booked (4.11.2)"
+   },
+   {
+    "outcome": "PIF",
+    "reason": null,
+    "when": "customer says it is paid (all products, if several) (4.9.1, 4.11.2)"
+   },
+   {
+    "outcome": "TRA",
+    "reason": null,
+    "when": "repayment plan / reduced payments / payment holiday (4.9.4)"
+   },
+   {
+    "outcome": "TCC",
+    "reason": null,
+    "when": "hardship, transfer accepted (4.9.3)"
+   },
+   {
+    "outcome": "TCT",
+    "reason": null,
+    "when": "customer insists on a person (4.9.5)"
+   },
+   {
+    "outcome": "NRF",
+    "reason": null,
+    "when": "attempts used up, or does not want to talk (4.8.2, 4.9.6)"
+   },
+   {
+    "outcome": "NHS",
+    "reason": null,
+    "when": "hardship, transfer declined (4.9.3)"
+   },
+   {
+    "outcome": "NDS",
+    "reason": null,
+    "when": "customer disputes the debt (4.9.2)"
+   },
+   {
+    "outcome": "NSE",
+    "reason": null,
+    "when": "promise could not be booked after retry (email)"
+   },
+   {
+    "outcome": "IDF",
+    "reason": null,
+    "when": "too many incorrect answers (4.4.3, memo (4): two)"
+   },
+   {
+    "outcome": "IDD",
+    "reason": null,
+    "when": "customer refuses security (4.4.4, 4.9.6)"
+   },
+   {
+    "outcome": "CBK",
+    "reason": null,
+    "when": "third party, callback booked (4.3.2)"
+   },
+   {
+    "outcome": "NCB",
+    "reason": null,
+    "when": "third party, no time inside the window (4.3.3)"
+   },
+   {
+    "outcome": "WRN",
+    "reason": null,
+    "when": "number not the customer's (4.3.4)"
+   },
+   {
+    "outcome": "DEC",
+    "reason": null,
+    "when": "customer has died (4.3.4)"
+   },
+   {
+    "outcome": "UNC",
+    "reason": null,
+    "when": "still unclear who answered after the second ask (4.2.2)"
+   }
+  ],
+  "precedence": [
+   "Which code: any promise booked -> promise code (unless the call was transferred, then the transfer code). No promise: if every product was noted as already paid, the paid code; otherwise the no-promise code matching the note of the first product (get_account order) that is not noted as paid."
+  ],
+  "multi_product": "No promise: if every product was noted as already paid, the paid code; otherwise the no-promise code matching the note of the first product (get_account order) that is not noted as paid.",
+  "notes": [
+   "no-promise close for several products: N-REF->NRF, N-HRD->NHS, N-DSP->NDS, N-ERR->NSE",
+   "Exactly one close_call, last, after thanking the customer and saying goodbye."
+  ]
+ },
+ "phrases": {
+  "opening": "Hello, this is the automated assistant of Harbourline Savings Bank. This call is recorded.",
+  "ask_for_customer": "May I speak to {title} {last_name}?",
+  "deceased_sympathy": "I'm very sorry to hear that.",
+  "pay_today": "Are you able to pay this today?",
+  "readback_confirm": "Shall I go ahead and book that?",
+  "promise_success": "You'll get a text message confirming the arrangement."
+ },
+ "tools": {
+  "verify_identity": {
+   "fields": {
+    "customer_id": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "question": {
+     "type": "string",
+     "enum": [
+      "dob",
+      "postcode"
+     ],
+     "required": true
+    },
+    "value": {
+     "type": "string",
+     "enum": null,
+     "required": true,
+     "description": "dob: DD-MM-YYYY. postcode: capitals, one space before the last three characters. A value in the wrong format is rejected with ok=false and does not count as incorrect."
+    }
+   },
+   "notes": "Check one security answer.",
+   "method": "POST",
+   "path": "/verify_identity",
+   "url": "https://harbourline-mock.example/voice/v2/verify_identity",
+   "summary": "Check one security answer.",
+   "response_fields": {
+    "ok": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "error": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    },
+    "correct": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "attempts_left": {
+     "type": "integer",
+     "enum": null,
+     "required": false
+    },
+    "all_passed": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    }
+   },
+   "response_notes": [
+    "2xx: `ok` is false when the action was not carried out.",
+    "500: The service failed. Nothing was recorded. The call may be repeated."
+   ]
+  },
+  "get_account": {
+   "fields": {
+    "customer_id": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    }
+   },
+   "notes": "Overdue products. Refused until security is passed.",
+   "method": "POST",
+   "path": "/get_account",
+   "url": "https://harbourline-mock.example/voice/v2/get_account",
+   "summary": "Overdue products. Refused until security is passed.",
+   "response_fields": {
+    "ok": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "error": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    },
+    "items": {
+     "type": "array",
+     "enum": null,
+     "required": false,
+     "items": {
+      "type": "object",
+      "enum": null,
+      "required": false,
+      "properties": {
+       "product_id": {
+        "type": "string",
+        "enum": null,
+        "required": false
+       },
+       "kind": {
+        "type": "string",
+        "enum": [
+         "card",
+         "personal_loan",
+         "overdraft"
+        ],
+        "required": false
+       },
+       "card_ending": {
+        "type": "string",
+        "enum": null,
+        "required": false,
+        "description": "cards only"
+       },
+       "amount_overdue": {
+        "type": "number",
+        "enum": null,
+        "required": false
+       },
+       "days_overdue": {
+        "type": "integer",
+        "enum": null,
+        "required": false
+       },
+       "min_due": {
+        "type": "number",
+        "enum": null,
+        "required": false,
+        "description": "cards and overdrafts"
+       },
+       "instalment": {
+        "type": "number",
+        "enum": null,
+        "required": false,
+        "description": "personal loans only"
+       }
+      }
+     }
+    }
+   },
+   "response_notes": [
+    "2xx: `ok` is false when the action was not carried out.",
+    "500: The service failed. Nothing was recorded. The call may be repeated."
+   ]
+  },
+  "create_promise": {
+   "fields": {
+    "customer_id": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "product_id": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "amount": {
+     "type": "number",
+     "enum": null,
+     "required": true
+    },
+    "pay_date": {
+     "type": "string",
+     "enum": null,
+     "required": true,
+     "format": "date",
+     "description": "YYYY-MM-DD"
+    }
+   },
+   "notes": "Book a promise to pay. One per product.",
+   "method": "POST",
+   "path": "/create_promise",
+   "url": "https://harbourline-mock.example/voice/v2/create_promise",
+   "summary": "Book a promise to pay. One per product.",
+   "response_fields": {
+    "ok": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "error": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    },
+    "promise_id": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    }
+   },
+   "response_notes": [
+    "2xx: `ok` is false when the action was not carried out.",
+    "500: The service failed. Nothing was recorded. The call may be repeated."
+   ]
+  },
+  "add_note": {
+   "fields": {
+    "customer_id": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "product_id": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "code": {
+     "type": "string",
+     "enum": [
+      "N-REF",
+      "N-HRD",
+      "N-DSP",
+      "N-PAID",
+      "N-ERR"
+     ],
+     "required": true
+    },
+    "text": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    }
+   },
+   "notes": "Record why a product ended without a promise. Codes: see the MI code list.",
+   "method": "POST",
+   "path": "/add_note",
+   "url": "https://harbourline-mock.example/voice/v2/add_note",
+   "summary": "Record why a product ended without a promise. Codes: see the MI code list.",
+   "response_fields": {
+    "ok": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "error": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    }
+   },
+   "response_notes": [
+    "2xx: `ok` is false when the action was not carried out.",
+    "500: The service failed. Nothing was recorded. The call may be repeated."
+   ]
+  },
+  "schedule_callback": {
+   "fields": {
+    "customer_id": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "date": {
+     "type": "string",
+     "enum": null,
+     "required": true,
+     "format": "date"
+    },
+    "time": {
+     "type": "string",
+     "enum": null,
+     "required": true,
+     "description": "HH:MM"
+    }
+   },
+   "notes": "Book a callback.",
+   "method": "POST",
+   "path": "/schedule_callback",
+   "url": "https://harbourline-mock.example/voice/v2/schedule_callback",
+   "summary": "Book a callback.",
+   "response_fields": {
+    "ok": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "error": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    }
+   },
+   "response_notes": [
+    "2xx: `ok` is false when the action was not carried out.",
+    "500: The service failed. Nothing was recorded. The call may be repeated."
+   ]
+  },
+  "transfer_to_agent": {
+   "fields": {
+    "customer_id": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "queue": {
+     "type": "string",
+     "enum": [
+      "arrangements",
+      "care",
+      "contact_centre"
+     ],
+     "required": true
+    }
+   },
+   "notes": "Hand the call to a team.",
+   "method": "POST",
+   "path": "/transfer_to_agent",
+   "url": "https://harbourline-mock.example/voice/v2/transfer_to_agent",
+   "summary": "Hand the call to a team.",
+   "response_fields": {
+    "ok": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "error": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    }
+   },
+   "response_notes": [
+    "2xx: `ok` is false when the action was not carried out.",
+    "500: The service failed. Nothing was recorded. The call may be repeated."
+   ]
+  },
+  "close_call": {
+   "fields": {
+    "customer_id": {
+     "type": "string",
+     "enum": null,
+     "required": true
+    },
+    "code": {
+     "type": "string",
+     "enum": [
+      "PTP",
+      "PIF",
+      "TRA",
+      "TCC",
+      "TCT",
+      "NRF",
+      "NHS",
+      "NDS",
+      "NSE",
+      "IDF",
+      "IDD",
+      "CBK",
+      "NCB",
+      "WRN",
+      "DEC",
+      "UNC"
+     ],
+     "required": true,
+     "description": "MI outcome code. See the code list."
+    }
+   },
+   "notes": "End the call. Always the last tool call. Nothing is accepted after it.",
+   "method": "POST",
+   "path": "/close_call",
+   "url": "https://harbourline-mock.example/voice/v2/close_call",
+   "summary": "End the call. Always the last tool call. Nothing is accepted after it.",
+   "response_fields": {
+    "ok": {
+     "type": "boolean",
+     "enum": null,
+     "required": false
+    },
+    "error": {
+     "type": "string",
+     "enum": null,
+     "required": false
+    }
+   },
+   "response_notes": [
+    "2xx: `ok` is false when the action was not carried out.",
+    "500: The service failed. Nothing was recorded. The call may be repeated."
+   ]
+  }
+ },
+ "rules": [
+  {
+   "id": "01-email.1",
+   "text": "The policy extract (attached, \"02-policy-extract.md\"). That is section 4 of the Collections Contact Policy v4.2 from March. It is still the base document."
+  },
+  {
+   "id": "01-email.2",
+   "text": "Gemma's memo from 2 October (\"03-memo-2026-10-02.md\"). Where the memo and the policy disagree, the memo wins. Please do not build anything from the old numbers."
+  },
+  {
+   "id": "01-email.3",
+   "text": "The outcome and note code list our MI team uses (\"04-codes.csv\"). The close_call and add_note tools only take those codes, nothing else."
+  },
+  {
+   "id": "01-email.unwritten-rules.1",
+   "text": "The bot never asks \"how much can you pay?\". We tell the customer what we need. Always start with the full overdue amount."
+  },
+  {
+   "id": "01-email.unwritten-rules.2",
+   "text": "One promise per product, and once it is in, it is in. If they want to change it, they can do it in the Harbourline app."
+  },
+  {
+   "id": "01-email.unwritten-rules.3",
+   "text": "If the promise system falls over, try once more. If it fails again, say sorry, tell them it could not be booked, and close with the system error code. Never tell a customer something is booked when it is not."
+  },
+  {
+   "id": "01-email.unwritten-rules.4",
+   "text": "Never offer a discount, a freeze, a waiver or a plan. Plans are for the Arrangements team, full stop."
+  },
+  {
+   "id": "01-email.unwritten-rules.5",
+   "text": "If someone asks whether the call is a scam, tell them to ring the number on the back of their card or on their statement, then carry on."
+  },
+  {
+   "id": "01-email.unwritten-rules.6",
+   "text": "If you do not know something (interest, fees, balances other than what the system shows), say we do not have that information on this call. Do not make anything up."
+  },
+  {
+   "id": "01-email.unwritten-rules.7",
+   "text": "Customers have up to three products with us right now: cards, personal loans and arranged overdrafts. Talk about every one that is overdue."
+  },
+  {
+   "id": "02-policy-extract.4.1.1",
+   "text": "Applies to automated outbound calls to customers between 1 and 60 days past due on one or more of: credit card, personal loan, arranged overdraft. A customer may hold up to 3 such products."
+  },
+  {
+   "id": "02-policy-extract.4.1.2",
+   "text": "Every call has these inputs: customer_id (send with every tool call), first_name, last_name, title (Mr/Ms/Mx), call_time (the current date and time, format YYYY-MM-DDTHH:MM; all date logic uses call_time and never the system clock)."
+  },
+  {
+   "id": "02-policy-extract.4.2.1",
+   "text": "The opening line is: \"Hello, this is the automated assistant of Harbourline Savings Bank. This call is recorded.\" Nothing about the reason for the call may be said before security is passed: no \"arrears\", \"overdue\", \"owe\", \"balance\", \"payment\", \"card\", \"loan\" or \"overdraft\"."
+  },
+  {
+   "id": "02-policy-extract.4.2.2",
+   "text": "Then ask: \"May I speak to {title} {last_name}?\". Accept only a clear yes or the customer giving their own name. Otherwise ask once more; if still unclear, close with the \"could not confirm\" code."
+  },
+  {
+   "id": "02-policy-extract.4.2.3",
+   "text": "If asked whether they are speaking to a machine, say it is Harbourline's automated assistant, then continue."
+  },
+  {
+   "id": "02-policy-extract.4.3.1",
+   "text": "If someone else answers, do not give the reason for the call or any detail. Ask when the customer can be reached."
+  },
+  {
+   "id": "02-policy-extract.4.3.2",
+   "text": "Callbacks may be booked for the same day or the next working day only, between 09:00 and 17:00 inclusive, and must be later than call_time. Use schedule_callback, then close with the callback-booked code."
+  },
+  {
+   "id": "02-policy-extract.4.3.3",
+   "text": "If the offered time is outside this, ask once for another. If the second is also outside, do not book; close with the no-suitable-time code."
+  },
+  {
+   "id": "02-policy-extract.4.3.4",
+   "text": "Wrong number: close with the wrong-number code. Customer deceased: say \"I'm very sorry to hear that.\", ask nothing more and close with the deceased code."
+  },
+  {
+   "id": "02-policy-extract.4.3.5",
+   "text": "Third parties may not answer security questions, make promises or be told anything, even if they offer to pay."
+  },
+  {
+   "id": "02-policy-extract.4.4.1",
+   "text": "Two questions, one at a time: (a) date of birth, (b) the postcode of the home address on file. Check each with verify_identity."
+  },
+  {
+   "id": "02-policy-extract.4.4.2",
+   "text": "verify_identity wants the date of birth as DD-MM-YYYY (e.g. 07-03-1981). Customers say dates any way they like; a date given in numbers only is day, month, year. The postcode is sent in capitals with one space before the last three characters (e.g. \"hb4 7qd\" is sent as \"HB4 7QD\")."
+  },
+  {
+   "id": "02-policy-extract.4.4.3",
+   "text": "Three incorrect answers in total, across both questions, end the security check. Close with the security-failed code and tell the customer to use the app or visit a branch. Nothing about the account may be said."
+  },
+  {
+   "id": "02-policy-extract.4.4.4",
+   "text": "If the customer will not answer, explain once that the questions protect them. A second refusal (or asking again what the call is about instead of answering) closes the call with the security-declined code."
+  },
+  {
+   "id": "02-policy-extract.4.5.1",
+   "text": "Once both questions are passed, call get_account. Say you are calling from Harbourline's customer finance team about overdue payments, and give each product its own sentence: what it is (\"your credit card ending 1234\", \"your personal loan\", \"your overdraft\"), the overdue amount and how many days overdue it is. Mention every product before asking for anything."
+  },
+  {
+   "id": "02-policy-extract.4.6.1",
+   "text": "Working days are Monday to Friday excluding bank closure days. Closure days for the period: Wednesday 11 November 2026, Friday 25 December 2026, Monday 28 December 2026, Friday 1 January 2027."
+  },
+  {
+   "id": "02-policy-extract.4.6.2",
+   "text": "Each product's deadline comes from its own days overdue: [table] \"After today\" means today is not counted, the count starts on the next working day."
+  },
+  {
+   "id": "02-policy-extract.4.6.2.stage-1",
+   "text": "Stage: Stage 1 | Days overdue: 1-14 | Latest promise date: 8th working day after today | Attempts: 1"
+  },
+  {
+   "id": "02-policy-extract.4.6.2.stage-2",
+   "text": "Stage: Stage 2 | Days overdue: 15-60 | Latest promise date: 5th working day after today | Attempts: 2"
+  },
+  {
+   "id": "02-policy-extract.4.6.3",
+   "text": "A promise date has to be today or later, a working day and not later than that product's deadline. A non-working day that is within the deadline is moved to the next working day (offer it to the customer). A date beyond the deadline: tell the customer the latest date that can be booked is the deadline and offer it; refusing it counts as a refusal."
+  },
+  {
+   "id": "02-policy-extract.4.6.4",
+   "text": "Vague answers (\"next week\", \"payday\", \"end of the month\"): ask once for the exact date. If none is given, propose the deadline."
+  },
+  {
+   "id": "02-policy-extract.4.6.5",
+   "text": "\"Next Friday\" etc. means the Friday of the following calendar week. \"This Friday\" means the Friday of the current week."
+  },
+  {
+   "id": "02-policy-extract.4.7.1",
+   "text": "Ask for the full overdue amount. The lowest acceptable amount is min_due for a credit card or overdraft and the instalment for a personal loan."
+  },
+  {
+   "id": "02-policy-extract.4.7.2",
+   "text": "If the full amount is too much, offer the lowest acceptable amount once, telling the customer the remainder stays overdue. Customer amounts between the lowest acceptable and the full amount (inclusive) are accepted. Below the lowest acceptable: explain it cannot be booked and offer the lowest acceptable amount once. A no counts as a refusal."
+  },
+  {
+   "id": "02-policy-extract.4.8.1",
+   "text": "Ask first: \"Are you able to pay this today?\" With several products, ask once whether everything can be paid today, then go product by product in the order get_account gives them."
+  },
+  {
+   "id": "02-policy-extract.4.8.2",
+   "text": "A date or amount from the customer is never a refusal. A refusal or a non-answer uses one attempt (counted per product):\n  - Attempt 1: the full amount (or the lowest acceptable, if the customer already said the full amount is too much) on the last working day of the current week; if today is that day, the last working day of next week.\n  - Attempt 2 (Stage 2 only): the lowest acceptable amount on the deadline.\nWhen the attempts are used, stop, and do not repeat an offer that was turned down."
+  },
+  {
+   "id": "02-policy-extract.4.8.3",
+   "text": "One date for all products that is past one product's deadline: book that product on its own deadline and say so; the other products keep the customer's date."
+  },
+  {
+   "id": "02-policy-extract.4.8.4",
+   "text": "Read back every promise (product, amount, date) together and ask: \"Shall I go ahead and book that?\" Book only after a clear yes, one create_promise per product. If the customer changes something during the read-back, check it again and read back again."
+  },
+  {
+   "id": "02-policy-extract.4.8.5",
+   "text": "After a successful booking say: \"You'll get a text message confirming the arrangement.\" Only say it is booked when create_promise returned ok."
+  },
+  {
+   "id": "02-policy-extract.4.9.1",
+   "text": "Already paid: payments can take up to three working days to reach the account. No promise."
+  },
+  {
+   "id": "02-policy-extract.4.9.2",
+   "text": "Dispute (\"not mine\", \"never had it\", \"closed it years ago\"): do not argue, no promise."
+  },
+  {
+   "id": "02-policy-extract.4.9.3",
+   "text": "Hardship (illness, bereavement, job loss): one sentence of sympathy, no persuasion. Offer a transfer to the Customer Care team (queue \"care\"). If accepted, transfer and close with the care-transfer code; if declined, close with the hardship code. If the customer still offers a date or an amount on their own, book it under 4.6 and 4.7."
+  },
+  {
+   "id": "02-policy-extract.4.9.4",
+   "text": "Request for a repayment plan, reduced payments or a payment holiday: do not discuss terms; transfer to the Arrangements team (queue \"arrangements\"), close with the arrangements-transfer code. Promises booked before the request stay; anything agreed but not yet booked is not booked."
+  },
+  {
+   "id": "02-policy-extract.4.9.5",
+   "text": "Customer wants a person: ask once if you can help. If they insist, transfer to the Contact Centre (queue \"contact_centre\")."
+  },
+  {
+   "id": "02-policy-extract.4.9.6",
+   "text": "Customer says twice they do not want to talk: close as refused (before security: security-declined)."
+  },
+  {
+   "id": "02-policy-extract.4.10.1",
+   "text": "Every product that ends the call without a promise gets an add_note with its product_id and the matching note code (refused, hardship, dispute, already paid, system error). A dispute or already-paid claim on one product does not end the call. No notes at all when the call is transferred."
+  },
+  {
+   "id": "02-policy-extract.4.11.1",
+   "text": "Exactly one close_call, last, after thanking the customer and saying goodbye. Codes are in the MI code list."
+  },
+  {
+   "id": "02-policy-extract.4.11.2",
+   "text": "Which code: any promise booked -> promise code (unless the call was transferred, then the transfer code). No promise: if every product was noted as already paid, the paid code; otherwise the no-promise code matching the note of the first product (get_account order) that is not noted as paid."
+  },
+  {
+   "id": "03-memo-2026-10-02.preamble.1",
+   "text": "Following the Q3 conduct review, the following changes apply from today. They replace the corresponding parts of section 4. Everything not mentioned here is unchanged."
+  },
+  {
+   "id": "03-memo-2026-10-02.1",
+   "text": "[overrides 02-policy-extract.4.6.2.stage-1] Stage 1 deadline. The latest promise date for Stage 1 (1-14 days overdue) is now the 10th working day after today, not the 8th. Stage 2 is unchanged."
+  },
+  {
+   "id": "03-memo-2026-10-02.2",
+   "text": "[overrides 02-policy-extract.4.6.1] Closure days. The closure on Wednesday 11 November 2026 is cancelled; branches and payments operate normally that day, so it is a working day. Instead the bank is closed on Friday 13 November 2026 for the core systems migration; that day is not a working day. The Christmas and New Year closures stay as they are."
+  },
+  {
+   "id": "03-memo-2026-10-02.3",
+   "text": "[overrides 02-policy-extract.4.3.2] Callback hours. Callbacks may now be booked from 08:30 to 19:30, both times included. Same day or next working day, and later than the time of the call, as before."
+  },
+  {
+   "id": "03-memo-2026-10-02.4",
+   "text": "[overrides 02-policy-extract.4.4.3] Security. Two incorrect answers in total now end the security check (previously three)."
+  },
+  {
+   "id": "03-memo-2026-10-02.closing.1",
+   "text": "Please make sure scripts and the automated assistant are updated before the November campaign."
+  },
+  {
+   "id": "04-codes.code-list.1",
+   "text": "tool: close_call; code: PTP; meaning: Promise to pay booked; used when: at least one promise booked"
+  },
+  {
+   "id": "04-codes.code-list.2",
+   "text": "tool: close_call; code: PIF; meaning: Already paid; used when: customer says it is paid (all products, if several)"
+  },
+  {
+   "id": "04-codes.code-list.3",
+   "text": "tool: close_call; code: TRA; meaning: Transferred - Arrangements; used when: repayment plan / reduced payments / payment holiday"
+  },
+  {
+   "id": "04-codes.code-list.4",
+   "text": "tool: close_call; code: TCC; meaning: Transferred - Customer Care; used when: hardship, transfer accepted"
+  },
+  {
+   "id": "04-codes.code-list.5",
+   "text": "tool: close_call; code: TCT; meaning: Transferred - Contact Centre; used when: customer insists on a person"
+  },
+  {
+   "id": "04-codes.code-list.6",
+   "text": "tool: close_call; code: NRF; meaning: No promise - refused; used when: attempts used up, or does not want to talk"
+  },
+  {
+   "id": "04-codes.code-list.7",
+   "text": "tool: close_call; code: NHS; meaning: No promise - hardship; used when: hardship, transfer declined"
+  },
+  {
+   "id": "04-codes.code-list.8",
+   "text": "tool: close_call; code: NDS; meaning: No promise - disputed; used when: customer disputes the debt"
+  },
+  {
+   "id": "04-codes.code-list.9",
+   "text": "tool: close_call; code: NSE; meaning: No promise - system error; used when: promise could not be booked after retry"
+  },
+  {
+   "id": "04-codes.code-list.10",
+   "text": "tool: close_call; code: IDF; meaning: Security failed; used when: too many incorrect answers"
+  },
+  {
+   "id": "04-codes.code-list.11",
+   "text": "tool: close_call; code: IDD; meaning: Security declined; used when: customer refuses security"
+  },
+  {
+   "id": "04-codes.code-list.12",
+   "text": "tool: close_call; code: CBK; meaning: Callback booked; used when: third party, callback booked"
+  },
+  {
+   "id": "04-codes.code-list.13",
+   "text": "tool: close_call; code: NCB; meaning: No suitable callback time; used when: third party, no time inside the window"
+  },
+  {
+   "id": "04-codes.code-list.14",
+   "text": "tool: close_call; code: WRN; meaning: Wrong number; used when: number not the customer's"
+  },
+  {
+   "id": "04-codes.code-list.15",
+   "text": "tool: close_call; code: DEC; meaning: Deceased; used when: customer has died"
+  },
+  {
+   "id": "04-codes.code-list.16",
+   "text": "tool: close_call; code: UNC; meaning: Could not confirm; used when: still unclear who answered after the second ask"
+  },
+  {
+   "id": "04-codes.code-list.17",
+   "text": "tool: add_note; code: N-REF; meaning: Refused; used when: no promise on this product, refused"
+  },
+  {
+   "id": "04-codes.code-list.18",
+   "text": "tool: add_note; code: N-HRD; meaning: Hardship; used when: hardship stated on this product"
+  },
+  {
+   "id": "04-codes.code-list.19",
+   "text": "tool: add_note; code: N-DSP; meaning: Disputed; used when: customer disputes this product"
+  },
+  {
+   "id": "04-codes.code-list.20",
+   "text": "tool: add_note; code: N-PAID; meaning: Already paid; used when: customer says this product is paid"
+  },
+  {
+   "id": "04-codes.code-list.21",
+   "text": "tool: add_note; code: N-ERR; meaning: System error; used when: promise for this product failed twice"
+  },
+  {
+   "id": "04-codes.mapping.1",
+   "text": "no-promise close for several products: N-REF->NRF, N-HRD->NHS, N-DSP->NDS, N-ERR->NSE"
+  }
+ ],
+ "closing": {
+  "promise": {
+   "outcome": "PTP",
+   "reason": null
+  },
+  "id_fail": {
+   "outcome": "IDF",
+   "reason": null
+  },
+  "callback": {
+   "outcome": "CBK",
+   "reason": null
+  },
+  "no_callback": {
+   "outcome": "NCB",
+   "reason": null
+  },
+  "refused": {
+   "outcome": "NRF",
+   "reason": null
+  },
+  "service_error": {
+   "outcome": "NSE",
+   "reason": null
+  },
+  "transfer": {
+   "arrangements": {
+    "outcome": "TRA",
+    "reason": null
+   },
+   "care": {
+    "outcome": "TCC",
+    "reason": null
+   },
+   "contact_centre": {
+    "outcome": "TCT",
+    "reason": null
+   }
+  },
+  "note_map": {
+   "N-REF": {
+    "outcome": "NRF",
+    "reason": null
+   },
+   "N-HRD": {
+    "outcome": "NHS",
+    "reason": null
+   },
+   "N-DSP": {
+    "outcome": "NDS",
+    "reason": null
+   },
+   "N-ERR": {
+    "outcome": "NSE",
+    "reason": null
+   },
+   "N-PAID": {
+    "outcome": "PIF",
+    "reason": null
+   }
+  },
+  "transfer_overrides_promise": true,
+  "no_reason_outcomes": [
+   "PTP",
+   "PIF",
+   "TRA",
+   "TCC",
+   "TCT",
+   "NRF",
+   "NHS",
+   "NDS",
+   "NSE",
+   "IDF",
+   "IDD",
+   "CBK",
+   "NCB",
+   "WRN",
+   "DEC",
+   "UNC"
+  ],
+  "notes": [
+   "close_call has no reason field; every reason is null.",
+   "N-PAID maps to PIF only when every product was noted as already paid.",
+   "Refusal to talk before security closes with IDD.",
+   "Exactly one close_call, last, after thanking the customer and saying goodbye.",
+   "Overrides applied: memo 2026-10-02 replaces Stage 1 deadline (10th working day), closure days (11 Nov cancelled, 13 Nov added), callback hours (08:30-19:30), security limit (two incorrect answers)."
+  ]
+ }
+}

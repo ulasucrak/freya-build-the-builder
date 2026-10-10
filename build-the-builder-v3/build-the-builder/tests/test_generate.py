@@ -202,8 +202,12 @@ class Structure(unittest.TestCase):
                         self.assertNotIn("}}", t[hk])
                         self.assertEqual(underscore_names(t[hk]), [])   # no leading-underscore names
                 if t["function"]["handler"] == "__function__:code_exec":
-                    compile(code_of(node), k, "exec")
-                    self.assertEqual(underscore_names(code_of(node)), [])
+                    code = t["function"]["parameters"]["properties"]["code"]["default"]
+                    # a code_exec tool's snippet ends with a top-level return (the sandbox runs it inside a function)
+                    compile("def sandbox():\n" + "\n".join("    " + ln for ln in code.splitlines()), k, "exec")
+                    self.assertEqual(underscore_names("def sandbox():\n" + "\n".join("    " + ln for ln in code.splitlines())), [])
+                    self.assertNotIn("{{", code)
+                    self.assertNotIn("}}", code)
         # tool results are routed on both boolean spellings
         conds = [c["operand"] for tr in n["greet_verify"]["transitions"] for c in tr["condition"].get("conditions", [])
                  if "all_verified" in c.get("variable", "")]
@@ -230,7 +234,7 @@ class Structure(unittest.TestCase):
         q = tool(wf, "greet_verify", "transfer_to_agent")["function"]["parameters"]["properties"]["body"]["properties"]["queue"]
         self.assertEqual(q["enum"], ["restructuring", "general", "support"])
         names = [x["function"]["name"] for x in wf["nodes"]["negotiate"]["tools"]]
-        self.assertEqual(names, ["create_promise", "add_note", "transfer_to_agent", "close_call"])
+        self.assertEqual(names, ["next_offer", "create_promise", "add_note", "transfer_to_agent", "close_call"])
         # Brief A never uses add_note: the tool is not offered
         wa = G.generate_workflow(raw("brief-a"))
         self.assertNotIn("add_note", [x["function"]["name"] for x in wa["nodes"]["negotiate"]["tools"]])
@@ -242,6 +246,8 @@ class Structure(unittest.TestCase):
         model_fields = set()
         for node in wf["nodes"].values():
             for t in node.get("tools", []):
+                if "body" not in t["function"]["parameters"]["properties"]:
+                    continue                                   # code_exec tool: no request body
                 for f, leaf in t["function"]["parameters"]["properties"]["body"]["properties"].items():
                     if leaf["default"] == "{{" + f + "}}" and f != "customer_id":
                         model_fields.add(f)
@@ -841,3 +847,147 @@ class Snippets(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def run_tool(wf, node, name, params, vs):
+    """A code_exec tool the model calls: the sandbox wraps the snippet in a function, `params` holds the arguments."""
+    code = tool(wf, node, name)["function"]["parameters"]["properties"]["code"]["default"]
+    src = "def sandbox():\n" + "\n".join("    " + ln for ln in code.splitlines()) + "\n"
+    g = {"vars": vs, "params": dict(params)}
+    exec(compile(src, "tool", "exec"), g)
+    return g["sandbox"]()
+
+
+class AttemptLimit(unittest.TestCase):
+    """PUB-06 / PUB-12: the persuasion attempts per product are counted in code (next_offer), not by the model."""
+
+    def setUp(self):
+        self.wf = G.generate_workflow(raw("brief-b"))
+        self.sim = Sim(self.wf, customer_id="c1")
+        self.sim.account([
+            {"product_id": "p1", "type": "credit_card", "card_last4": "9015", "past_due": 510.0, "days_late": 16, "minimum_payment": 153.0},
+            {"product_id": "p2", "type": "personal_loan", "past_due": 1320.0, "days_late": 16, "instalment_amount": 440.0},
+            {"product_id": "p3", "type": "car_loan", "past_due": 140.0, "days_late": 7, "instalment_amount": 46.0}])
+        self.sim.vs["w_id_state"] = "verified"
+
+    def offer(self, pid, said):
+        return run_tool(self.wf, "negotiate", "next_offer", {"product_id": pid, "customer_said": said}, self.sim.vs)
+
+    def test_tool_and_prompt(self):
+        t = tool(self.wf, "negotiate", "next_offer")
+        self.assertEqual(t["function"]["handler"], "__function__:code_exec")
+        props = t["function"]["parameters"]["properties"]
+        self.assertNotIn("default", props["product_id"])
+        self.assertEqual(props["customer_said"]["enum"], G.ATTEMPT_REPLIES)
+        self.assertIn("next_offer", self.wf["nodes"]["negotiate"]["task_message"])
+        off = G.generate_workflow(raw("brief-b"), options={"attempt_tool": False})
+        self.assertNotIn("next_offer", [x["function"]["name"] for x in off["nodes"]["negotiate"]["tools"]])
+
+    def test_late_band_two_attempts_then_none(self):
+        o1 = self.offer("p2", "nothing_yet")
+        self.assertEqual((o1["attempt"], o1["attempts_allowed"], o1["amount"]), (1, 2, 1320.0))
+        o2 = self.offer("p2", "refused_last_offer")
+        self.assertEqual((o2["attempt"], o2["amount"], o2["date"]), (2, 440.0, "2026-10-23"))
+        self.assertIn("last attempt", o2["what_to_do_next"])
+        o3 = self.offer("p2", "refused_last_offer")
+        self.assertEqual(o3["offer"], "none")
+        self.assertIn("No persuasion attempt is left", o3["what_to_do_next"])
+
+    def test_early_band_one_attempt(self):
+        self.assertEqual(self.offer("p3", "nothing_yet")["attempts_allowed"], 1)
+        self.assertEqual(self.offer("p3", "refused_last_offer")["offer"], "none")
+
+    def test_full_amount_too_much_gives_floor(self):
+        o = self.offer("p1", "full_amount_too_much")
+        self.assertEqual((o["attempt"], o["amount"]), (1, 153.0))
+
+    def test_unknown_product_and_garbage(self):
+        self.assertFalse(self.offer("zz", "nothing_yet")["ok"])
+        self.assertFalse(run_tool(self.wf, "negotiate", "next_offer", {}, {})["ok"])
+
+    def test_counts_are_per_product(self):
+        self.offer("p2", "nothing_yet")
+        self.assertEqual(self.offer("p1", "nothing_yet")["attempt"], 1)
+        self.assertEqual(self.sim.vs["w_att_p2"], "1")
+
+
+class NewPolicyFields(unittest.TestCase):
+    """Extractor fields: floor_expr, max_wrong_scope, tool_format, callback.per_weekday, trigger conditions."""
+
+    def test_floor_expr_and_balance_trigger(self):
+        wf = G.generate_workflow(raw("S4"))
+        prods = [{"product_id": "p1", "type": "overdraft", "past_due": 30.0, "days_late": 20},
+                 {"product_id": "p2", "type": "overdraft", "past_due": 2000.0, "days_late": 20}]
+        sim = Sim(wf, now="x", now_local="21/10/2026 14:05", cust_ref="c1")
+        sim.account(prods)
+        floors = {p["id"]: p["floor"] for p in json.loads(sim.vs["w_products_json"])}
+        self.assertEqual(floors, {"p1": 30.0, "p2": 50.0})
+        self.assertEqual(sim.vs["w_trigger_hits"], "")
+        self.assertNotIn("RULE THAT APPLIES", sim.vs["w_account_facts"])
+        # over the limit: the rule is in the facts and promises are stopped; exactly the limit is not "more than"
+        prods[1]["past_due"] = 2970.01
+        sim = Sim(wf, now="x", now_local="21/10/2026 14:05", cust_ref="c1")
+        sim.account(prods)
+        self.assertEqual(sim.vs["w_trigger_hits"], "high_balance")
+        self.assertIn("senior_collections", sim.vs["w_account_facts"])
+        sim.vs["w_id_state"] = "verified"
+        cfg, _r, msg = sim.call("negotiate", "create_promise", {"product_id": "p1", "amount": 30, "date": "2026-10-23"})
+        self.assertIn(".invalid", cfg["url"])
+        self.assertIn("rule applies to this account", msg)
+        prods[1]["past_due"] = 2970.0
+        sim = Sim(wf, now="x", now_local="21/10/2026 14:05", cust_ref="c1")
+        sim.account(prods)
+        self.assertEqual(sim.vs["w_trigger_hits"], "")
+        self.assertIn("checked automatically", wf["nodes"]["negotiate"]["task_message"])
+        self.assertNotIn("high_balance", wf["nodes"]["greet_verify"]["task_message"])
+
+    def test_tool_format_date_and_text(self):
+        wf = G.generate_workflow(raw("S2"))
+        sim = Sim(wf, now="x", call_time="2026-10-21T10:00", customer_id="c1")
+        cfg, _r, _m = sim.call("greet_verify", "verify_identity", {"question": "dob", "value": "17 May 1986"},
+                               {"ok": True, "correct": True, "all_passed": False})
+        self.assertEqual(cfg["body"]["value"], "17-05-1986")
+        cfg, _r, _m = sim.call("greet_verify", "verify_identity", {"question": "dob", "value": "1986-05-17"},
+                               {"ok": True, "correct": True, "all_passed": False})
+        self.assertEqual(cfg["body"]["value"], "17-05-1986")
+        cfg, _r, _m = sim.call("greet_verify", "verify_identity", {"question": "postcode", "value": "hb47 qd"},
+                               {"ok": True, "correct": True, "all_passed": True})
+        self.assertEqual(cfg["body"]["value"], "HB4 7QD")
+        self.assertEqual(sim.vs["w_id_state"], "verified")       # response field names from response_fields
+        self.assertIn("DD-MM-YYYY", wf["nodes"]["greet_verify"]["task_message"])
+
+    def test_wrong_answers_per_question(self):
+        wf = G.generate_workflow(raw("S3"))
+        sim = Sim(wf, now="2026-10-22T13:30", customer_id="c1")
+        wrong = {"ok": True, "verified": False, "all_verified": False}
+        _c, _r, m1 = sim.call("greet_verify", "verify_identity", {"field": "date_of_birth", "answer": "1 May 1980"}, wrong)
+        self.assertIn("1 wrong answer(s) left for this question", m1)
+        _c, _r, m2 = sim.call("greet_verify", "verify_identity", {"field": "debit_card_last4", "answer": "1111"}, wrong)
+        self.assertNotIn("FAILED", m2)
+        _c, _r, m3 = sim.call("greet_verify", "verify_identity", {"field": "date_of_birth", "answer": "2 May 1980"}, wrong)
+        self.assertIn("FAILED", m3)
+        self.assertEqual(sim.vs["w_id_state"], "failed")
+        # a total limit (S4: four in total) is not reached by two wrong answers to one question
+        s4 = Sim(G.generate_workflow(raw("S4")), now="x", now_local="21/10/2026 14:05", cust_ref="c1")
+        for a in ("1 May 1980", "2 May 1980"):
+            _c, _r, m = s4.call("greet_verify", "verify_identity", {"field": "date_of_birth", "answer": a}, wrong)
+        self.assertIn("2 wrong answer(s) left in total", m)
+
+    def test_callback_per_weekday(self):
+        wf = G.generate_workflow(raw("S3"))
+        sim = Sim(wf, now="2026-10-22T13:30", customer_id="c1")      # Thursday; next business day is Friday
+        self.assertIn("16:00", sim.vs["w_callback_windows"])
+        self.assertIn("20:00", sim.vs["w_callback_windows"])
+        cfg, _r, _m = sim.call("greet_verify", "schedule_callback", {"date": "2026-10-23", "time": "17:00"})
+        self.assertIn(".invalid", cfg["url"])
+        cfg, _r, _m = sim.call("greet_verify", "schedule_callback", {"date": "2026-10-22", "time": "19:30"})
+        self.assertNotIn(".invalid", cfg["url"])
+        sim = Sim(wf, now="2026-10-22T13:30", customer_id="c1")
+        cfg, _r, _m = sim.call("greet_verify", "schedule_callback", {"date": "2026-10-23", "time": "16:00"})
+        self.assertNotIn(".invalid", cfg["url"])
+
+    def test_new_fixtures_generate_and_lint_clean(self):
+        for f in ("S2", "S3", "S4"):
+            wf = G.generate_workflow(raw(f))
+            self.assertEqual(G.lint_workflow(wf), [], f)
+            self.assertEqual(S.check(raw(f))[0], [], f)

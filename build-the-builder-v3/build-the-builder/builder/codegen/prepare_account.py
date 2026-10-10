@@ -9,13 +9,20 @@ for i, p in enumerate(raw):
     b = build_product(p, i, RT, today, cal)
     b.pop("raw", None)
     prods.append(b)
-vset(vs, "w_account_facts", account_facts_text(prods, cal))
+facts = account_facts_text(prods, cal)
+# triggers decided from the account data (e.g. a total over a limit): one fixed instruction, enforced by the hooks
+hits = [t for t in RT.get("account_triggers") or [] if prods and condition_holds(t.get("condition"), raw)]
+vset(vs, "w_trigger_hits", ",".join([str(t.get("name")) for t in hits]))
+for t in hits:
+    facts += ("\nRULE THAT APPLIES TO THIS ACCOUNT (checked from the account data): " + str(t.get("line"))
+              + (" Make no payment proposal and record no promise." if t.get("action") in ("transfer", "close") else ""))
+vset(vs, "w_account_facts", facts)
 # the hooks need only these fields; the offer texts are in w_account_facts already (keeps the variable table small)
 slim = []
 for p in prods:
     slim.append(dict(index=p.get("index"), id=p.get("id"), type=p.get("type"), name=p.get("name"), full=p.get("full"),
                      floor=p.get("floor"), deadline=p.get("deadline"), band=p.get("band"),
-                     offers=[dict(n=o.get("n"), amount=o.get("amount"), date=o.get("date")) for o in (p.get("offers") or [])]))
+                     offers=[dict(n=o.get("n"), amount=o.get("amount"), date=o.get("date"), alt=o.get("alt_amount")) for o in (p.get("offers") or [])]))
 vset(vs, "w_products_json", json.dumps(slim, separators=(",", ":")))
 vset(vs, "w_product_count", str(len(prods)))
 vset(vs, "w_product_ids", ",".join([str(p.get("id")) for p in prods]))

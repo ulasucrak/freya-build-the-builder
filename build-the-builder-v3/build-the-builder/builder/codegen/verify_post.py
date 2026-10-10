@@ -48,13 +48,20 @@ else:
         vset(vs, "w_id_wrong", str(wrong))
         mx = idn.get("max_wrong")
         n_left = None
+        scope = " in total"
         if left is not None and to_number(left) is not None:
             n_left = int(to_number(left))
         elif mx:
             n_left = int(mx) - wrong
+        if idn.get("max_wrong_scope") == "per_question" and mx and field:
+            # the limit counts per question: wrong answers to this question only (one variable per question)
+            wq = int(num(vget(vs, key_of("w_id_wrong_", field), 0))) + 1
+            mark(vs, "w_id_wrong_", field, str(wq))
+            n_left = 0 if (n_left is not None and left is not None and n_left <= 0) else int(mx) - wq
+            scope = " for this question"
         if n_left is not None and n_left <= 0:
             vset(vs, "w_id_state", "failed")
             set_next(result, "Wrong answer. " + fail_msg)
         else:
-            set_next(result, "Wrong answer" + (" (" + str(n_left) + " wrong answer(s) left in total)" if n_left is not None else "")
+            set_next(result, "Wrong answer" + (" (" + str(n_left) + " wrong answer(s) left" + scope + ")" if n_left is not None else "")
                      + ". Do not say what the right answer is. Ask the same question once more, following the rules.")

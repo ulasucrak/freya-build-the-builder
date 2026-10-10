@@ -30,6 +30,10 @@ tries = int(num(vget(vs, "w_cp_tries_" + pid, 0)))
 chk = dict(ok=True)
 if nm("guard", "on") == "on" and prods:
     chk = check_promise(prod, amt, dd, today, cal, promised_of(vs), nm("next_weekday", ""))
+    stop = [t for t in RT.get("account_triggers") or [] if t.get("action") in ("transfer", "close")
+            and str(t.get("name")) in csv_list(vget(vs, "w_trigger_hits"))]
+    if chk.get("ok") and stop:
+        chk = dict(ok=False, code="account-rule", message="A rule applies to this account: " + str(stop[0].get("line")))
     if chk.get("ok") and transfers_of(vs):
         chk = dict(ok=False, code="after-transfer", message="The call was transferred. No promise may be recorded after a transfer.")
     if chk.get("ok") and tries > retry:

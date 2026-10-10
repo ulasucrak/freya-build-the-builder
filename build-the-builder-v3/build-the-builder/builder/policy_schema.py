@@ -39,6 +39,13 @@ every section may carry "notes": [verbatim brief sentences].
   rules        [{id, text}]
 
 Optional extensions (filled by normalise() when absent, may be given explicitly by the extractor):
+  identity     max_wrong_scope "total"|"per_question"; questions[].tool_format (the tool's answer format, text) ->
+               derived questions[].date_format ("DD-MM-YYYY"...; "" = ISO) and text_ops (["upper", "space_before_last:3"...]);
+               a sentence in questions[].normalise is mapped to one of NORMALISERS
+  products     types[t].floor_expr: amount expression over the product's fields, e.g. "min(50, <field>)"; wins over floor_field
+  callback     per_weekday {"<ISO weekday 1-7>": {start, end}} ({} = no window that day); other days use start/end
+  triggers     [].condition {over: all_products_sum|any_product|every_product|max|min|product_count, field, op, value}:
+               decided in code after get_account
   language     "English"
   api          {base_url}
   closing      {promise, id_fail, callback, no_callback, refused, service_error: {outcome, reason},
@@ -172,6 +179,88 @@ def find_tool_field(policy, tool, *keywords):
     return ""
 
 
+# ----------------------------------------------------------------------------------------------- extensions
+
+WEEKDAY_KEYS = {"mon": 1, "tue": 2, "wed": 3, "thu": 4, "fri": 5, "sat": 6, "sun": 7}
+CONDITION_OPS = [">", ">=", "<", "<=", "==", "!="]
+NUMBER_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8}
+
+
+def norm_kind(text, fmt):
+    """identity question 'normalise' (a keyword or a sentence from the brief) -> one of NORMALISERS."""
+    t = _s(text).lower().strip()
+    if t in NORMALISERS:
+        return t
+    if not t:
+        return {"digits": "digits_only"}.get(fmt, "none")
+    if fmt == "date" or "date" in t:
+        if re.search(r"\bmonth\b.{0,15}\bday\b|\bmm\W?dd\b", t):
+            return "mdy_to_iso"
+        if re.search(r"\bday\b.{0,15}\bmonth\b|\bdd\W?mm\b", t):
+            return "dmy_to_iso"
+        return "none"
+    if fmt == "digits" or re.search(r"\bdigits?\b", t):
+        return "digits_only"
+    return "none"
+
+
+def date_pattern(text):
+    """'DD-MM-YYYY' (or MM/DD/YYYY, YYYYMMDD, DD.MM.YY...) named in a format text -> that pattern; '' for ISO or none."""
+    m = re.search(r"\b(DD|MM|YYYY|YY)([-/. ]?)(DD|MM|YYYY|YY)\2(DD|MM|YYYY|YY)\b", _s(text), re.I)
+    if not m:
+        return ""
+    pat = m.group(0).upper()
+    parts = {m.group(1).upper()[:2], m.group(3).upper()[:2], m.group(4).upper()[:2]}
+    if parts != {"DD", "MM", "YY"} or pat == "YYYY-MM-DD":
+        return ""
+    return pat
+
+
+def text_ops(text):
+    """Text conversions a tool format describes ('capitals, one space before the last three characters')."""
+    t = _s(text).lower()
+    ops = []
+    if re.search(r"\b(upper ?case|capitals?|capital letters|all caps)\b", t):
+        ops.append("upper")
+    elif re.search(r"\blower ?case\b", t):
+        ops.append("lower")
+    if re.search(r"\b(no|without) spaces?\b", t):
+        ops.append("nospace")
+    m = re.search(r"space before the last (\d+|" + "|".join(NUMBER_WORDS) + r")\b", t)
+    if m:
+        n = int(m.group(1)) if m.group(1).isdigit() else NUMBER_WORDS[m.group(1)]
+        ops.append("space_before_last:%d" % n)
+    return ops
+
+
+def per_weekday(x):
+    """callback.per_weekday -> {"<ISO weekday 1-7>": {start, end}} ({} = that day has no window)."""
+    out = {}
+    for k, v in _dict(x).items():
+        key = _int(k)
+        if key is None:
+            key = WEEKDAY_KEYS.get(_s(k).lower()[:3])
+        if not key or not 1 <= key <= 7:
+            continue
+        v = _dict(v)
+        out[str(key)] = {"start": _hhmm(v.get("start")), "end": _hhmm(v.get("end"))} if v.get("start") and v.get("end") else {}
+    return out
+
+
+def condition(x):
+    """trigger.condition -> {over, field, op, value} or None."""
+    c = _dict(x)
+    if not c:
+        return None
+    op = _s(c.get("op")).strip() or ">"
+    op = {"=": "==", "gt": ">", "gte": ">=", "lt": "<", "lte": "<=", "eq": "==", "ne": "!="}.get(op.lower(), op)
+    try:
+        value = float(c.get("value"))
+    except (TypeError, ValueError):
+        value = None
+    return {"over": _s(c.get("over")).lower() or "all_products_sum", "field": _s(c.get("field")), "op": op, "value": value}
+
+
 # ----------------------------------------------------------------------------------------------- normalise
 
 def normalise(policy):
@@ -230,14 +319,19 @@ def normalise(policy):
         if not isinstance(q, dict):
             continue
         fmt = _s(q.get("answer_format")).lower() or "text"
-        norm = _s(q.get("normalise")).lower()
-        if not norm:
-            norm = {"digits": "digits_only"}.get(fmt, "none")
+        norm_text = _s(q.get("normalise"))
+        norm = norm_kind(norm_text, fmt)
+        tf = _s(q.get("tool_format"))
         qs.append({**q, "order": _int(q.get("order"), i + 1), "tool_field": _s(q.get("tool_field")),
-                   "ask": _s(q.get("ask")), "answer_format": fmt, "normalise": norm})
+                   "ask": _s(q.get("ask")), "answer_format": fmt, "normalise": norm, "tool_format": tf,
+                   "date_format": date_pattern(tf) or (date_pattern(norm_text) if norm_text.lower() not in NORMALISERS else ""),
+                   "text_ops": text_ops(tf + " " + (norm_text if norm_text.lower() not in NORMALISERS else ""))
+                   if fmt == "text" else []})
     qs.sort(key=lambda q: q["order"])
     fail = _dict(idn.get("fail"))
+    scope = _s(idn.get("max_wrong_scope")).lower().replace("-", "_").replace(" ", "_")
     p["identity"] = {**idn, "questions": qs, "max_wrong": _int(idn.get("max_wrong")),
+                     "max_wrong_scope": "per_question" if scope.startswith("per") or "question" in scope else "total",
                      "wrong_counts_rules": _texts(idn.get("wrong_counts_rules")),
                      "fail": {**fail, "outcome": _s(fail.get("outcome")), "reason": _s(fail.get("reason")),
                               "say": _s(fail.get("say"))}}
@@ -247,7 +341,8 @@ def normalise(policy):
     for k, t in _dict(pr.get("types")).items():
         t = _dict(t)
         types[_s(k)] = {**t, "speak_as": _s(t.get("speak_as")) or _s(k).replace("_", " "),
-                        "floor_field": _s(t.get("floor_field")), "full_field": _s(t.get("full_field"))}
+                        "floor_field": _s(t.get("floor_field")), "full_field": _s(t.get("full_field")),
+                        "floor_expr": _s(t.get("floor_expr"))}
     id_field = _s(pr.get("id_field")) or find_tool_field(p, "create_promise", "product") or "product_id"
     p["products"] = {**pr, "max_count": _int(pr.get("max_count"), 1) or 1, "types": types,
                      "order": _s(pr.get("order")) or "as_returned", "id_field": id_field,
@@ -296,7 +391,7 @@ def normalise(policy):
     p["callback"] = {**cb, "days": [_s(d) for d in _list(cb.get("days")) if _s(d)], "start": _hhmm(cb.get("start")),
                      "end": _hhmm(cb.get("end")), "end_inclusive": _bool(cb.get("end_inclusive"), True),
                      "must_be_after_now": _bool(cb.get("must_be_after_now"), True),
-                     "max_asks": _int(cb.get("max_asks"), 2)}
+                     "max_asks": _int(cb.get("max_asks"), 2), "per_weekday": per_weekday(cb.get("per_weekday"))}
 
     trs = []
     for i, t in enumerate(_list(p.get("triggers"))):
@@ -305,7 +400,7 @@ def normalise(policy):
                         "action": _s(t.get("action")).lower() or "say", "queue": _s(t.get("queue")),
                         "outcome": _s(t.get("outcome")), "reason": _s(t.get("reason")),
                         "note_reason": _s(t.get("note_reason")), "say": _s(t.get("say")),
-                        "precedence": _int(t.get("precedence"), 100 + i)})
+                        "precedence": _int(t.get("precedence"), 100 + i), "condition": condition(t.get("condition"))})
     trs.sort(key=lambda t: t["precedence"])
     p["triggers"] = trs
 
@@ -663,7 +758,7 @@ def check(policy):
     for k, t in p["products"]["types"].items():
         if not t["full_field"]:
             errors.append("products.types.%s.full_field is empty" % k)
-        if not t["floor_field"]:
+        if not t["floor_field"] and not t["floor_expr"]:
             warnings.append("products.types.%s.floor_field is empty; floor = full amount" % k)
 
     if not p["bands"]:
@@ -700,6 +795,9 @@ def check(policy):
                 errors.append("callback.days: unsupported value %r" % d)
     elif "schedule_callback" in p["tools"]:
         warnings.append("callback.days is empty; callbacks can never be scheduled")
+    for wd, w in cb["per_weekday"].items():
+        if w and not (HHMM.match(w["start"]) and HHMM.match(w["end"])):
+            errors.append("callback.per_weekday.%s: start/end must be HH:MM" % wd)
 
     queues = tool_enum(p, "transfer_to_agent", "queue")
     reasons = tool_enum(p, "add_note", "reason")
@@ -713,6 +811,9 @@ def check(policy):
         if t["note_reason"] and reasons and t["note_reason"] not in reasons:
             errors.append("trigger %s: note_reason %r not in add_note enum %s" % (t["name"], t["note_reason"], reasons))
         check_outcome("trigger %s" % t["name"], t["outcome"])
+        if t["condition"] and (not t["condition"]["field"] and "count" not in t["condition"]["over"]
+                               or t["condition"]["value"] is None or t["condition"]["op"] not in CONDITION_OPS):
+            errors.append("trigger %s: condition needs field, op (one of %s) and a numeric value" % (t["name"], CONDITION_OPS))
     for c in p["third_party"]["cases"]:
         check_outcome("third_party case %r" % c["trigger"], c["outcome"])
     for r in p["outcomes"]["table"]:

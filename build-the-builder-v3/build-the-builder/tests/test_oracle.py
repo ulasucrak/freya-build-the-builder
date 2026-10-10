@@ -368,3 +368,69 @@ class Schema(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NewFields(unittest.TestCase):
+    """Fields added by the extractor: floor_expr, tool_format, max_wrong_scope, callback.per_weekday, conditions."""
+
+    def test_expr_value_matches_extractor(self):
+        from builder.extract import eval_amount_expr
+        fields = {"past_due": 30.0, "minimum": 12, "x": "7.5"}
+        for e in ("min(50, past_due)", "past_due * 0.1", "max(10%, minimum)", "(past_due - 5) / 2", "x + 1",
+                  "min(50,", "foo(1)", "unknown_field", "", "past_due / 0", "-past_due + 100"):
+            self.assertEqual(O.expr_value(e, fields), eval_amount_expr(e, fields), e)
+
+    def test_floor_expr_in_build_product(self):
+        p = load("S4")
+        prods = O.products_for_case(p, [{"product_id": "a", "type": "overdraft", "past_due": 30.0, "days_late": 20},
+                                        {"product_id": "b", "type": "overdraft", "past_due": 400.0, "days_late": 20},
+                                        {"product_id": "c", "type": "loan", "past_due": 400.0, "days_late": 20,
+                                         "instalment_amount": 120.0}], "2026-10-21T14:05")
+        self.assertEqual([x["floor"] for x in prods], [30.0, 50.0, 120.0])
+        self.assertIn("min(50", prods[1]["floor_field"])
+
+    def test_identity_formats(self):
+        p = load("S2")
+        dob, pc = p["identity"]["questions"]
+        self.assertEqual((dob["normalise"], dob["date_format"]), ("dmy_to_iso", "DD-MM-YYYY"))
+        self.assertEqual(O.format_answer(O.normalise_answer("5/3/1990", dob["normalise"]), dob), "05-03-1990")
+        self.assertEqual(O.format_answer(O.normalise_answer(" sw1a  1aa", pc["normalise"]), pc), "SW1A 1AA")
+        self.assertEqual(O.format_answer("1990-03-05", {"date_format": "MM/DD/YYYY"}), "03/05/1990")
+        self.assertEqual(O.format_answer("1990-03-05", {}), "1990-03-05")
+        self.assertEqual(S.date_pattern("YYYY-MM-DD"), "")
+        self.assertEqual(S.norm_kind("read numbers as month, day, year", "date"), "mdy_to_iso")
+        self.assertEqual(S.text_ops("no spaces, lower case"), ["lower", "nospace"])
+
+    def test_max_wrong_scope(self):
+        self.assertEqual(load("S3")["identity"]["max_wrong_scope"], "per_question")
+        self.assertEqual(load("S4")["identity"]["max_wrong_scope"], "total")
+        self.assertEqual(S.normalise({})["identity"]["max_wrong_scope"], "total")
+
+    def test_callback_per_weekday(self):
+        p = load("S3")
+        cal = O.make_calendar(p)
+        thu, fri = D(2026, 10, 22), D(2026, 10, 23)
+        wins = O.callback_windows(thu, "13:30", p, cal)
+        self.assertEqual([(w["date"], w["end"]) for w in wins], [("2026-10-22", "20:00"), ("2026-10-23", "16:00")])
+        self.assertTrue(O.check_callback("2026-10-23", "16:00", thu, "13:30", p, cal)["ok"])
+        self.assertEqual(O.check_callback("2026-10-23", "16:30", thu, "13:30", p, cal)["code"], "too_late")
+        self.assertTrue(O.check_callback("2026-10-22", "19:45", thu, "13:30", p, cal)["ok"])
+        # an entry without hours closes that weekday
+        p2 = S.normalise(dict(json.loads((FIX / "S3.policy.json").read_text()),
+                              callback=dict(p["callback"], per_weekday={"fri": {}})))
+        self.assertEqual(p2["callback"]["per_weekday"], {"5": {}})
+        self.assertEqual([w["date"] for w in O.callback_windows(thu, "13:30", p2, cal)], ["2026-10-22"])
+        self.assertEqual(O.callback_windows(fri, "10:00", p, cal)[0]["end"], "16:00")
+
+    def test_trigger_condition(self):
+        t = [x for x in load("S4")["triggers"] if x["condition"]][0]
+        c = t["condition"]
+        self.assertEqual((c["over"], c["field"], c["op"], c["value"]), ("all_products_sum", "past_due", ">", 3000.0))
+        self.assertFalse(O.condition_holds(c, [{"past_due": 1000}, {"past_due": 2000}]))
+        self.assertTrue(O.condition_holds(c, [{"past_due": 1000}, {"past_due": 2000.5}]))
+        self.assertTrue(O.condition_holds(dict(c, over="any_product", value=1500), [{"past_due": 1000}, {"past_due": 2000}]))
+        self.assertFalse(O.condition_holds(dict(c, over="every_product", value=1500), [{"past_due": 1000}, {"past_due": 2000}]))
+        self.assertTrue(O.condition_holds(dict(c, over="product_count", op=">=", value=2), [{}, {}]))
+        self.assertFalse(O.condition_holds(None, [{"past_due": 5000}]))
+        bad = S.normalise({"triggers": [{"name": "t", "condition": {"field": "x", "op": "about", "value": "n"}}]})
+        self.assertIsNone(bad["triggers"][0]["condition"]["value"])
