@@ -22,6 +22,9 @@ Akış: extract (Claude -> policy.json) -> deterministik generator (code node'la
   Kalan A: PUB-10 (hakem selamlamadaki "this call is recorded" ifadesini dürüstlük ihlali sayıyor; 3'te 2 geçti). Kalan B: PUB-13 (3. koşuda kart sözü 30 Eki yerine 2 Kas).
   Stiller A/B (önceki): pieces 7/2 (8/2), corrects 9/3 (8/2), talkative 3/2 (6/1; simüle müşteri cümleleri yarım kesiliyor, büyük kısmı simülatör kaynaklı şüphesi), asks_back 10/2 (10/3), in_words 8/2 (9/3).
   En kötü tur 20 sn, kapanan çağrı yok.
+- Edge 99 (takım arkadaşı vakaları, gerçek mock, 1 tekrar, ajan `brief-a` ab2440a1, sim 12bc801d): 96/99, 22 dk, en yavaş tur medyan 5 sn.
+  Önceki 21/99 koşusu geçersizdi: `run_edge.sh` `brief-a-selftest` kopyasını (sahte banka) seçiyordu, verify_identity her çağrıda hata verdi (düzeltildi).
+  Kalan: EDGE-10 (söz kaydedilip aynı turda vedalaşıldı, müşteri değişiklik isteyemedi), GEN-09-no-talk (doğrulanmış müşterinin "konuşmak istemiyorum"u kimlik reddi gibi işlendi: not_verified/declined, beklenen no_promise/refused; GEN-08 versiyonu geçti), GEN-3P-offers-pay (üçüncü kişiye "account" kelimesi söylendi).
 - Not: Freya API aralıklı 503 veriyor; ortak çalışma alanında başka ekip simülasyonu 40 dk bekletti.
 - Extraction holdout: S1-S7 tam puan (ör. S5 246/246, S6 339/339, S7 193/193); extraction başına 104-131 sn.
 - 192 offline test yeşil.
