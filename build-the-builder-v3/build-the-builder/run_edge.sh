@@ -20,7 +20,7 @@ echo "=== EDGE TEST $(date) ==="
 if [[ " $* " == *" --build "* ]] || [ ! -f .freya-agents.json ]; then
   $PY build.py briefs/brief-a.md briefs/brief-b.md --openapi tools/openapi.json
 fi
-AGENT=$($PY -c "import json;print(list(json.load(open('.freya-agents.json')).values())[-1]['agent_id'])")
+AGENT=$($PY -c "import json;print([v for k,v in json.load(open('.freya-agents.json')).items() if not k.endswith('-selftest')][-1]['agent_id'])")
 echo "agent_id: $AGENT"
 $PY tools/edge_cases.py
 SET=results/edge-cases.json; [[ " $* " == *" --quick "* ]] && SET=results/edge-cases-quick.json
