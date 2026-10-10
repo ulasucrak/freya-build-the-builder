@@ -1103,7 +1103,25 @@ def offer_text(o):
     return t
 
 
-def account_facts_text(products, cal):
+def replacement_days_text(today, deadline, cal):
+    """'Sat 6 Jan -> Monday 8 January 2030 (2030-01-08); ...' for every day from today to the deadline that is not
+    a business day and whose replacement day is not after the deadline."""
+    out = []
+    if not today or not deadline:
+        return ""
+    for k in range(0, (deadline - today).days + 1):
+        d = today + datetime.timedelta(days=k)
+        if is_business_day(d, cal):
+            continue
+        r = roll_date(d, cal)
+        if r is None or r > deadline:
+            continue
+        lab = WEEKDAY_ABBR[d.weekday()].capitalize() + " " + str(d.day) + " " + MONTH_ABBR[d.month - 1].capitalize()
+        out.append(lab + (" (holiday)" if is_holiday(d, cal) else "") + " -> " + date_label(r))
+    return "; ".join(out)
+
+
+def account_facts_text(products, cal, today=None):
     """Multi-line block of per-product facts for the prompts."""
     try:
         if not products:
@@ -1125,6 +1143,10 @@ def account_facts_text(products, cal):
                              + " to " + money(p.get("full")) + " and a business day from today to " + str(p.get("deadline")) + "."
                              + " A day the customer names on or before " + str(p.get("deadline")) + " is inside the deadline;"
                              + " if it is not a business day, offer the replacement day from the calendar facts.")
+                rep = replacement_days_text(today, to_date(p.get("deadline")), cal)
+                if rep:
+                    lines.append("   Days up to the deadline that are not business days, and the one day to offer instead (offer exactly"
+                                 + " that day; say only that the named day is not a business day, never call it a public or bank holiday): " + rep + ".")
         return "\n".join(lines)
     except Exception:
         return "The account facts could not be prepared."

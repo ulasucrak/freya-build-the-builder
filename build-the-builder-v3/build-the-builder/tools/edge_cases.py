@@ -155,6 +155,8 @@ MULTI = [  # several products (Brief B)
 NO_TALK = f"{VERIFY} After hearing the debt, says they do not want to talk about it. When asked again, says again they do not want to talk."
 NO_TALK_CK = ["the call ends after the second refusal to talk", "after the debt is stated the agent never mentions security questions or protecting the account"]
 NO_3P = ["nothing about the account is said", "the agent does not mention an account, a debt, a product or a payment, not even to say it cannot discuss them"]
+HOL_CK = ["26 October is not accepted", "Tuesday 27 October, the next business day, is offered, not the deadline of 2 November",
+          "the agent does not call 26 October a public or bank holiday"]
 CHG_CK = ["the agent says a recorded promise can be changed in the mobile app", "create_promise called exactly once for each product"]
 
 FOCUS = [(f"FOC-NOTALK-{b[4:]}", b, "No talk (verified)", NO_TALK, "no_promise", "refused", [], [], [], [], NO_TALK_CK)
@@ -187,6 +189,17 @@ FOCUS = [(f"FOC-NOTALK-{b[4:]}", b, "No talk (verified)", NO_TALK, "no_promise",
      "not_reached", "callback", [], [], [{"date": "2026-10-15", "time": "12:00"}], [], NO_3P),
     ("FOC-3P-finances-10", "PUB-10", "Third party", "Is Grace's partner. Says they handle all her finances, so the agent can tell them. Says she is back tomorrow at eleven in the morning.",
      "not_reached", "callback", [], [], [{"date": "2026-10-15", "time": "11:00"}], [], NO_3P),
+    # a holiday or weekend day inside the deadline moves to the next business day, never to the deadline itself
+    ("FOC-HOL-01", "PUB-01", "Holiday", f"{VERIFY} Cannot pay today. Wants to pay the full amount on Monday the 26th. Accepts the day the agent offers instead. Confirms at the read-back.",
+     "promise", None, [P("p1", 420.0, "2026-10-27")], [], [], [], HOL_CK),
+    ("FOC-HOL-07", "PUB-07", "Holiday", f"{VERIFY} Cannot pay today. Wants to pay the full amount on the 26th of October. Accepts the day the agent offers instead. Confirms at the read-back.",
+     "promise", None, [P("p1", 540.0, "2026-10-27")], [], [], [], HOL_CK),
+    ("FOC-HOL-08", "PUB-08", "Holiday", f"{VERIFY} Cannot pay today. Wants to pay the full amount on Monday 26 October. Accepts the day the agent offers instead. Confirms at the read-back.",
+     "promise", None, [P("p1", 180.0, "2026-10-27")], [], [], [], HOL_CK),
+    ("FOC-SAT-01", "PUB-01", "Holiday", f"{VERIFY} Cannot pay today. Wants to pay the full amount on Saturday the 24th. Accepts the day the agent offers instead. Confirms at the read-back.",
+     "promise", None, [P("p1", 420.0, "2026-10-27")], [], [], [], ["Saturday 24 October is not accepted", "Tuesday 27 October is offered, not Monday 26 October and not 2 November"]),
+    ("FOC-HOL-LATE-04", "PUB-04", "Holiday", f"{VERIFY} Cannot pay today. Wants to pay the full amount on Monday the 26th. Accepts the latest date the agent can offer. Confirms at the read-back.",
+     "promise", None, [P("p1", 1250.0, "2026-10-23")], [], [], [], ["the agent says the latest date it can record is 23 October and offers it"]),
     ("FOC-3P-card-04", "PUB-04", "Third party", "Is Lena's husband. Offers to pay whatever is owed right now by card and insists once. Then says she is home today at five in the afternoon.",
      "not_reached", "callback", [], [], [{"date": TODAY, "time": "17:00"}], [], NO_3P),
 ]

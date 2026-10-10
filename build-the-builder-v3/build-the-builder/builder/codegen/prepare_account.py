@@ -9,7 +9,7 @@ for i, p in enumerate(raw):
     b = build_product(p, i, RT, today, cal)
     b.pop("raw", None)
     prods.append(b)
-vset(vs, "w_account_facts", account_facts_text(prods, cal))
+vset(vs, "w_account_facts", account_facts_text(prods, cal, today))
 # the hooks need only these fields; the offer texts are in w_account_facts already (keeps the variable table small)
 slim = []
 for p in prods:

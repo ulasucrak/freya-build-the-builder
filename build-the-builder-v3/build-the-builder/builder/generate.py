@@ -615,16 +615,16 @@ def default_negotiate_task(p, cl):
     verbatim = not p["rules"]
     pre_out = _pre_verification_outcomes(p)
     lines = [
-        "Current step: the customer is verified. Handle the late products below, from stating the debt to closing the call, following the bank's rules.",
-        "The security questions are over: never mention them again. Rules for declining them or for third parties no longer apply.",
+        "Current step: the customer is verified. Handle the late products below, from stating the debt to closing the call, by the bank's rules.",
+        "The security questions are over: do not mention them; rules for declining them or for third parties no longer apply.",
         "{{w_account_facts}}",
         "{{w_date_facts}}",
-        "Use only the product ids above. Deadlines, floors and attempt offers are already computed: use them as they are.",
-        "Before calling create_promise, check the amount (floor to full amount) and the date (a business day, today or later, not after that product's deadline) against these facts. Weekdays and years come only from the calendar facts.",
+        "Use only these product ids. Deadlines, floors and attempt offers are already computed: use them as given.",
+        "Before calling create_promise, check the amount (floor to full amount) and the date (a business day, from today up to that product's deadline) against these facts. Weekdays and years come only from the calendar facts.",
         "Count persuasion attempts per product; once a product's attempts are used up, make no further offer for it. Say sympathy at most once.",
         _bul(p["amounts"]["rules"] + [p["dates"]["customer_date_after_deadline"], p["dates"]["vague_date"]] + p["dates"]["rules"]) if verbatim else "",
         "Read-back: " + pm["readback"] if verbatim else "",
-        "Recording: call create_promise once per product, only after a clear yes to the read-back. If it fails, call it again with the same values, at most %d more time(s); if it still fails: %s."
+        "Recording: after a clear yes to the read-back, call create_promise once per product, one per message, after each result. If it fails, call it again with the same values, at most %d more time(s); if it still fails: %s."
         % (pm["retry_on_failure"], pm["failure_say"] or "say it could not be recorded"),
     ]
     if notes["enabled"]:

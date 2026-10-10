@@ -324,7 +324,10 @@ def normalise(policy):
         text = " ".join([_s(nt.get("when"))] + _texts(nt.get("notes")) + [_s(add_note.get("notes")), _s(add_note.get("summary"))]).lower()
         if re.search(r"\b(with|for|also with|applies to|even with) (one|a single|1) product", text):
             mp = 1
-        elif re.search(r"multi-?product|more than one product|several products|two or more products|multiple products", text):
+        elif re.search(r"multi-?product|more than one product|several products|two or more products|multiple products"
+                       r"|\bsome (of the |of their )?products\b|\bothers?\b products|\brefuse(s)? others\b", text):
+            mp = 2
+        elif _notes_added_by_override(p):
             mp = 2
         else:
             mp = 1
@@ -426,6 +429,25 @@ def _derive_product_fields(p):
 
 def _pair(outcome, reason=""):
     return {"outcome": _s(outcome), "reason": _s(reason)}
+
+
+def _notes_added_by_override(p):
+    """True when the base material says the note tool is never used and a later rule for customers with several
+    products overrides exactly that rule: notes then belong to the multi-product extension only."""
+    if _int(_dict(p.get("products")).get("max_count"), 1) < 2:
+        return False
+    rules = [r for r in _list(p.get("rules")) if isinstance(r, dict)]
+    banned = set()
+    for r in rules:
+        t = _s(r.get("text")).lower()
+        if re.search(r"\bnever\b[^.]*\b(add_note|notes?)\b|\b(add_note|notes?)\b[^.]*\b(never|not) used\b", t) and not t.startswith("[overrides"):
+            banned.add(_s(r.get("id")))
+    for r in rules:
+        t = _s(r.get("text"))
+        m = re.match(r"\s*\[overrides ([^\]]+)\]", t)
+        if m and "add_note" in t and set(x.strip() for x in m.group(1).split(",")) & banned:
+            return True
+    return False
 
 
 def derive_closing(p):

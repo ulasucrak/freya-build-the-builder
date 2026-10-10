@@ -423,6 +423,53 @@ class EdgeRegressions(unittest.TestCase):
                 self.assertIn("speak with the customer personally", greet, name)
 
 
+class SelfTestAndHolidayRegressions(unittest.TestCase):
+    """Self-test 7/10 of the fixed build and the live holiday failures (GEN-01/07-holiday: a holiday inside the
+    deadline was answered with the deadline instead of the next business day)."""
+
+    def facts(self, days_late):
+        wf = G.generate_workflow(raw("brief-a"))
+        s = Sim(wf, customer_id="c1")
+        s.account([{"product_id": "p1", "type": "personal_loan", "past_due": 540.0, "days_late": days_late, "instalment_amount": 180.0}])
+        return s.vs["w_account_facts"]
+
+    def test_holiday_inside_the_deadline_offers_the_next_business_day(self):
+        early = self.facts(5)                     # deadline Mon 2 Nov
+        self.assertIn("Mon 26 Oct (holiday) -> Tuesday 27 October 2026 (2026-10-27)", early)
+        self.assertIn("Sun 1 Nov -> Monday 2 November 2026", early)
+        self.assertIn("never call it a public or bank holiday", early)
+        late = self.facts(11)                     # deadline Fri 23 Oct: the 26th is after it
+        self.assertNotIn("Mon 26 Oct", late.split("Days up to the deadline")[-1])
+        self.assertIn("Sat 17 Oct -> Monday 19 October 2026", late)
+
+    def test_one_promise_per_message(self):
+        neg = G.generate_workflow(raw("brief-b"))["nodes"]["negotiate"]["task_message"]
+        self.assertIn("one per message, after each result", neg)
+
+    def test_notes_only_for_several_products_when_an_override_adds_them(self):
+        p = S.normalise(raw("brief-b"))
+        self.assertEqual(p["notes"]["min_products"], 2)
+        q = raw("brief-b")
+        q["rules"] = [r for r in q["rules"] if "[overrides" not in r.get("text", "")]
+        q["notes"] = dict(q.get("notes") or {}, when="For each product without a promise call add_note.")
+        self.assertEqual(S.normalise(q)["notes"]["min_products"], 1)
+        self.assertEqual(S.normalise(raw("brief-a"))["notes"]["min_products"], 1)
+
+    def test_selftest_plans_follow_the_rules(self):
+        from builder import casegen
+        pl = casegen.Planner(S.normalise(raw("brief-b")), seed=3) if hasattr(casegen, "Planner") else None
+        if pl is None:
+            self.skipTest("no Planner class")
+        multi = pl.plan_multi()
+        self.assertIn("confirms the read-back", multi["plan"])
+        self.assertNotIn("each read-back", multi["plan"])
+        for trig in pl.post_verification_triggers():
+            if trig.get("action") == "transfer" and trig.get("queue"):
+                c = pl.plan_trigger(trig, pl.bands()[0])
+                self.assertIn("Accepts when the agent offers to connect them", c["plan"])
+        self.assertIn("never prescribe how it orders or groups the talk", casegen.llm_request([], S.normalise(raw("brief-b"))))
+
+
 class S3Flows(unittest.TestCase):
     """fixtures/S3 live failures: notes were switched off, parallel calls lost promises and the transfer."""
 

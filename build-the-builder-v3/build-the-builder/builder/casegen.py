@@ -405,6 +405,9 @@ class Planner:
         plan = ("Is the customer. Answers the security questions correctly. When the overdue amount is discussed, the "
                 "customer's situation is: %s. Stays consistent with that and does not agree to a payment."
                 % (trig.get("detect") or trig.get("name")))
+        if act == "transfer":       # the expected ledger has the transfer: the customer must take it when it is offered
+            plan += (" If the agent first asks whether it can help, repeats the request once. Accepts when the agent "
+                     "offers to connect them.")
         return self.case("trigger:" + trig.get("name", ""), str(trig.get("name") or "Trigger").replace("_", " ").capitalize(),
                          "medium", trig.get("name") or "trigger", now, [raw], plan,
                          self.ledger(outcome, reason, notes=notes, transfers=transfers))
@@ -460,7 +463,7 @@ class Planner:
         if not outcome:
             return None
         plan = ("Is the customer. Answers the security questions correctly. Has %d late products. For each one accepts the "
-                "first offer (%s) and confirms each read-back." % (len(prods), "; ".join(says)))
+                "first offer (%s) and confirms the read-back." % (len(prods), "; ".join(says)))
         return self.case("multi_product", "Multi-product", "hard", "%d products, all promised" % len(prods), now, raws, plan,
                          self.ledger(outcome, reason, promises))
 
@@ -513,7 +516,9 @@ def llm_request(cases, policy):
         "Write one entry per test case. Keep every number and date of the plan exactly (you may write dates as words).",
         "script: 1-4 short sentences in the third person, what the customer says and does in the call (like "
         "\"Confirms she is the customer. Gives date of birth 3 May 1980. Accepts 120 on Friday 16 October.\").",
-        "checks: 2-4 short conversation checks a judge can verify from the transcript, derived from the plan only.",
+        "checks: 2-4 short conversation checks a judge can verify from the transcript, derived from the plan only. "
+        "Check what the agent must say, record or avoid; never prescribe how it orders or groups the talk (whether "
+        "read-backs are combined or separate, whether it offers help before a transfer): the bank's rules decide that.",
         "variables: realistic values for these call variables (do NOT include %r, it is set by the test): %s"
         % (now_var, json.dumps(variables)),
         "identity_text: for each field in text_identity_fields a plausible correct answer value (e.g. a code or a word).",
