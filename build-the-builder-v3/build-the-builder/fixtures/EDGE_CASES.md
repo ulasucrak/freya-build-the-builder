@@ -162,3 +162,47 @@ These depend on how the customer talks rather than on the brief's numbers. They 
 | H10 | Third party offers to pay or answer security | Must refuse | P | S7 |
 | H11 | Mixed refusals and dates in one sentence | "A date is never a refusal" | P, G | S7 |
 | H12 | Silence / non-answer | Uses an attempt | P | S7 |
+
+## I. Teammate live edge cases (tools/edge_cases.py)
+
+A teammate added cases that run against the **real bank mock**. The mock serves only the 13 stock customer ids (PUB-01..13), so the cases reuse these ids with different customer scripts and check the ledger the mock keeps. Our banks S1-S7 are the opposite: new briefs, but they need the fake bank (`builder/testmode.py`, `tools/run_synthetic.py`). The two sets complement each other.
+
+How to run (Brief A/B, call day Wed 14 Oct 2026 11:00; needs env.sh and a live Freya workspace; one simulation at a time):
+
+- `bash run_edge.sh --quick` : the 23 hand-written `EDGE-xx` cases only, 2 reps each.
+- `bash run_edge.sh` : all 99 cases (23 + generated `GEN-*` templates over PUB-01/04/05/07/08/09, third party, multi-product), about 40-60 min.
+- `bash run_edge.sh --build` : build a fresh agent from Brief A+B first.
+- Generate only (no simulation): `python tools/edge_cases.py` writes `results/edge-cases.json` and `results/edge-cases-quick.json`. `tools/run_cases.py` accepts cases that reuse a practice customer (`base_id`).
+- Output: `results/edge-report.txt`, `results/run-edge.json`.
+
+### NEW behaviours (not covered by our catalogue or S1-S7)
+
+| Teammate case | Behaviour | Note |
+|---|---|---|
+| EDGE-10 | Customer asks to change a promise after it was recorded; agent points to the mobile app, `create_promise` stays at one call | no equivalent in A-H |
+| GEN-*-closed | "Closed this product years ago and paid it off" is treated as a dispute | new input wording for E1/D4 |
+| GEN-*-too-much, GEN-*-partial | Amount between floor and full accepted without argument; "too much" leads to the floor offer, rest stays overdue | we test floors (B), not this dialogue |
+| EDGE-08, GEN-*-refuses | Persuasion count checked per band (1 early, 2 late) with "no offer repeated" | feeds the T22 per-product limit work |
+| GEN-*-first-offer, GEN-*-last-offer | Accepts attempt 1 vs attempt 2 in each band | live ledger check of attempt dates |
+| EDGE-13, GEN-*-hardship-no/yes | Hardship: accept or decline the offered support transfer, one sympathy sentence | partly D5 |
+| All cases | Run on the real mock tools with real Brief A/B, 2 reps | our S1-S7 cases only run on the fake bank |
+
+### OVERLAP (cross-references)
+
+| Teammate group | Our entry |
+|---|---|
+| EDGE-01/02, GEN "this-fri/next-fri" | A22, A23, A24 |
+| EDGE-03, GEN "saturday/holiday" | A6, A21 |
+| EDGE-04, GEN "too-late" | A19, A20 |
+| EDGE-05 vague date | A26 |
+| EDGE-06, GEN "below-floor" | B (floor rules) |
+| EDGE-07 amount corrected at read-back | H2 |
+| EDGE-09 second offer accepted | A16, A17 (attempt dates), S5-09 |
+| EDGE-11 already paid, EDGE-12 dispute | D4, E1 |
+| EDGE-14 human request, restructure | H9, E |
+| EDGE-15 scam question | H6 (S7) |
+| EDGE-16, GEN "declines-id/wrong-id" | C (identity) |
+| EDGE-17 unclear "Hello?/Go ahead" | H7 (S7) |
+| EDGE-18..21, GEN-3P-* (wrong number, deceased, callbacks, offers to pay) | A27-A31, H10 |
+| EDGE-22/23, GEN multi-product | D (all) |
+| GEN "no-talk" | H8 (S7) |
