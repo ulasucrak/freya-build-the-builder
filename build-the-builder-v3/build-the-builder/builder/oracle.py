@@ -1064,18 +1064,10 @@ def date_facts_text(policy, today, now_time, cal):
             lines.append("  " + tag + ": business days " + (", ".join(busy) or "none")
                          + ("; not business days " + ", ".join(off_days) if off_days else "") + ".")
             wk = wk + datetime.timedelta(days=7)
-        rolls = []
-        for k in range(0, horizon + 1):
-            d = today + datetime.timedelta(days=k)
-            if not is_business_day(d, cal):
-                r = roll_date(d, cal)
-                lab = WEEKDAY_ABBR[d.weekday()].capitalize() + " " + str(d.day) + " " + MONTH_ABBR[d.month - 1].capitalize()
-                if r is not None:
-                    rolls.append(lab + (" (holiday)" if is_holiday(d, cal) else "") + " -> " + date_label(r))
-        if rolls:
-            lines.append("A day the customer names that is not a business day is not a refusal and not 'after the deadline' by itself: "
-                         "offer the business day listed for it here, as long as that day is not after the product's deadline: "
-                         + "; ".join(rolls) + ".")
+        # the replacement day for a non-business day depends on the product's deadline: listed per product in the
+        # account facts (a list here, without deadlines, led the agent to offer a day after the deadline)
+        lines.append("A day the customer names that is not a business day is not a refusal: each product's facts list the day to offer instead,"
+                     " and what to do for a day after its deadline.")
         if nr:
             lines.append("Weekday words: 'this <weekday>' is that day in the current week; 'next <weekday>' is "
                          + ("that day in the following calendar week." if nr == "following_week" else "the next such day after today."))
@@ -1147,6 +1139,8 @@ def account_facts_text(products, cal, today=None):
                 if rep:
                     lines.append("   Days up to the deadline that are not business days, and the one day to offer instead (offer exactly"
                                  + " that day; say only that the named day is not a business day, never call it a public or bank holiday): " + rep + ".")
+                lines.append("   Any day after " + date_label(to_date(p.get("deadline"))) + ", a weekend day or holiday too, is after the deadline:"
+                             + " do not move it to a nearby business day; say the latest date you can record is the deadline and offer it.")
         return "\n".join(lines)
     except Exception:
         return "The account facts could not be prepared."

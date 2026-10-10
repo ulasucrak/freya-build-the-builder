@@ -249,12 +249,17 @@ class LiveRegressions(unittest.TestCase):
         self.assertIsNone(f("whatever the customer says"))
 
     def test_holiday_replacement_in_facts(self):
-        facts = O.date_facts_text(self.p, D(2026, 10, 14), "11:00", self.cal)
-        self.assertIn("Mon 26 Oct (holiday) -> Tuesday 27 October 2026 (2026-10-27)", facts)
-        self.assertIn("Sat 17 Oct -> Monday 19 October 2026 (2026-10-19)", facts)
         pr = O.products_for_case(self.p, [{"product_id": "p1", "type": "personal_loan", "past_due": 540.0, "days_late": 5,
                                             "instalment_amount": 180.0}], "2026-10-14T11:00")[0]
         self.assertEqual(pr["deadline"], "2026-11-02")
+        facts = O.account_facts_text([pr], self.cal, D(2026, 10, 14))
+        self.assertIn("Mon 26 Oct (holiday) -> Tuesday 27 October 2026 (2026-10-27)", facts)
+        self.assertIn("Sat 17 Oct -> Monday 19 October 2026 (2026-10-19)", facts)
+        # a holiday after the deadline has no replacement day: the deadline is offered (self-test SELF-04 offered 12 Nov)
+        self.assertNotIn("Wed 11 Nov", facts)
+        self.assertNotIn("Thursday 12 November", facts)
+        self.assertIn("Any day after Monday 2 November 2026 (2026-11-02), a weekend day or holiday too, is after the deadline", facts)
+        self.assertNotIn("Thursday 12 November", O.date_facts_text(self.p, D(2026, 10, 14), "11:00", self.cal))
         r = O.check_promise(pr, 540, "Monday the 26th", D(2026, 10, 14), self.cal)
         self.assertEqual((r["code"], r["suggest_date"]), ("not_business_day", "2026-10-27"))
 

@@ -571,7 +571,7 @@ class LiveDateRegressions(unittest.TestCase):
             self.assertIn("Attempt 1: amount 2125.10 (or 637.50", vs["w_account_facts"])
             self.assertIn("on Friday 16 October 2026 (2026-10-16)", vs["w_account_facts"])
             wf, vs2 = self.facts(wall, loan)
-            self.assertIn("Mon 26 Oct (holiday) -> Tuesday 27 October 2026 (2026-10-27)", vs2["w_date_facts"])  # PUB-07
+            self.assertIn("Mon 26 Oct (holiday) -> Tuesday 27 October 2026 (2026-10-27)", vs2["w_account_facts"])  # PUB-07
             cfg = {"url": "u", "body": {"product_id": "p1", "amount": 540, "date": "2026-10-26"}}
             run(tool(wf, "negotiate", "create_promise")["pre_process_code"], vs2, "config", cfg, wall_day=wall)
             self.assertIn("not-business-day", cfg["url"])
