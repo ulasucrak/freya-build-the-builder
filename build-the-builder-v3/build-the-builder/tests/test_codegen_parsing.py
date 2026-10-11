@@ -135,6 +135,8 @@ class CheckOfferParsing(unittest.TestCase):
         st, out = T.run_code_locally(self.code, dict(date="Saturday the 17th", product_id="p1"), vs)
         self.assertEqual(out["code"], "not_business_day")
         self.assertNotIn("Attempt", out["what_to_do_next"])
+        st, out = T.run_code_locally(self.code, dict(date="end of next month", product_id="p1"), vs)   # a period: no noise
+        self.assertNotIn("Attempt", out["what_to_do_next"])
 
 
 class HookParsing(unittest.TestCase):

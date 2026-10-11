@@ -71,7 +71,7 @@ else:
         out["what_to_do_next"] = "The check did not work. Use the account facts to decide."
     # the day to offer is one of the planned attempts: it may already have been offered and refused (an offer is
     # never repeated; the agent does not call this tool for its own offers, so only the model knows whether it was)
-    rep = [str(o.get("n")) for o in prod.get("offers") or [] if not out["ok"] and out["suggest_date"]
+    rep = [str(o.get("n")) for o in prod.get("offers") or [] if code != "bad_date" and out["suggest_date"]
            and o.get("date") and date_label(to_date(o.get("date"))) == out["suggest_date"]]
     if rep:
         out["what_to_do_next"] += (" Attempt " + rep[0] + " in the account facts is on this day too: if you already made that offer and the"
