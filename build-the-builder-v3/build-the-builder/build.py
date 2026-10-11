@@ -46,7 +46,7 @@ def main(argv=None):
         from builder import docmode
         kit = pathlib.Path(__file__).resolve().parent
         res = docmode.build(a.briefs, a.mock_url, a.slot or "final", a.out_dir or str(kit / "out"), a.trace_dir or str(kit / "traces"),
-                            a.state_file or str(kit / ".freya-agents.json"), budget_min=a.budget_min)
+                            a.state_file or str(kit / ".freya-agents.json"), budget_min=a.budget_min, no_test=a.no_test)
         print(json.dumps(res, indent=1, default=str))
         return 0 if res["status"] == "ok" else 1
     b = Builder(a.briefs, a.openapi, slot=a.slot, budget_min=a.budget_min, no_test=a.no_test, best_of=a.best_of,
