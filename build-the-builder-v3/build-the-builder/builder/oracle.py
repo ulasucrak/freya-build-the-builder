@@ -812,8 +812,8 @@ def full_year(y):
 
 def resolve_weekday(wd, today, mode, next_rule):
     """wd: 0=Monday. mode 'this' -> that weekday in the current week; 'next' -> following calendar week when
-    next_rule is 'following_week', else the next occurrence strictly after today; '' -> next occurrence on or
-    after today."""
+    next_rule is 'following_week', else the next occurrence strictly after today; '' -> next occurrence strictly
+    after today (a bare 'Tuesday' said on a Tuesday is next week's; 'today' is said as 'today')."""
     mon = week_monday(today)
     if mode == "this":
         d = mon + datetime.timedelta(days=wd)
@@ -824,7 +824,7 @@ def resolve_weekday(wd, today, mode, next_rule):
         delta = (wd - today.weekday()) % 7
         return today + datetime.timedelta(days=delta or 7)
     delta = (wd - today.weekday()) % 7
-    return today + datetime.timedelta(days=delta)
+    return today + datetime.timedelta(days=delta or 7)
 
 
 def parse_spoken_date(text, today, next_rule="", future=True, order=""):
@@ -1487,44 +1487,58 @@ def replacement_days_text(today, deadline, cal):
 
 def account_facts_text(products, cal, today=None, ladder_in_code=False):
     """Multi-line block of per-product facts for the prompts. `ladder_in_code`: refusals are counted by the
-    workflow's code (the next offer comes in the state line), so the offer-count paragraph is one sentence."""
+    workflow's code (the next offer comes in the state line), so the offer-count paragraph is one sentence.
+    Products after the first open with their Attempt 1 offer; a word shared by product names ('loan' in 'Personal
+    Loan' and 'Car Loan') is listed as ambiguous (ask which one)."""
     try:
         if not products:
             return "The account could not be loaded. No product facts are available."
         lines = ["Late products, in the order to handle them (" + str(len(products)) + " in total):"]
+        ap = lines.append
         for p in products:
-            lines.append(str(p.get("index")) + ". product_id " + str(p.get("id")) + ": " + str(p.get("name")) + ".")
-            lines.append("   Past-due amount (full amount): " + money(p.get("full")) + ". Days late: " + str(p.get("days_late")) + ".")
-            if p.get("floor") is not None and ladder_in_code:
-                lines.append("   Floor (lowest amount that can be recorded): " + money(p.get("floor")) + ". Offer it only when a tool result"
-                             + " or the state line says so; it keeps the day being discussed.")
-            elif p.get("floor") is not None:
-                lines.append("   Floor (lowest amount that can be recorded, field " + str(p.get("floor_field")) + "): " + money(p.get("floor")) + "."
-                             + " Offer the floor only when the customer says the amount itself is too much; a plain no or 'I can't' is a refusal,"
-                             + " not that. Offering the floor for an amount that is too much does not change the day being discussed.")
-            if p.get("band"):
-                lines.append("   Band: " + p.get("band") + ". Persuasion attempts allowed: " + str(p.get("attempts"))
-                             + ("; never repeat an offer that was refused." if ladder_in_code else "."))
-            if p.get("deadline"):
-                lines.append("   Deadline (latest promise date): " + date_label(to_date(p.get("deadline"))) + ".")
-            for o in p.get("offers") or []:
-                lines.append("   " + offer_text(o, ladder_in_code))
-            if p.get("offers") and not ladder_in_code:
-                n = str(len(p.get("offers")))
-                lines.append("   Offers allowed for this product: " + n + " in total, counting every offer you make. After attempt " + n
-                             + " is refused (a plain no or 'I can't' is a refusal), make no other offer for this product: no other amount"
-                             + " (not the floor either), no other day, and never repeat an offer that was refused.")
-            if p.get("deadline"):
-                lines.append("   A promise for " + str(p.get("id")) + " is valid with an amount from " + money(p.get("floor"))
-                             + " to " + money(p.get("full")) + " and a business day from today to " + str(p.get("deadline")) + "."
-                             + " A day the customer names on or before " + str(p.get("deadline")) + " is inside the deadline;"
-                             + " if it is not a business day, offer the replacement day from the calendar facts.")
-                rep = replacement_days_text(today, to_date(p.get("deadline")), cal)
+            g = p.get
+            dl = g("deadline")
+            ap(str(g("index")) + ". product_id " + str(g("id")) + ": " + str(g("name")) + ".")
+            ap("   Past-due amount (full amount): " + money(g("full")) + ". Days late: " + str(g("days_late")) + ".")
+            if g("floor") is not None and ladder_in_code:
+                ap("   Floor (lowest amount that can be recorded): " + money(g("floor")) + ". Offer it only when a tool result"
+                 + " or the state line says so; it keeps the day being discussed.")
+            elif g("floor") is not None:
+                ap("   Floor (lowest amount that can be recorded, field " + str(g("floor_field")) + "): " + money(g("floor")) + "."
+                 + " Offer the floor only when the customer says the amount itself is too much; a plain no or 'I can't' is a refusal,"
+                 + " not that. Offering the floor for an amount that is too much does not change the day being discussed.")
+            if g("band"):
+                ap("   Band: " + g("band") + ". Persuasion attempts allowed: " + str(g("attempts"))
+                 + ("; never repeat an offer that was refused." if ladder_in_code else "."))
+            if dl:
+                ap("   Deadline (latest promise date): " + date_label(to_date(dl)) + ".")
+            for o in g("offers") or []:
+                ap("   " + offer_text(o, ladder_in_code))
+            if g("offers") and p is not products[0]:
+                ap("   First question for it: its Attempt 1 offer, never 'can you pay today'.")
+            if g("offers") and not ladder_in_code:
+                n = str(len(g("offers")))
+                ap("   Offers allowed for this product: " + n + " in total, counting every offer you make. After attempt " + n
+                 + " is refused (a plain no or 'I can't' is a refusal), make no other offer for this product: no other amount"
+                 + " (not the floor either), no other day, and never repeat an offer that was refused.")
+            if dl:
+                ap("   A promise for " + str(g("id")) + " is valid with an amount from " + money(g("floor"))
+                 + " to " + money(g("full")) + " and a business day from today to " + str(dl) + "."
+                 + " A day the customer names on or before " + str(dl) + " is inside the deadline;"
+                 + " if it is not a business day, offer the replacement day from the calendar facts.")
+                rep = replacement_days_text(today, to_date(dl), cal)
                 if rep:
-                    lines.append("   Days up to the deadline that are not business days, and the one day to offer instead (offer exactly"
-                                 + " that day; say only that the named day is not a business day, never call it a public or bank holiday): " + rep + ".")
-                lines.append("   Any day after " + date_label(to_date(p.get("deadline"))) + ", a weekend day or holiday too, is after the deadline:"
-                             + " do not move it to a nearby business day; say the latest date you can record is the deadline and offer it.")
+                    ap("   Days up to the deadline that are not business days, and the one day to offer instead (offer exactly"
+                     + " that day; say only that the named day is not a business day, never call it a public or bank holiday): " + rep + ".")
+                ap("   Any day after " + date_label(to_date(dl)) + ", a weekend day or holiday too, is after the deadline:"
+                 + " do not move it to a nearby business day; say the latest date you can record is the deadline and offer it.")
+        ws = dict()
+        for p in products:
+            for w in set(re.findall(r"[a-z]{3,}", str(p.get("name")).lower())) - set(["and", "the", "for"]):
+                ws.setdefault(w, []).append(str(p.get("name")))
+        amb = ["'" + w + "': " + " or ".join(v) for w, v in sorted(ws.items()) if len(v) > 1]
+        if amb:
+            ap("Ambiguous names (" + "; ".join(amb) + "): if the customer uses only that word, ask which one.")
         return "\n".join(lines)
     except Exception:
         return "The account facts could not be prepared."
