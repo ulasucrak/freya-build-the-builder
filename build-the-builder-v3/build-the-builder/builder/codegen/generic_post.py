@@ -15,7 +15,9 @@
 #    text never reaches the model.
 #  * spoken forms: a sibling '<field>_spoken' for every date (dd.MM.yyyy, yyyy-MM-dd, ISO date-time) and for every
 #    amount (a number in a block or field named after a currency, next to a currency field, or in a field named
-#    like an amount), in number words + currency words of the call language. Missing or null values get nothing.
+#    like an amount), in number words + currency words of the call language. Missing or null values get nothing
+#    (no zeros are invented), and neither does a zero amount. Counts, ids, codes and calendar numbers are no amounts.
+#    On success with spoken forms, what_to_do_next tells the model to use them.
 LANG_PLACEHOLDER = "CALL_LANGUAGE_HERE"
 result = extra
 gp_lang = ""
@@ -49,7 +51,7 @@ NOT_MONEY = set(("count cnt number no num nr id ids week weeks day days month mo
 # name parts (prefixes) that make a number an amount even with no currency nearby
 MONEY_PARTS = ("amount", "amt", "balance", "debt", "total", "minimum", "payment", "expense", "spending", "price",
                "fee", "cost", "sum", "limit", "due", "owed", "outstanding", "principal", "charge", "installment",
-               "instalment", "overdue", "arrears", "tutar", "borc", "borç", "bakiye", "toplam", "odeme", "ödeme",
+               "overdue", "arrears", "tutar", "borc", "borç", "bakiye", "toplam", "odeme", "ödeme",
                "ucret", "ücret", "fiyat")
 CODE_KEYS = ("returnCode", "resultCode", "errorCode", "statusCode")
 DATE_RX = re.compile(r"(?:(\d{1,2})\.(\d{1,2})\.(\d{4})|(\d{4})-(\d{2})-(\d{2}))(?:[T ](\d{1,2}):(\d{2})(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$")
