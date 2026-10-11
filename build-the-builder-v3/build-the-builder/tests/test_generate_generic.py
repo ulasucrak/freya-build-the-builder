@@ -356,3 +356,10 @@ class GenericTriggerLineTest(unittest.TestCase):
         t = {"name": "x", "detect": "Asks for a person", "action": "transfer", "queue": "Agent", "say": "Bir an.",
              "notes": []}
         self.assertEqual(G._trigger_line(t), 'Asks for a person -> transfer Agent: say "Bir an."')
+
+
+class GenericDatedRulesLineTest(unittest.TestCase):
+    def test_line_only_with_dated_rule_tags(self):
+        self.assertIn("most recent document wins", G.GENERIC_DATED_RULES_LINE)
+        src = (pathlib.Path(G.__file__)).read_text()
+        self.assertIn("GENERIC_DATED_RULES_LINE if any(", src)

@@ -1904,6 +1904,14 @@ def _trigger_line(t):
                              (" (how: %s)" % " ".join(notes)) if notes else "")
 
 
+# The documents of a case are written at different times and disagree; rule tags carry the document's date.
+GENERIC_DATED_RULES_LINE = (
+    "(The rules come from documents written at different times; a tag starting with a date names the document's date."
+    " Where rules disagree, the most recent document wins: a later decision (mail, meeting, newer analysis) replaces"
+    " what an older document says, even though the older rule is still listed. Rules quoting example calls show the"
+    " behaviour; their names, amounts and dates belong to those examples only: always use the tool results.)")
+
+
 def generic_system_prompt(p, language, tool_lines):
     now_var = p["clock"]["now_variable"]
     var_lines = ["%s = {{%s}}%s" % (v["name"], v["name"], (" (" + v["meaning"] + ")") if v["meaning"] else "") for v in p["variables"]]
@@ -1927,6 +1935,7 @@ def generic_system_prompt(p, language, tool_lines):
         _bul(tool_lines),
         "",
         "The rules:",
+        GENERIC_DATED_RULES_LINE if any(re.search(r"\d{4}-\d{2}-\d{2}", str(r.get("id") or "")) for r in shown) else "",
         _bul(rule_lines) if rule_lines else "- (none given)",
         ("\nSituations and what to do:\n" + triggers) if triggers else "",
         ("\nFixed phrases (in %s, word for word where they apply):\n" % language + phrases) if phrases else "",
