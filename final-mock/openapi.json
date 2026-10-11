@@ -28,11 +28,11 @@
                 "properties": {
                   "data": {
                     "type": "object",
-                    "description": "Service fields: customerNo (string, required): Customer number the phone menu hands over with the call, e.g. \"90000001\". Sent as a string or a number, both accepted; aiFlow (string, optional): Use case asking; always \"CardOps\" for the statement/debt flow (not validated in test).",
+                    "description": "Service fields: customerNo (string, required): Customer number of the caller: always the call variable customerNumber (handed over by the phone menu). Never ask the caller for it and never use any other number. Sent as a string; aiFlow (string, optional): Use case asking; always \"CardOps\" for the statement/debt flow (not validated in test).",
                     "properties": {
                       "customerNo": {
                         "type": "string",
-                        "description": "Customer number the phone menu hands over with the call, e.g. \"90000001\". Sent as a string or a number, both accepted."
+                        "description": "Customer number of the caller: always the call variable customerNumber (handed over by the phone menu). Never ask the caller for it and never use any other number. Sent as a string."
                       },
                       "aiFlow": {
                         "type": "string",
@@ -86,7 +86,7 @@
                             "properties": {
                               "cardNumber": {
                                 "type": "string",
-                                "description": "Card number to send to the other services exactly as given (masked first 6 + last 4 in the test environment)."
+                                "description": "Card number to send to the other services: send it back exactly as returned here (masked first 6 + last 4 in the test environment)."
                               },
                               "cardNumberLast4": {
                                 "type": "string",
@@ -379,11 +379,11 @@
                 "properties": {
                   "data": {
                     "type": "object",
-                    "description": "Service fields: cardNumber (string, required): Card number exactly as cards_list returned it in cards[].cardNumber (masked in the test environment, e.g. \"540000******1234\"). Never rebuilt from digits the caller says.",
+                    "description": "Service fields: cardNumber (string, required): Card number exactly as cards_list returned it in cards[].cardNumber: send it back exactly as returned (it is masked in the test environment). Never rebuilt from digits the caller says.",
                     "properties": {
                       "cardNumber": {
                         "type": "string",
-                        "description": "Card number exactly as cards_list returned it in cards[].cardNumber (masked in the test environment, e.g. \"540000******1234\"). Never rebuilt from digits the caller says."
+                        "description": "Card number exactly as cards_list returned it in cards[].cardNumber: send it back exactly as returned (it is masked in the test environment). Never rebuilt from digits the caller says."
                       }
                     },
                     "required": [
@@ -423,7 +423,7 @@
                       "properties": {
                         "cardNumber": {
                           "type": "string",
-                          "description": "Card number masked as first 4 + last 4 (e.g. 5400********1234); not the cards_list format."
+                          "description": "Card number masked as first 4 + last 4; not the cards_list format."
                         },
                         "cardNumberLast4": {
                           "type": "string",
@@ -946,11 +946,11 @@
                 "properties": {
                   "data": {
                     "type": "object",
-                    "description": "Service fields: cardNumber (string, required): Card number exactly as cards_list returned it in cards[].cardNumber (masked in the test environment, e.g. \"540000******1234\"). Never rebuilt from digits the caller says.",
+                    "description": "Service fields: cardNumber (string, required): Card number exactly as cards_list returned it in cards[].cardNumber: send it back exactly as returned (it is masked in the test environment). Never rebuilt from digits the caller says.",
                     "properties": {
                       "cardNumber": {
                         "type": "string",
-                        "description": "Card number exactly as cards_list returned it in cards[].cardNumber (masked in the test environment, e.g. \"540000******1234\"). Never rebuilt from digits the caller says."
+                        "description": "Card number exactly as cards_list returned it in cards[].cardNumber: send it back exactly as returned (it is masked in the test environment). Never rebuilt from digits the caller says."
                       }
                     },
                     "required": [
@@ -1300,11 +1300,11 @@
                 "properties": {
                   "data": {
                     "type": "object",
-                    "description": "Service fields: cardNumber (string, required): Card number exactly as cards_list returned it in cards[].cardNumber (masked in the test environment, e.g. \"540000******1234\"). Never rebuilt from digits the caller says; newStatementWeek (integer, required): Requested statement week, 1 to 4 (week of the month the statement is cut). Number or string accepted. Must differ from the card's current statementWeek; statementDay (integer, required): The card's current statementDay from statement_week_get (required by the request model; the bank recalculates the day itself).",
+                    "description": "Service fields: cardNumber (string, required): Card number exactly as cards_list returned it in cards[].cardNumber: send it back exactly as returned (it is masked in the test environment). Never rebuilt from digits the caller says; newStatementWeek (integer, required): Requested statement week, 1 to 4 (week of the month the statement is cut). Number or string accepted. Must differ from the card's current statementWeek; statementDay (integer, required): The card's current statementDay from statement_week_get (required by the request model; the bank recalculates the day itself).",
                     "properties": {
                       "cardNumber": {
                         "type": "string",
-                        "description": "Card number exactly as cards_list returned it in cards[].cardNumber (masked in the test environment, e.g. \"540000******1234\"). Never rebuilt from digits the caller says."
+                        "description": "Card number exactly as cards_list returned it in cards[].cardNumber: send it back exactly as returned (it is masked in the test environment). Never rebuilt from digits the caller says."
                       },
                       "newStatementWeek": {
                         "type": "integer",
@@ -1573,11 +1573,11 @@
                 "properties": {
                   "data": {
                     "type": "object",
-                    "description": "Service fields: cardNumber (string, required): Card number exactly as cards_list returned it in cards[].cardNumber (masked in the test environment, e.g. \"540000******1234\"). Never rebuilt from digits the caller says; newStatementWeek (integer, required): Requested statement week, 1 to 4 (week of the month the statement is cut). Number or string accepted. Must differ from the card's current statementWeek; statementDay (integer, required): The card's current statementDay from statement_week_get (required by the request model; the bank recalculates the day itself).",
+                    "description": "Service fields: cardNumber (string, required): Card number exactly as cards_list returned it in cards[].cardNumber: send it back exactly as returned (it is masked in the test environment). Never rebuilt from digits the caller says; newStatementWeek (integer, required): Requested statement week, 1 to 4 (week of the month the statement is cut). Number or string accepted. Must differ from the card's current statementWeek; statementDay (integer, required): The card's current statementDay from statement_week_get (required by the request model; the bank recalculates the day itself).",
                     "properties": {
                       "cardNumber": {
                         "type": "string",
-                        "description": "Card number exactly as cards_list returned it in cards[].cardNumber (masked in the test environment, e.g. \"540000******1234\"). Never rebuilt from digits the caller says."
+                        "description": "Card number exactly as cards_list returned it in cards[].cardNumber: send it back exactly as returned (it is masked in the test environment). Never rebuilt from digits the caller says."
                       },
                       "newStatementWeek": {
                         "type": "integer",
@@ -1852,11 +1852,11 @@
                 "properties": {
                   "data": {
                     "type": "object",
-                    "description": "Service fields: customerNo (string, required): Customer number the phone menu hands over with the call, e.g. \"90000001\". Sent as a string or a number, both accepted; intAddressInfoType (string, required): What to fetch: E e-mail, P phone, B both. Required (empty gives 400); the test environment answers the same for all three. Send E to get the e-mail.",
+                    "description": "Service fields: customerNo (string, required): Customer number of the caller: always the call variable customerNumber (handed over by the phone menu). Never ask the caller for it and never use any other number. Sent as a string; intAddressInfoType (string, required): What to fetch: E e-mail, P phone, B both. Required (empty gives 400); the test environment answers the same for all three. Send E to get the e-mail.",
                     "properties": {
                       "customerNo": {
                         "type": "string",
-                        "description": "Customer number the phone menu hands over with the call, e.g. \"90000001\". Sent as a string or a number, both accepted."
+                        "description": "Customer number of the caller: always the call variable customerNumber (handed over by the phone menu). Never ask the caller for it and never use any other number. Sent as a string."
                       },
                       "intAddressInfoType": {
                         "type": "string",
@@ -2136,15 +2136,15 @@
                 "properties": {
                   "data": {
                     "type": "object",
-                    "description": "Service fields: customerNo (string, required): Customer number the phone menu hands over with the call, e.g. \"90000001\". Sent as a string or a number, both accepted; cardNumber (string, required): Card number exactly as cards_list returned it in cards[].cardNumber (masked in the test environment, e.g. \"540000******1234\"). Never rebuilt from digits the caller says; currencyType (string, required): Currency of the statement: TL, USD, EUR or GBP; statementDate (string, required): The statementDate from cards_balance (the issued statement). Date as dd.MM.yyyy, e.g. 05.11.2026; emailAddress (string, required): E-mail address to send the PDF to.",
+                    "description": "Service fields: customerNo (string, required): Customer number of the caller: always the call variable customerNumber (handed over by the phone menu). Never ask the caller for it and never use any other number. Sent as a string; cardNumber (string, required): Card number exactly as cards_list returned it in cards[].cardNumber: send it back exactly as returned (it is masked in the test environment). Never rebuilt from digits the caller says; currencyType (string, required): Currency of the statement: TL, USD, EUR or GBP; statementDate (string, required): The statementDate from cards_balance (the issued statement). Date as dd.MM.yyyy, e.g. 05.11.2026; emailAddress (string, required): E-mail address to send the PDF to.",
                     "properties": {
                       "customerNo": {
                         "type": "string",
-                        "description": "Customer number the phone menu hands over with the call, e.g. \"90000001\". Sent as a string or a number, both accepted."
+                        "description": "Customer number of the caller: always the call variable customerNumber (handed over by the phone menu). Never ask the caller for it and never use any other number. Sent as a string."
                       },
                       "cardNumber": {
                         "type": "string",
-                        "description": "Card number exactly as cards_list returned it in cards[].cardNumber (masked in the test environment, e.g. \"540000******1234\"). Never rebuilt from digits the caller says."
+                        "description": "Card number exactly as cards_list returned it in cards[].cardNumber: send it back exactly as returned (it is masked in the test environment). Never rebuilt from digits the caller says."
                       },
                       "currencyType": {
                         "type": "string",

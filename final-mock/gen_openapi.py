@@ -100,8 +100,8 @@ def op(op_id, summary, description, req_props, required, resp_props, ok_desc, er
     }}
 
 
-CUSTOMER_NO = S("Customer number the phone menu hands over with the call, e.g. \"90000001\". Sent as a string or a number, both accepted.")
-CARD_IN = S("Card number exactly as cards_list returned it in cards[].cardNumber (masked in the test environment, e.g. \"540000******1234\"). Never rebuilt from digits the caller says.")
+CUSTOMER_NO = S("Customer number of the caller: always the call variable customerNumber (handed over by the phone menu). Never ask the caller for it and never use any other number. Sent as a string.")
+CARD_IN = S("Card number exactly as cards_list returned it in cards[].cardNumber: send it back exactly as returned (it is masked in the test environment). Never rebuilt from digits the caller says.")
 WEEK_IN = I("Requested statement week, 1 to 4 (week of the month the statement is cut). Number or string accepted. Must differ from the card's current statementWeek.", minimum=1, maximum=4)
 DAY_IN = I("The card's current statementDay from statement_week_get (required by the request model; the bank recalculates the day itself).")
 
@@ -131,7 +131,7 @@ paths["/voice/v1/cards.list"] = op(
     ["customerNo"],
     {
         "cards": {"type": "array", "description": "The customer's cards.", "items": {"type": "object", "properties": {
-            "cardNumber": S("Card number to send to the other services exactly as given (masked first 6 + last 4 in the test environment)."),
+            "cardNumber": S("Card number to send to the other services: send it back exactly as returned here (masked first 6 + last 4 in the test environment)."),
             "cardNumberLast4": S("Last four digits of the card; not unique across the customer's cards."),
             "productName": S("Card product name, free text from the card system (can be empty)."),
             "status": S("Card status; always A (active) in this list.", enum=["A"]),
@@ -152,7 +152,7 @@ paths["/voice/v1/cards.balance"] = op(
     {"cardNumber": CARD_IN},
     ["cardNumber"],
     {
-        "cardNumber": S("Card number masked as first 4 + last 4 (e.g. 5400********1234); not the cards_list format."),
+        "cardNumber": S("Card number masked as first 4 + last 4; not the cards_list format."),
         "cardNumberLast4": S("Last four digits of the card."),
         "productName": S("Card product name."),
         "statementDate": S("Date of the last issued statement. " + DATE),
