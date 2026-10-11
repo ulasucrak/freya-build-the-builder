@@ -9,13 +9,21 @@ af = nm("verify_answer", "answer")
 field = str(body.get(ff) or "")
 vset(vs, "w_last_verify_field", field)
 q = None
-for x in (RT.get("identity") or dict()).get("questions") or []:
+qs = (RT.get("identity") or dict()).get("questions") or []
+for x in qs:
     if str(x.get("tool_field")) == field:
         q = x
+# fields already answered correctly, from one mark per field (parallel calls of one message each write their own)
+rest = [str(x.get("tool_field")) for x in qs if str(vget(vs, key_of("w_id_ok_", x.get("tool_field")))) != "yes"]
 info = None
 if id_state_of(vs) == "failed":
     info = dict(code="check-over", message="The identity check is already over (no attempts left).",
                 next="Do not ask again. Follow the rule for a failed identity check and close the call.")
+elif q is not None and qs and not rest:
+    # every question already answered correctly (e.g. in parallel calls whose bank answers omitted all_verified)
+    vset(vs, "w_id_state", "verified")
+    info = dict(code="already-correct", message="Every security answer was already checked and is correct.",
+                next="Do not ask again. The customer is verified.")
 elif q is not None and af in body:
     ans = str(body.get(af) or "").strip()
     pkey = key_of("w_id_part_", field)
