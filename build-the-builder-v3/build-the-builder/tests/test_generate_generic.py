@@ -286,5 +286,35 @@ class GenericOnTheRepoMockTest(unittest.TestCase):
                 self.assertLess(len(t[hk]), 23000)
 
 
+class GenericHeadersTest(unittest.TestCase):
+    """Accept is always sent; declared header parameters and a bearer scheme become headers from matching call variables."""
+
+    def test_headers(self):
+        oa = copy.deepcopy(OPENAPI)
+        oa["components"]["securitySchemes"] = {"bt": {"type": "http", "scheme": "bearer"}}
+        oa["security"] = [{"bt": []}]
+        oa["paths"]["/orders.list"]["post"]["parameters"] = [{"name": "X-Session-Id", "in": "header"},
+                                                              {"name": "X-Other", "in": "header"}]
+        p = copy.deepcopy(POLICY)
+        p["variables"] += [{"name": "sessionId"}, {"name": "accessToken"}]
+        wf = G.generate_workflow(p, None, oa)
+        tools = {t["function"]["name"]: t for t in wf["nodes"]["assistant"]["tools"]}
+        h = tools["orders_list"]["function"]["parameters"]["properties"]["headers"]["properties"]
+        self.assertEqual(h["Accept"]["default"], "application/json")
+        self.assertEqual(h["X-Session-Id"]["default"], "{{sessionId}}")
+        self.assertNotIn("X-Other", h)
+        self.assertEqual(h["Authorization"]["default"], "Bearer {{accessToken}}")
+        h2 = self.tools_without_token()
+        self.assertNotIn("Authorization", h2)
+        self.assertIn("Accept", h2)
+
+    def tools_without_token(self):
+        oa = copy.deepcopy(OPENAPI)
+        oa["components"]["securitySchemes"] = {"bt": {"type": "http", "scheme": "bearer"}}
+        oa["security"] = [{"bt": []}]
+        wf = G.generate_workflow(copy.deepcopy(POLICY), None, oa)
+        return wf["nodes"]["assistant"]["tools"][0]["function"]["parameters"]["properties"]["headers"]["properties"]
+
+
 if __name__ == "__main__":
     unittest.main()

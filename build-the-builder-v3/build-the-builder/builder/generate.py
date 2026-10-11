@@ -1683,6 +1683,28 @@ def _oa_field(spec, schema, required, depth=0):
     return out
 
 
+BEARER_KEYS = (("token",), ("access", "token"), ("auth", "token"), ("bearer", "token"), ("bearer",), ("api", "token"))
+
+
+def _oa_headers(spec, item, op):
+    """{header name: kind} an operation declares: its (and its path's) header parameters ('param'), and the headers
+    its security schemes need ('bearer' for an http bearer scheme, 'param' for an apiKey in a header)."""
+    out = {}
+    for prm in list(item.get("parameters") or []) + list(op.get("parameters") or []):
+        prm = _oa_resolve(spec, prm)
+        if prm.get("in") == "header" and prm.get("name") and prm["name"].lower() not in ("content-type", "accept"):
+            out[prm["name"]] = "param"
+    schemes = ((spec.get("components") or {}).get("securitySchemes") or {})
+    for req in (op.get("security") if op.get("security") is not None else spec.get("security")) or []:
+        for sname in (req or {}) if isinstance(req, dict) else ():
+            sc = _oa_resolve(spec, schemes.get(sname) or {})
+            if sc.get("type") == "http" and str(sc.get("scheme") or "").lower() == "bearer":
+                out.setdefault("Authorization", "bearer")
+            elif sc.get("type") == "apiKey" and sc.get("in") == "header" and sc.get("name"):
+                out.setdefault(sc["name"], "param")
+    return out
+
+
 def generic_operations(p, openapi=None):
     """[{name, url, method, summary, description, fields}] for every operation: from the openapi (nested request
     schemas kept), else from the policy's tools (those with a URL)."""
@@ -1701,7 +1723,8 @@ def generic_operations(p, openapi=None):
                 notes = (p["tools"].get(name) or {}).get("notes") or ""
                 ops.append({"name": name, "url": base.rstrip("/") + path, "method": method.upper(),
                             "summary": op.get("summary") or "", "description": op.get("description") or notes,
-                            "fields": _oa_field(openapi, schema, True).get("properties") or {}})
+                            "fields": _oa_field(openapi, schema, True).get("properties") or {},
+                            "headers": _oa_headers(openapi, item, op)})
         return ops
     for name, t in p["tools"].items():
         try:
@@ -1811,6 +1834,18 @@ def generic_tool(p, op, name, description, call_keys, post_src, rt_post, opts):
         props[flat] = leaf
         paths[flat] = [list(path), s.get("type") or "string"]
     env = {"paths": paths, "objects": list(_objects(op["fields"]))}
+    headers = {"Content-Type": {"type": "string", "default": "application/json"},
+               "Accept": {"type": "string", "default": "application/json"}}
+    for h, kind in (op.get("headers") or {}).items():     # declared headers: only from a matching call variable
+        if kind == "bearer":
+            var = next((call_keys[k] for k in BEARER_KEYS if k in call_keys), None)
+            if var:
+                headers[h] = {"type": "string", "default": "Bearer {{" + var + "}}"}
+        else:
+            k = name_key(h)
+            var = call_keys.get(k) or (call_keys.get(k[1:]) if k[:1] == ("x",) else None)    # X-Session-Id ~ sessionId
+            if var:
+                headers[h] = {"type": "string", "default": "{{" + var + "}}"}
     tool = {
         "type": "function",
         "config": {"timeoutMs": GENERIC_TIMEOUT_MS, "maxRetries": 0},   # a retry may repeat a side effect or double the wait
@@ -1819,7 +1854,7 @@ def generic_tool(p, op, name, description, call_keys, post_src, rt_post, opts):
             "parameters": {"type": "object", "properties": {
                 "url": {"type": "string", "default": op["url"]},
                 "method": {"type": "string", "default": op["method"]},
-                "headers": {"type": "object", "properties": {"Content-Type": {"type": "string", "default": "application/json"}}},
+                "headers": {"type": "object", "properties": headers},
                 "body": {"type": "object", "properties": props, "required": required},
             }},
         },
