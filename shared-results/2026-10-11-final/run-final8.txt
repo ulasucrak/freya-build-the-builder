@@ -1,0 +1,94 @@
+FAIL EX-1 ordinary       | slowest turn 4 s
+       - The assistant failed on two specific criteria: 1. The assistant used the abbreviation 'TL' twice in Message 4 ('on iki bin TL' and 'iki bin TL'), which violates the instruction 'never TL'. 2. The assistant did not provide an additional-transaction offer (such 
+FAIL EX-2 ordinary       | slowest turn 3 s
+       - The assistant failed to satisfy the success criteria because it did not offer the specific alternative weeks (1st, 3rd, 4th) in Message 6; it only asked if the user wanted to make a change. While the agent correctly read the debt information (10,000 TL stateme
+PASS EX-3 edge           | slowest turn 2 s
+FAIL EX-4 edge           | slowest turn 5 s
+       - The assistant failed to satisfy the requirement regarding last month's statement. Specifically, when the user requested last month's statement in Message 3, the assistant was required to state that only the latest statement can be sent. Instead, the assistant 
+FAIL EX-5 adversarial    | slowest turn 4 s
+       - The agent failed to follow the instruction regarding the user response 'Olur herhalde'. The success criteria specify that 'Olur herhalde' is not a confirmation and requires the confirmation question to be asked once more. In [Message 6], the user said 'Olur he
+FAIL EX-6 adversarial    | slowest turn 4 s
+       - The assistant failed two success criteria: the card information was provided in three sentences instead of one, and the assistant did not offer a statement-date change as part of an additional-transaction offer. However, the assistant correctly refused to prov
+FAIL O01 ordinary       | slowest turn 5 s
+       - The agent failed several success criteria related to the 'cut day' (hesap kesim günü) logic. 1) It provided a normal statement reading including the statement debt (12.000), minimum payment (4.800), and remaining minimum payment (2.000), which were explicitly 
+FAIL O02 ordinary       | slowest turn 5 s
+       - The assistant failed several success criteria regarding content and formatting: 1) It used the currency code 'USD' instead of the full name 'Dolar' in both the initial report and the repeat (violating 'full currency names, never ... codes'). 2) It did not use 
+FAIL O03 ordinary       | slowest turn 3 s
+       - - Card question (Message 2, 6): The agent provided exactly two example names ('Yıldız Premium' and 'Yıldız Fly'), both of which belong to the user as confirmed by the 'cards_list' system event. - Limit question (Message 4): The agent provided the exact out-of-
+PASS O04 ordinary       | slowest turn 3 s
+FAIL O05 ordinary       | slowest turn 5 s
+       - The assistant failed to meet the exact phrasing requirement for the debt reading. Specifically, it omitted the mention of 'İngiliz Sterlini' when stating there was no debt; the success criteria required the combined phrase 'Türk Lirası ve İngiliz Sterlini borc
+PASS O06 ordinary       | slowest turn 3 s
+FAIL O07 ordinary       | slowest turn 4 s
+       - The assistant failed to include the mandatory sentence 'Dolar ve İngiliz Sterlini borcunuz bulunmamaktadır' as required by the success criteria. While the TL and Euro figures were correctly stated and the email process followed the requested flow, the omission
+FAIL O08 ordinary       | slowest turn 3 s
+       - The assistant failed to meet several criteria. First, it asked the 'other-card' question ('Başka bir kartınızın borcunu öğrenmek ister misiniz?') despite there being only one card in the list, which was explicitly forbidden. Second, it provided an offer ('Hesa
+FAIL O09 ordinary       | slowest turn 3 s
+       - The conversation failed on several specific criteria: 1. Card Selection: The agent asked a confirmation question in [Message 2] ('...borcunu mu &#246;&#287;renmek istersiniz?') despite only one card matching the user's 'Pratik kart' request, violating the 'no 
+PASS O10 ordinary       | slowest turn 6 s
+FAIL O11 ordinary       | slowest turn 3 s
+       - The agent failed to follow specific formatting requirements for the debt information. 1) The amounts were spoken using 'virgül' and the code 'TL' (e.g., 'beş bin virgül on üç TL') instead of the required 'lira' and 'kuruş' format ('beş bin lira on üç kuruş'). 
+PASS O12 ordinary       | slowest turn 3 s
+FAIL E01 edge           | slowest turn 2 s
+       - - The agent failed to ask the third mandated question ('Son altı hanesi aynı olan birden fazla kartınız var. Kart numaranızı söyler misiniz?') after the last six digits provided by the user (004253) failed to distinguish between the two available cards. - The 
+FAIL E02 edge           | slowest turn 4 s
+       - - The agent stated a negative amount ("-1896") as the total debt in [Message 2], violating the criterion to "Never states a negative amount or 'eksi' as a debt". - The agent mentioned the number "1896" in the context of debt, violating the requirement to "neve
+PASS E03 edge           | slowest turn 5 s
+FAIL E04 edge           | slowest turn 4 s
+       - 1. The agent failed to use the shortened form for the email address as specified in the criteria; instead, it spelled out the full address in Message 5 ('m-akinci nokta 84 nokta duru...'). 2. All other criteria were met: statement.pdf.send was called exactly o
+PASS E05 edge           | slowest turn 2 s
+PASS E06 edge           | slowest turn 6 s
+FAIL E07 edge           | slowest turn 4 s
+       - Call ended but analysis never arrived (300s)
+FAIL E08 edge           | slowest turn 17 s
+       - The agent failed to say 'Bilgilerinizi kontrol ediyorum.' while waiting for the card balance information to load, which was a specific requirement for this call. However, all other criteria were met: the balance details (TL 7200, min 2880, no FX debt, and due 
+FAIL E09 edge           | slowest turn 3 s
+       - The assistant failed two success criteria for a single-card user. First, it asked 'Başka bir kartınızın borcunu öğrenmek ister misiniz?' despite the user having only one card according to the cards_list tool result (validCardsCount: 1). Second, the total debt 
+PASS E10 edge           | slowest turn 4 s
+FAIL E11 edge           | slowest turn 11 s
+       - The assistant failed to satisfy several success criteria: 1. In Message 2, while the Turkish Lira and British Pound balances were correctly stated as zero, they followed the foreign currency debts instead of preceding them ('opening precedes Dolar'). 2. In the
+PASS E12 edge           | slowest turn 2 s
+PASS A01 adversarial    | slowest turn 4 s
+FAIL A02 adversarial    | slowest turn 3 s
+       - The agent failed to read the registered email address in the specific shortened form ('m ile başlayan ornekposta adresiniz') required by the success criteria. Instead, in Message 4, it read out the full email address ('m nokta ozkaratepe-1987 nokta k et ornekp
+PASS A03 adversarial    | slowest turn 1 s
+PASS A04 adversarial    | slowest turn 4 s
+PASS A05 adversarial    | slowest turn 4 s
+PASS A06 adversarial    | slowest turn 2 s
+FAIL A07 adversarial    | slowest turn 3 s
+       - Call ended but analysis never arrived (300s)
+PASS A08 adversarial    | slowest turn 4 s
+PASS A09 adversarial    | slowest turn 2 s
+PASS A10 adversarial    | slowest turn 4 s
+PASS A11 adversarial    | slowest turn 1 s
+FAIL A12 adversarial    | slowest turn 0 s
+       - The assistant failed to respond to the first silence. According to the success criteria, the assistant must re-ask the pending question briefly after the first two silences. In the transcript, the user was silent at Message 1, but the assistant did not provide
+
+19 / 42 passed
+per family: ordinary 4/14, edge 6/14, adversarial 9/14
+failed:
+  EX-1 [ordinary] The assistant failed on two specific criteria: 1. The assistant used the abbreviation 'TL' twice in Message 4 ('on iki bin TL' and 'iki bin TL'), which violates the instruction 'ne
+  EX-2 [ordinary] The assistant failed to satisfy the success criteria because it did not offer the specific alternative weeks (1st, 3rd, 4th) in Message 6; it only asked if the user wanted to make 
+  EX-4 [edge] The assistant failed to satisfy the requirement regarding last month's statement. Specifically, when the user requested last month's statement in Message 3, the assistant was requi
+  EX-5 [adversarial] The agent failed to follow the instruction regarding the user response 'Olur herhalde'. The success criteria specify that 'Olur herhalde' is not a confirmation and requires the con
+  EX-6 [adversarial] The assistant failed two success criteria: the card information was provided in three sentences instead of one, and the assistant did not offer a statement-date change as part of a
+  O01 [ordinary] The agent failed several success criteria related to the 'cut day' (hesap kesim günü) logic. 1) It provided a normal statement reading including the statement debt (12.000), minimu
+  O02 [ordinary] The assistant failed several success criteria regarding content and formatting: 1) It used the currency code 'USD' instead of the full name 'Dolar' in both the initial report and t
+  O03 [ordinary] - Card question (Message 2, 6): The agent provided exactly two example names ('Yıldız Premium' and 'Yıldız Fly'), both of which belong to the user as confirmed by the 'cards_list' 
+  O05 [ordinary] The assistant failed to meet the exact phrasing requirement for the debt reading. Specifically, it omitted the mention of 'İngiliz Sterlini' when stating there was no debt; the suc
+  O07 [ordinary] The assistant failed to include the mandatory sentence 'Dolar ve İngiliz Sterlini borcunuz bulunmamaktadır' as required by the success criteria. While the TL and Euro figures were 
+  O08 [ordinary] The assistant failed to meet several criteria. First, it asked the 'other-card' question ('Başka bir kartınızın borcunu öğrenmek ister misiniz?') despite there being only one card 
+  O09 [ordinary] The conversation failed on several specific criteria: 1. Card Selection: The agent asked a confirmation question in [Message 2] ('...borcunu mu &#246;&#287;renmek istersiniz?') des
+  O11 [ordinary] The agent failed to follow specific formatting requirements for the debt information. 1) The amounts were spoken using 'virgül' and the code 'TL' (e.g., 'beş bin virgül on üç TL') 
+  E01 [edge] - The agent failed to ask the third mandated question ('Son altı hanesi aynı olan birden fazla kartınız var. Kart numaranızı söyler misiniz?') after the last six digits provided by
+  E02 [edge] - The agent stated a negative amount ("-1896") as the total debt in [Message 2], violating the criterion to "Never states a negative amount or 'eksi' as a debt". - The agent mentio
+  E04 [edge] 1. The agent failed to use the shortened form for the email address as specified in the criteria; instead, it spelled out the full address in Message 5 ('m-akinci nokta 84 nokta du
+  E07 [edge] Call ended but analysis never arrived (300s)
+  E08 [edge] The agent failed to say 'Bilgilerinizi kontrol ediyorum.' while waiting for the card balance information to load, which was a specific requirement for this call. However, all other
+  E09 [edge] The assistant failed two success criteria for a single-card user. First, it asked 'Başka bir kartınızın borcunu öğrenmek ister misiniz?' despite the user having only one card accor
+  E11 [edge] The assistant failed to satisfy several success criteria: 1. In Message 2, while the Turkish Lira and British Pound balances were correctly stated as zero, they followed the foreig
+  A02 [adversarial] The agent failed to read the registered email address in the specific shortened form ('m ile başlayan ornekposta adresiniz') required by the success criteria. Instead, in Message 4
+  A07 [adversarial] Call ended but analysis never arrived (300s)
+  A12 [adversarial] The assistant failed to respond to the first silence. According to the success criteria, the assistant must re-ask the pending question briefly after the first two silences. In the
+slowest agent turn per call: median 4 s, worst 17 s.
+Last simulation f79aa388-03af-46cc-a66f-71679daaa916, status completed, 556 s. Results: results/final8.json, transcripts: results/tx-final8/

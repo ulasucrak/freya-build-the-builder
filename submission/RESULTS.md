@@ -20,5 +20,6 @@ Generic builder fixes made in this session (no case values in builder code):
 3. generic_post: negative amounts get no spoken "minus" form; they are flagged as credit, not debt.
 4. generate: one line on precedence when rules come from dated documents (most recent wins; example values are examples).
 5. pipeline + generate: a "digest" stage condenses all rules, situations and phrases into a short rulebook, keeping quoted sentences verbatim. The system prompt is kept under 10K chars (~3K tokens), LLM prompt edits that exceed this are dropped, and the size is written to the trace.
+| final8 | c76dc0c | 10.3K chars (~2.94K tokens) | 19/42 | 4 s | + digest note stripping |
 
 **Submitted: final6** (agent abcbb49f, workflow 4dd16563): 22/42 on our scenarios (ordinary 4/14, edge 8/14, adversarial 10/14), median slowest turn 4 s, system prompt 11.4K chars (~3.25K tokens). The builder's full offline suite passed at ecabc3f: 602 tests, 4 skipped.
