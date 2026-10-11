@@ -7,7 +7,7 @@
   },
   "servers": [
     {
-      "url": "https://freya-statement-mock.REPLACE.workers.dev"
+      "url": "https://freya-statement-mock.ulasucrak.workers.dev"
     }
   ],
   "paths": {
