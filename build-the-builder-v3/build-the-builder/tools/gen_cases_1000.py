@@ -80,13 +80,12 @@ def date_phrases(t, d):
     return out
 
 def amount_phrases(x, tail=""):
-    """Ways a customer says amount x followed by tail: (text, kind). Words and pieces only for whole amounts."""
+    """Ways a customer says amount x followed by tail: (text, kind). Words only for whole amounts. No scripted pieces:
+    a first piece can itself be a valid amount, and the persona rule says a number is never stopped halfway
+    (the 'pieces' style covers that way of talking)."""
     out = [(money(x) + tail, "digits")]
     if x == int(x):
         out.append((words(x) + tail, "words"))
-        if x >= 100 and x % 100 != 0:
-            hundreds = int(x) // 100 * 100
-            out.append((f"'{words(hundreds)}...' and stops; when the agent asks, adds 'and {words(int(x) - hundreds)}{tail}'", "pieces"))
     return out
 
 def dob_words(y, m, d): return f"{d} {MONTHS[m - 1]} {y}"
@@ -240,7 +239,7 @@ def a_templates(b, t):
             ["one sentence of sympathy", "no persuasion attempt", "transfer to support"], False)
     for amt, _ in partial_amounts(p)[:2]:
         d = ok[min(2, len(ok) - 1)]
-        add("Hardship", f"own-offer-{money(amt)}", f"{VERIFY} Says {{he}} lost {{his}} job. Declines the offer of help from the support team. Then says {{he}} can still pay {money(amt)} {date_phrases(t, d)[0][0]}. {Y}",
+        add("Hardship", f"own-offer-{money(amt)}", f"{VERIFY} Says {{he}} lost {{his}} job. When offered help from the support team, declines it and, in the same answer, says {{he}} can still pay {money(amt)} {date_phrases(t, d)[0][0]}. {Y}",
             prom(amt, d), ["one sentence of sympathy", "no persuasion attempt", "the customer's own offer is recorded"], False)
     add("Transfer", "restructure", f"{VERIFY} Asks for a new payment plan with lower instalments. Agrees to be transferred.", E("transferred", "restructuring", transfers=TR("restructuring")),
         ["no plan is described", "transfer to restructuring"], False)
@@ -461,8 +460,8 @@ def b_actions(t, i, p):
     pa = partial_amounts(p)
     amt = pa[1][0] if len(pa) > 1 else pa[0][0]
     out.append(("partial", f"For {name}, says the full amount is not possible but can pay {money(amt)} today.", P(pid, amt, iso(t)), None, f"{name}: {money(amt)} today is accepted"))
-    out.append(("too-much", f"For {name}, says the full amount is too much; accepts the smaller amount the agent offers for it, today.", P(pid, fl, iso(t)), None,
-                f"{name}: the agent offers the floor {money(fl)}"))
+    out.append(("too-much", f"For {name}, says the full amount is too much and, before the agent offers anything, says 'I can only manage the minimum, today'.", P(pid, fl, iso(t)), None,
+                f"{name}: the floor {money(fl)} today is accepted"))
     for bl in below_amounts(p)[:1]:
         out.append(("below", f"For {name}, says only {money(bl)} is possible today; accepts the amount the agent offers instead for it, today.", P(pid, fl, iso(t)), None,
                     f"{name}: {money(bl)} is not accepted, {money(fl)} is offered"))

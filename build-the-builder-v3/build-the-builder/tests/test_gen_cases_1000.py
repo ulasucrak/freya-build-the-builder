@@ -179,6 +179,19 @@ class Expected(unittest.TestCase):
                 self.assertFalse(any(p["date"].endswith("-30") for p in c["expected"]["promises"]), c["id"])
                 self.assertNotIn("30th", c["script"]); self.assertNotIn("thirtieth", c["script"])
 
+    def test_scripts_leave_one_reading(self):
+        """Review fixes: no amount stopped halfway, the floor asked for before any offer, the own offer in the decline turn."""
+        pool = g.pool(7)
+        for c in pool:
+            if c["family"] in ("Partial", "Below floor", "Pay full"): self.assertNotIn("and stops", c["script"], c["_key"])
+            if c["family"] == "Multi-product mix" and "too-much" in c["_key"].split("+"):
+                self.assertIn("before the agent offers anything, says 'I can only manage the minimum, today'", c["script"])
+                self.assertNotIn("accepts the smaller amount", c["script"])
+            if c["_key"].startswith("own-offer"):
+                self.assertIn("declines it and, in the same answer, says", c["script"])
+        self.assertTrue(any(c["_key"].startswith("own-offer") for c in pool))
+        self.assertTrue(any("too-much" in c["_key"].split("+") for c in pool if c["family"] == "Multi-product mix"))
+
     def test_no_create_promise_once_check_on_faulty_base(self):
         for c in CASES:
             if c["base_id"] in g.FAILS_FIRST: self.assertFalse(any("exactly once" in x for x in c["checks"]), c["id"])
