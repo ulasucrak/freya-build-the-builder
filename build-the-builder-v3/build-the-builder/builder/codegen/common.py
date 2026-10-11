@@ -332,3 +332,58 @@ def close_instruction(outcome, reason):
     if reason:
         t += " and reason '" + str(reason) + "'"
     return t + ", all in the same message."
+
+
+# w_next_action: one line, "<what just happened or the state> - next: <the single next required action>", written by
+# the post-hooks and code nodes from the recorded call state (generic: product ids, counts, outcome names only; never
+# what the customer said). The conversation prompts show it as {{w_next_action}}; '' when nothing specific applies.
+
+def next_action(vs):
+    """(state, action) from the recorded call state; ('', '') when nothing specific applies. Reads no RT section
+    (each one named here would be embedded in every hook that calls it)."""
+    facts = collect_facts(vs)
+    if str(vget(vs, "w_close_done")) == "yes":
+        return "The call is closed", "say nothing more"
+    if facts.get("transfers"):
+        return "Transfer done", "tell the customer a colleague will take over, record nothing else and close_call as the rules say"
+    if facts.get("id_failed"):
+        return "Identity check failed", "say nothing about the account and close_call as the rules say"
+    if facts.get("callback_done") and not facts.get("verified"):
+        return "Callback scheduled", "say when the customer will be called, without saying why, and close_call"
+    if not facts.get("verified"):
+        wrong = int(num(vget(vs, "w_id_wrong", 0)))
+        return ("Identity not verified yet (" + str(len(csv_list(vget(vs, "w_id_done")))) + " answer(s) correct, " + str(wrong) + " wrong)",
+                "ask the next security question as the rules say and call verify_identity with the answer")
+    acc = str(vget(vs, "w_account_state") or "")
+    if acc != "ok":
+        return ("Identity verified", "the account is loaded automatically; then state the debt as in the account facts") if acc == "pending" else ("", "")
+    rest = [str(p.get("id")) for p in remaining_products(vs)]
+    n = len(facts.get("products") or [])
+    if rest:
+        return (str(n - len(rest)) + " of " + str(n) + " products handled; open: " + ", ".join(rest),
+                "for each open product get a clear yes to a read-back and call create_promise, or decide its note reason, as the rules say")
+    todo = [str(p) for p in facts.get("products") or [] if p not in facts.get("promises") and p not in notes_of(vs)] if notes_apply(vs) else []
+    if todo:
+        return "All products handled", "add_note for " + ", ".join(todo) + " (one per message), then close_call"
+    return "All products handled", "ask whether there is anything else, then close_call with the outcome the rules give"
+
+
+def set_action(vs, event="", action=""):
+    """Write w_next_action: `event` replaces the state part, `action` the derived next action."""
+    try:
+        st, act = next_action(vs)
+    except Exception:
+        st, act = "", ""
+    st = event or st
+    act = action or act
+    vset(vs, "w_next_action", (st + " - next: " + act + ".") if act else "")
+
+
+NOTE_TEXT_FIELDS = ("text", "note", "notes", "comment", "comments", "description", "details", "detail", "message",
+                    "remark", "remarks", "summary", "memo", "body", "content")
+
+
+def safe_note_text(reason, reasons):
+    """The only free text a note may carry: a fixed phrase with the reason code when it is one of the tool's reasons."""
+    r = str(reason or "").strip()
+    return ("No promise. Reason: " + r + ".") if r and r in reasons else "No promise."

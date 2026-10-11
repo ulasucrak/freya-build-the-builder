@@ -27,6 +27,7 @@ if todo and rounds < 1:
     vset(vs, "w_wrap_rounds", str(rounds + 1))
     vset(vs, "w_wrap_todo", " ".join(todo) + " When this is done, call close_call again.")
     vset(vs, "w_close_route", "wrap")
+    vset(vs, "w_next_action", "Close requested but not ready - next: " + todo[0])
 else:
     vset(vs, "w_close_route", "finish")
 vset(vs, "w_close_requested", "no")

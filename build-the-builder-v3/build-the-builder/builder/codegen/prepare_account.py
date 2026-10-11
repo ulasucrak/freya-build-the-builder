@@ -24,3 +24,5 @@ vset(vs, "w_notes_rule", ("Decide a note reason for each product without a promi
      "Only at the end, when every product has a promise or a reason, or when the call ends early (a refusal, a customer who will not talk), "
      "call add_note once per such product, one per message, before you say goodbye; then say goodbye and close.")
      if notes_apply(vs) else "Notes are not used for this customer: do not call add_note.")
+vset(vs, "w_next_action", ("Identity verified, account loaded (" + str(len(prods)) + " product(s): " + ", ".join([str(p.get("id")) for p in prods])
+                           + ") - next: state the debt as in the account facts, then handle the products one by one.") if prods else "")

@@ -8,9 +8,11 @@ fail = idn.get("fail") or dict()
 fail_msg = ("The identity check has FAILED: no attempts are left. Ask nothing more and say nothing about the account. "
             + (str(fail.get("say")) + " " if fail.get("say") else "") + "Then "
             + close_instruction(fail.get("outcome"), fail.get("reason")))
+ev, act = "", ""
 if d is None or not isinstance(result, dict) or str(result.get("status") or "success").lower() not in ("success", "ok"):
     set_next(result, "The security check service did not answer, nothing was counted. Say there was a short technical problem, "
              "ask for the same answer again and call verify_identity again.")
+    ev, act = "Security check service did not answer (nothing counted)", "ask for the same answer again and call verify_identity again"
 else:
     okf = nm("verify_ok", "ok")
     allv = truthy(d.get(nm("verify_all", "all_verified")))
@@ -25,9 +27,11 @@ else:
         set_next(result, "Not counted as a wrong answer. The service returned the hint '" + str(hint) + "'. "
                  + (" ".join(rules) if rules else "Ask the customer to give the answer again in a clearer form.")
                  + " Then call verify_identity again with the new answer.")
+        ev, act = "Answer not counted (hint '" + str(hint) + "')", "ask for the answer again as the rules say and call verify_identity again"
     elif okf in d and not truthy(d.get(okf)):
         set_next(result, "The answer could not be read (" + api_error(result) + "). This does not count as a wrong answer. "
                  "Ask the customer to say it again, then call verify_identity again.")
+        ev, act = "Answer could not be read (not counted)", "ask for it again and call verify_identity again"
     elif ver:
         done = csv_list(vget(vs, "w_id_done"))
         if field and field not in done:
@@ -58,3 +62,4 @@ else:
         else:
             set_next(result, "Wrong answer" + (" (" + str(n_left) + " wrong answer(s) left in total)" if n_left is not None else "")
                      + ". Do not say what the right answer is. Ask the same question once more, following the rules.")
+set_action(vs, ev, act)
