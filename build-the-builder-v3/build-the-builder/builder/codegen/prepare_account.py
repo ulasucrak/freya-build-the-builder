@@ -13,11 +13,9 @@ vset(vs, "w_account_facts", account_facts_text(prods, cal, today, "refusal" in (
 # negotiate's entry instruction: the first entry states the debt; a re-entry from turn_state answers the last message
 vset(vs, "w_enter_prompt", str(RT.get("enter") or "State the debt as the rules require, using the account facts."))
 # the hooks need only these fields; the offer texts are in w_account_facts already (keeps the variable table small)
-slim = []
-for p in prods:
-    slim.append(dict(index=p.get("index"), id=p.get("id"), type=p.get("type"), name=p.get("name"), full=p.get("full"),
-                     floor=p.get("floor"), deadline=p.get("deadline"), band=p.get("band"),
-                     offers=[dict(n=o.get("n"), amount=o.get("amount"), alt=o.get("alt_amount"), date=o.get("date")) for o in (p.get("offers") or [])]))
+slim = [dict([(k, p.get(k)) for k in ("index", "id", "type", "name", "full", "floor", "deadline", "band")],
+              offers=[dict(n=o.get("n"), amount=o.get("amount"), alt=o.get("alt_amount"), date=o.get("date")) for o in p.get("offers") or []])
+        for p in prods]
 vset(vs, "w_products_json", json.dumps(slim, separators=(",", ":")))
 vset(vs, "w_product_count", str(len(prods)))
 vset(vs, "w_product_ids", ",".join([str(p.get("id")) for p in prods]))
@@ -42,8 +40,7 @@ if E:
             nm_ = nm_ or ("product " + str(p.get("id") or p.get("index")))
             nm_ = nm_ if nm_.lower().startswith("your ") else "your " + nm_
             d = p.get("days_late")
-            a = money(p.get("full"))
-            a = a[:-3] if a.endswith(".00") else a
+            a = re.sub(r"\.00$", "", money(p.get("full")))
             # static tts: the shorter, the sooner it is spoken ('Your car loan is 12 days late, with 600 past due.');
             # every fact the brief asks for stays (product, days late, past-due amount)
             s = nm_[0].upper() + nm_[1:]
@@ -61,8 +58,8 @@ if E:
             vals = [v for v in vals if v is not None]
             if c.get("over") == "all_products_sum":
                 vals = [sum(vals)] if vals else []
-            ok = [v for v in vals if {">": v > c["value"], ">=": v >= c["value"], "<": v < c["value"], "<=": v <= c["value"],
-                                      "==": v == c["value"], "!=": v != c["value"]}.get(c.get("op"))]
+            x = c["value"]
+            ok = [v for v in vals if dict([(">", v > x), (">=", v >= x), ("<", v < x), ("<=", v <= x), ("==", v == x), ("!=", v != x)]).get(c.get("op"))]
             if ok and (c.get("over") not in ("each_product", "all_products") or len(ok) == len(vals)):
                 hit = hit or str(c.get("name"))
         if not hit:
@@ -72,11 +69,6 @@ if E:
         line = "Thank you. I am sorry, I cannot see your account details at the moment."
     line = re.sub(r"[{}]", "", line)
 vset(vs, "w_entry_line", line)
-ids = ", ".join([str(p.get("id")) for p in prods])
-if prods and line:
-    vset(vs, "w_next_action", "Verified; " + str(len(prods)) + " product(s): " + ids + ". Debt already said; "
-         + (("rule '" + hit + "' applies: follow it now.") if hit else "first question asked: answer the reply."))
-elif prods:
-    vset(vs, "w_next_action", "Verified; " + str(len(prods)) + " product(s): " + ids + ". Next: state the debt, then handle each product.")
-else:
-    vset(vs, "w_next_action", "")
+ids = "Verified; " + str(len(prods)) + " product(s): " + ", ".join([str(p.get("id")) for p in prods])
+vset(vs, "w_next_action", "" if not prods else ids + (". Debt already said; " + (("rule '" + hit + "' applies: follow it now.") if hit else
+     "first question asked: answer the reply.") if line else ". Next: state the debt, then handle each product."))
