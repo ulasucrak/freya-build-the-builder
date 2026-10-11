@@ -1178,7 +1178,7 @@ class PromptBudget(unittest.TestCase):
                 self.assertLess(g, 0.90 * g0, name)
                 self.assertLess(n, 0.80 * n0, name)
                 continue
-            self.assertLess(g, 0.82 * g0, name)          # identity step: rules of the negotiation are gone
+            self.assertLess(g, 0.86 * g0, name)          # identity step: rules of the negotiation are gone
             self.assertLess(n, 0.90 * n0, name)          # the negotiation keeps its own (verbatim) rules
             tot_before += g0 + n0
             tot_after += g + n
@@ -1301,3 +1301,28 @@ class PromptBudget(unittest.TestCase):
         off = G.generate_workflow(raw("brief-b"), options={"goodbye_close": False})
         self.assertNotIn("goodbye_close", off["nodes"])
         self.assertNotIn("goodbye_close", json.dumps(off["nodes"]["negotiate"]["transitions"]))
+
+    def test_review_fixes(self):
+        p = S.normalise(raw("brief-b"))
+        wf = G.generate_workflow(raw("brief-b"))
+        ph = G.rule_phases(p)
+        wrap = wf["nodes"]["wrap_up"]["task_message"]
+        # wrap_up asks for notes "with the reason that applies" and the outcome follows the notes: it sees those rules
+        for r in p["rules"]:
+            if ph[r["id"]] == "negotiate" and ("add_note" in r["text"] or "Outcome:" in r["text"] or "`no_promise`" in r["text"]):
+                self.assertIn("[" + r["id"] + "]", wrap, r["id"])
+        self.assertIn("add_note", wrap)
+        self.assertIn("Outcome: `promise`", wrap)
+        self.assertIn("{{w_wrap_todo}}", wrap)
+        # a transfer or close keeps its exact condition (a human request transfers only after insisting)
+        for node in ("greet_verify", "negotiate"):
+            task = wf["nodes"][node]["task_message"]
+            self.assertIn("- human_request (", task)
+            for t in p["triggers"]:
+                if t["action"] in ("transfer", "close") and t["detect"]:
+                    for x in task.splitlines():
+                        if x.startswith("- " + t["name"] + ":") or x.startswith("- " + t["name"] + " "):
+                            self.assertIn(t["detect"], x, (node, t["name"]))
+        sysp = wf["system_prompt"]
+        self.assertIn("never 'I have recorded' before the result", sysp)
+        self.assertIn("several calls in one message run at once and results can be lost", sysp)

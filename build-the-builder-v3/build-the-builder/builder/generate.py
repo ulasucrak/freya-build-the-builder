@@ -566,7 +566,9 @@ def _trigger_lines(p, cl, verified):
         here = "negotiate" if verified else "greet"
         # the situation is described by its rule when that rule is in this prompt; the name is enough to point at it
         twice = re.search(r"\btwice\b|\bsecond time\b|\btwo times\b", t["detect"] or "")
-        line = t["name"] + ((" (" + (t["detect"] or "when it applies") + ")") if twice or not (tph & {here, "all"}) else "") + ":"
+        # a transfer or a close is final: its exact condition stays next to it (e.g. "insists after being asked once")
+        full = twice or act in ("transfer", "close") or not (tph & {here, "all"})
+        line = t["name"] + ((" (" + (t["detect"] or "when it applies") + ")") if full else "") + ":"
         if t["say"]:
             line += " Say: \"" + t["say"] + "\"."
         if act == "transfer" and t["queue"]:
@@ -708,9 +710,9 @@ def default_system_prompt(p):
         vars_,
         "",
         "Tools:",
-        "- When a rule says to call a tool, call it; saying you did is not enough. One tool call per message; wait for its result.",
+        "- When a rule says to call a tool, call it; saying you did is not enough. One tool call per message; wait for its result (several calls in one message run at once and results can be lost).",
         "- Follow a result's what_to_do_next exactly and speak in the same turn; never end a turn with nothing to say.",
-        "- A failed or stopped call recorded nothing: act on 'Status of your last tool request'. Say something was recorded, scheduled or transferred only after a result says it worked (a read-back asks for confirmation).",
+        "- A failed or stopped call recorded nothing: act on 'Status of your last tool request'. Say something was recorded, scheduled or transferred only after a result says it worked; a read-back asks for confirmation, never 'I have recorded' before the result.",
         "- close_call comes last and once: after all other results, in the message with your thanks and goodbye, with no other tool call.",
         "",
         "The bank's rules for every step (each step adds its own):",
@@ -949,13 +951,17 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
         {"target_node": "finish", "description": "always", "condition": {"operator": "always"}}]
     nodes["close_check"] = close_check
     wrap_tools = [t for t in (t_note, t_transfer, t_promise) if t] + [t_close]
+    # the to-do asks for notes "with the reason that applies" and the outcome follows the notes: the step's rules
+    # (note reasons, refusals, outcome table) are needed here; this step is entered at most once per call
+    neg_rules = _phase_rules(p, "negotiate")
+    wrap_rules = ("\nRules for the notes and the outcome:\n" + neg_rules) if neg_rules else ""
     nodes["wrap_up"] = {
         "name": "wrap_up", "node_type": "conversation",
         "on_enter": {"type": "llm", "prompt": P.get("wrap_up.on_enter",
                                                    "Before the call can be closed: {{w_wrap_todo}} Do it now with the tools, one tool call per message. The customer already heard your goodbye: do not say it again or describe what you record; if you must speak, say only 'One moment, please.'")},
         "task_message": P.get("wrap_up.task", "The call is about to be closed. Before that: {{w_wrap_todo}}\n"
                               "Use the tools for it, one tool call per message, and wait for each result. The customer already heard your goodbye: do not say it again or describe what you record; if you must speak, say only 'One moment, please.' "
-                              "Then call close_call again with the outcome that applies.\n" + STATUS_LINE),
+                              "Then call close_call again with the outcome that applies.\n" + STATUS_LINE + wrap_rules),
         "tools": wrap_tools,
         "max_node_turns": 4, "max_turn_transition": "finish",
         "transitions": [{"target_node": "finish", "description": "the model asked to close the call",
