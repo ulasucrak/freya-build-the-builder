@@ -1912,6 +1912,24 @@ GENERIC_DATED_RULES_LINE = (
     " behaviour; their names, amounts and dates belong to those examples only: always use the tool results.)")
 
 
+DIGEST_MIN_CHARS, DIGEST_MAX_CHARS = 1500, 16000
+
+
+def generic_rules_text(p):
+    """The rules, situations and fixed phrases as the full generic prompt lists them (the input of the digest)."""
+    shown, rule_lines = generic_rules(p)
+    kept = " ".join(r["text"] for r in shown)
+    phrases = _bul(["%s: \"%s\"" % (k, v) for k, v in p["phrases"].items() if isinstance(v, str) and v.strip() and v.strip() not in kept])
+    triggers = _bul([_trigger_line(t) for t in p["triggers"] if t["detect"] or t["say"]])
+    return "\n".join(["Rules (tag = document, a date in it is the document's date):", _bul(rule_lines),
+                      "", "Situations and what to do:", triggers, "", "Fixed phrases:", phrases])
+
+
+def usable_digest(p):
+    d = str(p.get("rules_digest") or "").strip()
+    return d if DIGEST_MIN_CHARS <= len(d) <= DIGEST_MAX_CHARS else ""
+
+
 def generic_system_prompt(p, language, tool_lines):
     now_var = p["clock"]["now_variable"]
     var_lines = ["%s = {{%s}}%s" % (v["name"], v["name"], (" (" + v["meaning"] + ")") if v["meaning"] else "") for v in p["variables"]]
@@ -1921,6 +1939,7 @@ def generic_system_prompt(p, language, tool_lines):
     kept = " ".join(r["text"] for r in shown)
     phrases = _bul(["%s: \"%s\"" % (k, v) for k, v in p["phrases"].items() if isinstance(v, str) and v.strip() and v.strip() not in kept])
     triggers = _bul([_trigger_line(t) for t in p["triggers"] if t["detect"] or t["say"]])
+    digest = usable_digest(p)
     return "\n".join([
         "You are a phone agent on a live call. Speak %s only: %s" % (language, GENERIC_SHORT),
         "Use only facts from this prompt, the call variables and tool results; never invent amounts, dates, names, reasons or service answers.",
@@ -1934,12 +1953,13 @@ def generic_system_prompt(p, language, tool_lines):
         " waiting phrase (if the rules define one) in the same message.",
         _bul(tool_lines),
         "",
+    ] + (["The rules (follow them exactly; quoted sentences are said word for word):", digest] if digest else [
         "The rules:",
         GENERIC_DATED_RULES_LINE if any(re.search(r"\d{4}-\d{2}-\d{2}", str(r.get("id") or "")) for r in shown) else "",
         _bul(rule_lines) if rule_lines else "- (none given)",
         ("\nSituations and what to do:\n" + triggers) if triggers else "",
         ("\nFixed phrases (in %s, word for word where they apply):\n" % language + phrases) if phrases else "",
-    ])
+    ]))
 
 
 def generic_workflow(p, prompts=None, openapi=None, opts=None, language=None):
@@ -2038,6 +2058,8 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
     if openapi:
         policy = _merge_openapi(policy, openapi)
     p = policy_schema.normalise(policy)
+    if isinstance(policy, dict) and policy.get("rules_digest"):
+        p["rules_digest"] = policy["rules_digest"]   # the builder's condensed rules (generic prompt only)
     if any(not _tool_name(p, role) for role in ("verify", "account", "promise", "close")):
         # not a collection call: the generic service-agent workflow (every openapi operation is a tool)
         return generic_workflow(p, prompts, openapi, opts, generic_language(policy, p))

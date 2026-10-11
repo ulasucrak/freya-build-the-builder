@@ -33,7 +33,30 @@ from builder.trace import Budget, CallTimeout, Trace, one_line, run_with_timeout
 KIT = pathlib.Path(os.path.abspath(__file__)).parent.parent
 
 # Stage plans in seconds (each capped by what is left after the reserve).
-PLAN = {"extract": 330, "policy_fix": 120, "prompts": 240, "casegen": 150, "repair_llm": 200}
+PLAN = {"extract": 330, "digest": 240, "policy_fix": 120, "prompts": 240, "casegen": 150, "repair_llm": 200}
+DIGEST_SYSTEM = "You turn a client's raw rules into the short, exact rulebook of a phone agent. You never invent rules."
+DIGEST_PROMPT = """Below are ALL rules extracted word for word from a client's documents for a phone agent (each tagged
+with its document; a date in a tag is the document's date), the list of situations and the fixed phrases.
+The full list is far too long for the agent's prompt. Write the agent's rulebook: complete for its job, short.
+
+- At most %(max)d characters. English instructions, in the order of a call: opening, finding what the caller wants
+  / which item, reading the data, offers and follow-up requests (one short block per request), errors and slow
+  services, exits / transfers / closing, silence and unclear answers, safety (what is never said or done).
+- Conflicts: the most recent document or decision wins. Leave out superseded rules, rules about building, testing,
+  deploying or submitting (organiser instructions), and the values of example calls or test customers (names,
+  amounts, card numbers, dates of examples).
+- Keep every sentence the agent must say word for word, in the call's language, in double quotes, exactly as the
+  latest document gives it (placeholders like [date] stay). Keep exact counts, limits, tries, reading order, which
+  service/tool and which response field decides what, and every condition with its action.
+- Use the tool names and response field names as given. No headings longer than a few words, no examples beyond
+  the quoted sentences, nothing that is not in the input.
+Return only the rulebook text.
+
+Tools: %(tools)s
+
+%(rules)s
+"""
+
 RESERVE_SAVE_S = 90          # generate + dry run + save + export of the version we ship
 RESERVE_END_S = 45           # trace writing, slack before the hard end
 MIN_LLM_STAGE_S = 45         # do not start an optional model call with less than this
@@ -413,6 +436,40 @@ class Builder:
             self.trace.note("generate on fallback policy failed: %s: %s" % (type(e).__name__, one_line(e, 300)))
         return self.minimal_workflow(), "minimal"
 
+    def do_digest(self):
+        """Generic agents: one model call condenses the full verbatim rules list (all documents, all versions) into a
+        short rulebook for the prompt; True when policy['rules_digest'] is set. On failure the full list stays."""
+        t0 = self.stage_start("digest")
+        sub = self.budget.sub(PLAN["digest"], RESERVE_SAVE_S + RESERVE_END_S, MIN_LLM_STAGE_S)
+        if not sub:
+            self.stage_end("digest", t0, "skipped", "not enough time")
+            return False
+        try:
+            gen = self.deps.generate
+            p = schema_mod.normalise(self.policy)
+            src = gen.generic_rules_text(p)
+            if len(src) <= gen.DIGEST_MAX_CHARS:
+                self.stage_end("digest", t0, "skipped", "rules already short (%d chars)" % len(src))
+                return False
+            tools = ", ".join(sorted((self.policy.get("tools") or {}).keys())) or "(see the rules)"
+            target = max(gen.DIGEST_MIN_CHARS * 4, min(10000, gen.DIGEST_MAX_CHARS - 2000))
+            text = self.deps.llm.ask(DIGEST_PROMPT % {"max": target, "tools": tools, "rules": src},
+                                     system=DIGEST_SYSTEM, purpose="condense rules for the prompt", timeout_s=sub)
+            text = re.sub(r"^```[a-z]*\s*|\s*```$", "", str(text or "").strip())
+            self.policy["rules_digest"] = text
+            if not gen.usable_digest(self.policy):
+                self.policy.pop("rules_digest", None)
+                self.stage_end("digest", t0, "failed", "digest of %d chars outside %d-%d: full rules kept"
+                               % (len(text), gen.DIGEST_MIN_CHARS, gen.DIGEST_MAX_CHARS))
+                return False
+            self.write_out("rules_digest.txt", text)
+            self.stage_end("digest", t0, "ok", "%d chars of rules/situations/phrases -> %d chars" % (len(src), len(text)))
+            return True
+        except Exception as e:  # noqa: BLE001
+            self.policy.pop("rules_digest", None)
+            self.stage_end("digest", t0, "failed", "%s: full rules kept" % one_line(e, 200))
+            return False
+
     def do_prompts(self, wf0):
         if self.no_prompts:
             return {}
@@ -626,6 +683,13 @@ class Builder:
             generic = generic_reason(self.policy, self.openapi, wf0)
             self.stage_end("generate", t0, how, "%d nodes%s" % (len(wf0.get("nodes") or {}),
                                                              ("; generic service agent (%s)" % generic) if generic else ""))
+            if generic and how == "ok" and self.do_digest():
+                try:
+                    wf0 = self.generate(self.policy)
+                except Exception as e:  # noqa: BLE001
+                    self.trace.note("generate with the rules digest failed (%s): full rules kept" % one_line(e, 200))
+                    self.policy.pop("rules_digest", None)
+                    wf0 = self.generate(self.policy)
             prompts = {}
             if how == "minimal":
                 pass

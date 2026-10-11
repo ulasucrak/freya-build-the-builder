@@ -363,3 +363,11 @@ class GenericDatedRulesLineTest(unittest.TestCase):
         self.assertIn("most recent document wins", G.GENERIC_DATED_RULES_LINE)
         src = (pathlib.Path(G.__file__)).read_text()
         self.assertIn("GENERIC_DATED_RULES_LINE if any(", src)
+
+
+class GenericRulesDigestTest(unittest.TestCase):
+    def test_usable_digest_bounds(self):
+        self.assertEqual(G.usable_digest({"rules_digest": "short"}), "")
+        self.assertEqual(G.usable_digest({"rules_digest": "x" * (G.DIGEST_MAX_CHARS + 1)}), "")
+        ok = "Say \"Merhaba.\" first. " * 100
+        self.assertEqual(G.usable_digest({"rules_digest": ok}), ok.strip())
