@@ -314,7 +314,11 @@ class Structure(unittest.TestCase):
         for r in p["rules"]:
             if ph[r["id"]] != "drop":
                 self.assertIn(G._brace_vars(r["text"], p), where[ph[r["id"]]], r["id"])
-        self.assertIn("Am I speaking with {{title}} {{last_name}}?", sysp)
+        # a fixed phrase is in the system prompt, or word for word in a rule of the step that uses it
+        self.assertIn("Am I speaking with {{title}} {{last_name}}?", sysp + greet)
+        for k, v in p["phrases"].items():
+            if isinstance(v, str):
+                self.assertTrue(any(G._brace_vars(v, p) in x for x in (sysp, greet, neg)), k)
 
     def test_rule_phases(self):
         p = S.normalise(raw("brief-b"))
