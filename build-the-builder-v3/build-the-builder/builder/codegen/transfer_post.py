@@ -2,7 +2,7 @@
 result = extra
 q = str(vget(vs, "w_transfer_pending") or vget(vs, nm("transfer_tool", "transfer_to_agent") + "_args." + nm("queue_field", "queue")) or "")
 cl = RT.get("closing") or dict()
-if call_ok(result, nm("transfer_ok", "ok")):
+if call_ok(result, nm("transfer_ok", "ok")) or err_kind(result) == "done":
     if q:
         mark(vs, "w_transfer_q_", q, q)
     c = pair((cl.get("transfer") or dict()).get(q))
@@ -16,6 +16,9 @@ if call_ok(result, nm("transfer_ok", "ok")):
         t += "close the call as the rules say."
     set_next(result, t)
     set_action(vs)
+elif fails(vs, nm("transfer_tool", "transfer_to_agent"), 2 if err_kind(result) else 1) >= 2:
+    set_next(result, "The transfer did NOT work (" + api_error(result) + ") and has failed twice. Do not say the customer was transferred. " + svc_close())
+    set_action(vs, "transfer_to_agent failed twice", "close the call as the rules say for a service error")
 else:
     set_next(result, "The transfer did NOT work (" + api_error(result) + "). Do not say the customer was transferred. Call transfer_to_agent once more with the same queue.")
     set_action(vs, "Transfer did NOT work", "call transfer_to_agent once more with the same queue")

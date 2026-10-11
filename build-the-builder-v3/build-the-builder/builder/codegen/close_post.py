@@ -1,4 +1,4 @@
-# Post-hook of close_call.
+# Post-hook of close_call (not wired: close_api has no post-hook; final_close_pre reads close_call_response).
 result = extra
 if call_ok(result, nm("close_ok", "ok")):
     vset(vs, "w_close_done", "yes")
