@@ -67,6 +67,24 @@ A chain on the workspace (results in `results/`): full 250 on the rebuilt agent 
 `run-250b.json`; then call days ×2 → `days-report.txt`; then an S6 rebuild with the fixed self-test bank →
 `results/build-s6b.log`. Compare the 250 run with 222/250.
 
+## How to continue (for the next session)
+
+The chain above runs on its own; no Claude session is needed while it runs. When it is done:
+
+```bash
+cd build-the-builder-v3/build-the-builder && source env.sh
+tail -3 results/r250b-report.txt results/days-report.txt; grep -E "stage .*:" results/build-s6b.log | tail -5
+.venv/bin/python tools/fail_transcripts.py FAILED results/tx-250b results/run-250b.json   # one file per failed case
+.venv/bin/python tools/turn_latency.py results/turns-250b.json results/run-250b.json      # turn times by node / tool
+```
+
+1. Compare: 250 run vs **222/250** (Brief A 197/220, B 25/30), slowest-turn median 4 s; days set: everything should pass
+   (old build: 26/27 before it was stopped); S6 self-test vs **1/10** (broken test bank) — expect most to pass now.
+2. For every failure read `results/tx-250b/<id>.txt` (speech + tool calls + results), not only the judge reason, and
+   classify: agent bug / case expectation wrong / judge or simulator noise (cut-off sentences, persona off-script).
+3. Fix agent bugs in shared generic code (hooks/oracle first, prompt lines last), add a regression test, rebuild
+   (`--slot brief-a-opt`), re-run only the failed ids: `python tools/run_cases.py <agent> --cases results/edge-cases-250.json --only "id1,id2" --reps 2`.
+
 ## Gotchas learned
 
 - **Never edit a shell script while it runs** (bash reads it incrementally: an edit re-ran a 250-case run).
