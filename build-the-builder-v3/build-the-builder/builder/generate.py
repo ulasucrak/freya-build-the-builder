@@ -1914,7 +1914,7 @@ GENERIC_DATED_RULES_LINE = (
 
 # Prompt size: the platform advises a global prompt of about 1K-3K tokens (about 3.5 characters per token on our
 # prompts). The digest's limit leaves room for the fixed part (role, call variables, tool list).
-DIGEST_MIN_CHARS, DIGEST_MAX_CHARS, DIGEST_TARGET_CHARS = 1500, 7600, 6500
+DIGEST_MIN_CHARS, DIGEST_MAX_CHARS, DIGEST_TARGET_CHARS = 1500, 6000, 4500   # the model overshoots a target by 30-70%
 DIGEST_HARD_MAX_CHARS = 12000   # a digest the shortening call could not bring under DIGEST_MAX_CHARS is still far
 #                                 shorter than the full rules list; longer than this it is not trusted
 GENERIC_PROMPT_MAX_CHARS = 10000
