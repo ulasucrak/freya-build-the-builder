@@ -67,6 +67,9 @@ POLICY = {
 }
 
 
+REASONS = ["done", "transfer_to_agent", "no_response"]     # from POLICY's triggers
+
+
 def body_props(t):
     return t["function"]["parameters"]["properties"]["body"]["properties"]
 
@@ -87,8 +90,8 @@ class GenericWorkflowTest(unittest.TestCase):
     def test_shape_and_lint(self):
         self.assertEqual(G.lint_workflow(self.wf), [])
         self.assertEqual(self.wf["initial_node"], "setup")
-        self.assertEqual(set(self.wf["nodes"]), {"setup", "assistant"} | {"end_" + r for r in G.END_REASONS})
-        for r in G.END_REASONS:
+        self.assertEqual(set(self.wf["nodes"]), {"setup", "assistant"} | {"end_" + r for r in REASONS})
+        for r in REASONS:
             self.assertEqual(self.wf["nodes"]["end_" + r]["terminal"]["function"]["name"], r)
         self.assertEqual(json.loads(json.dumps(self.wf)), self.wf)
         self.assertEqual(self.wf["test_variables"], {"clientNumber": "90000001", "now": "2026-10-12T10:30:00+03:00"})
@@ -158,18 +161,18 @@ class GenericWorkflowTest(unittest.TestCase):
     def test_end_conversation_routes_on_the_reason(self):
         t = self.tools["end_conversation"]
         self.assertEqual(t["function"]["handler"], "__function__:code_exec")
-        self.assertEqual(t["function"]["parameters"]["properties"]["reason"]["enum"], list(G.END_REASONS))
+        self.assertEqual(t["function"]["parameters"]["properties"]["reason"]["enum"], REASONS)
         code = t["function"]["parameters"]["properties"]["code"]["default"]
         vs = {}
-        status, out = testmode.run_code_locally(code, {"reason": "main_menu"}, vs)
-        self.assertEqual((status, out["ok"], vs.get("w_end_reason")), ("success", True, "main_menu"))
+        status, out = testmode.run_code_locally(code, {"reason": "transfer_to_agent"}, vs)
+        self.assertEqual((status, out["ok"], vs.get("w_end_reason")), ("success", True, "transfer_to_agent"))
         vs = {}
         status, out = testmode.run_code_locally(code, {"reason": "whatever"}, vs)
         self.assertFalse(out["ok"])
         self.assertNotIn("w_end_reason", vs)
         tr = {x["target_node"]: x["condition"]["conditions"] for x in self.wf["nodes"]["assistant"]["transitions"]}
-        self.assertEqual(tr["end_main_menu"], [{"variable": "w_end_reason", "operator": "equals", "operand": "main_menu"},
-                                               {"variable": "end_conversation_args.reason", "operator": "equals", "operand": "main_menu"}])
+        self.assertEqual(tr["end_transfer_to_agent"], [{"variable": "w_end_reason", "operator": "equals", "operand": "transfer_to_agent"},
+                                               {"variable": "end_conversation_args.reason", "operator": "equals", "operand": "transfer_to_agent"}])
 
     def test_setup_uses_the_call_now(self):
         code = self.wf["nodes"]["setup"]["pre_actions"][0]["function"]["parameters"]["properties"]["code"]["default"]
@@ -314,6 +317,26 @@ class GenericHeadersTest(unittest.TestCase):
         oa["security"] = [{"bt": []}]
         wf = G.generate_workflow(copy.deepcopy(POLICY), None, oa)
         return wf["nodes"]["assistant"]["tools"][0]["function"]["parameters"]["properties"]["headers"]["properties"]
+
+
+
+class GenericEndReasonsTest(unittest.TestCase):
+    def test_derived(self):
+        p = copy.deepcopy(POLICY)
+        p["triggers"].append({"name": "menu", "detect": "Caller wants the menu", "action": "close", "outcome": "Main Menu"})
+        wf = G.generate_workflow(p, None, copy.deepcopy(OPENAPI))
+        t = wf["nodes"]["assistant"]["tools"][-1]
+        self.assertEqual(t["function"]["parameters"]["properties"]["reason"]["enum"],
+                         ["done", "transfer_to_agent", "main_menu", "no_response"])
+        self.assertIn("end_main_menu", wf["nodes"])
+        self.assertEqual(G.lint_workflow(wf), [])
+
+    def test_fallback(self):
+        p = copy.deepcopy(POLICY)
+        p["triggers"] = []
+        wf = G.generate_workflow(p, None, copy.deepcopy(OPENAPI))
+        self.assertEqual(wf["nodes"]["assistant"]["tools"][-1]["function"]["parameters"]["properties"]["reason"]["enum"],
+                         list(G.END_REASONS))
 
 
 if __name__ == "__main__":

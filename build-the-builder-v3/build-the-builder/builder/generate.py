@@ -1874,6 +1874,26 @@ def generic_rules(p):
     return shown, [_rule_line(p, r, labels, roles) for r in shown]
 
 
+def generic_end_reasons(p):
+    """(reasons, {reason: meaning}) for end_conversation: 'done', every policy trigger's outcome (or, without one, its
+    ending action: transfer -> transfer_to_agent, close / callback), normalised to [a-z_], and 'no_response'; the
+    default END_REASONS when the triggers give none."""
+    desc, got = dict(END_REASON_DESC), []
+    for t in p.get("triggers") or []:
+        act = str(t.get("action") or "").strip().lower()
+        r = re.sub(r"[^a-z_]", "", re.sub(r"[\s-]+", "_", str(t.get("outcome") or "").strip().lower())).strip("_")
+        if not r:
+            r = {"transfer": "transfer_to_agent", "close": "close", "callback": "callback"}.get(act, "")
+        if not r or r in got or r in ("done", "no_response"):
+            continue
+        got.append(r)
+        if r not in desc:
+            desc[r] = _short(t.get("detect") or t.get("name", "").replace("_", " ") or r.replace("_", " "), 80)
+    if not got:
+        return list(END_REASONS), desc
+    return ["done"] + got + ["no_response"], desc
+
+
 def _trigger_line(t):
     act = t["action"] + ((" " + t["queue"]) if t["queue"] else "")
     return "%s -> %s%s" % (_short(t["detect"] or t["name"].replace("_", " "), 200), act,
@@ -1937,18 +1957,18 @@ def generic_workflow(p, prompts=None, openapi=None, opts=None, language=None):
         if not t["function"]["parameters"]["properties"]["body"]["required"] and not _mutating(op["name"], op["method"]):
             ready.append(name)          # read-only and nothing to ask the caller: can run at the start
         tool_lines.append("%s: %s" % (name, _short(op["summary"] or op["description"] or desc, 160)))
-    reasons = list(END_REASONS)
+    reasons, reason_desc = generic_end_reasons(p)
     t_end = {"type": "function", "config": {"timeoutMs": 12000, "maxRetries": 0}, "function": {
         "name": "end_conversation", "handler": "__function__:code_exec",
         "description": "End the call: last and once, in the same message as your closing words, with the reason: "
-                       + "; ".join("%s = %s" % (r, END_REASON_DESC.get(r, r)) for r in reasons) + ".",
+                       + "; ".join("%s = %s" % (r, reason_desc.get(r, r)) for r in reasons) + ".",
         "parameters": {"type": "object", "properties": {
             "reason": {"type": "string", "enum": reasons, "description": "One of: " + ", ".join(reasons) + "."},
             "code": {"type": "string", "default": build_code("end_conversation", {"names": {}, "end_reasons": reasons}, "tool",
                                                              source=GENERIC_END)},
             "timeout_ms": {"type": "number", "default": 10000}}, "required": ["reason"]}}}
     tool_lines.append("end_conversation(reason): last, once, with your closing words in the same message; the reason is what"
-                      " those words say happens next: " + ", ".join("%s (%s)" % (r, END_REASON_DESC.get(r, r)) for r in reasons)
+                      " those words say happens next: " + ", ".join("%s (%s)" % (r, reason_desc.get(r, r)) for r in reasons)
                       + ". Never end the call while the caller still asks for something you can do.")
 
     rt_setup = {"names": {"now_var": now_var, "language": language},
