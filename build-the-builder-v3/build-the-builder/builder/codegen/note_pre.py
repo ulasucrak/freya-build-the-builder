@@ -11,11 +11,29 @@ prod = find_product(prods, body.get(pf))
 if prod is not None:
     body[pf] = prod.get("id")
 pid = str(body.get(pf) or "")
-reason = str(body.get(rf) or "")
+# a product the customer disputed (labelled by the extraction, counted in turn_state) gets the dispute reason
+dn = str((RT.get("enforce") or dict()).get("dispute_note") or "")
+if dn and pid and str(vget(vs, key_of("w_dispute_", pid))) == "yes":
+    body[rf] = dn
+reason = str(body.get(rf) or "").strip()
+reasons = [str(r) for r in ((RT.get("notes") or dict()).get("tool_reasons") or [])]
+for r in reasons:
+    if r.lower() == reason.lower().replace(" ", "_"):
+        reason = body[rf] = r
+# privacy (data minimisation, KVKK): the model must not store what the customer told (health, a death, family,
+# work). Every free-text field of the request gets a short fixed phrase built from the reason code only.
+for k in list(body.keys()):
+    if k not in (pf, rf) and str(k).lower() in NOTE_TEXT_FIELDS:
+        body[k] = safe_note_text(reason, reasons)
 vset(vs, "w_note_pending", pid + "|" + reason)
 vset(vs, "w_note_block", "")
 info = None
-if prods and not notes_apply(vs):
+tool = nm("note_tool", "add_note")
+if str(vget(vs, "w_account_state")) == "failed":
+    info = dict(code="account-failed", message="The account could not be loaded: no note can be recorded.", next=SVC)
+elif fails(vs, tool) >= 2:
+    info = dict(code="service-down", message="add_note already failed twice.", next=SVC)
+elif prods and not notes_apply(vs):
     info = dict(code="notes-not-used", message="Notes are not used for this customer.", next="Do not call add_note in this call.")
 elif (RT.get("notes") or dict()).get("forbidden_on_transfer") and transfers_of(vs):
     info = dict(code="after-transfer", message="The call was transferred: no notes may be added.", next="Do not call add_note again.")
@@ -25,6 +43,8 @@ elif pid in promised_of(vs):
     info = dict(code="has-promise", message="This product has a recorded promise; it needs no note.", next="Continue with the call.")
 elif pid in notes_of(vs):
     info = dict(code="already-noted", message="This product already has a note.", next="Continue with the call.")
+elif reasons and reason not in reasons:
+    info = dict(code="unknown-reason", message="'" + reason + "' is not a note reason.", next="Call add_note again with one of: " + ", ".join(reasons) + ".")
 if info is not None and nm("guard", "on") == "on":
     block_request(config, vs, "w_note_block", info, "add_note")
 else:

@@ -9,4 +9,7 @@ if not res.get("outcome"):
     res = dict(outcome=c["outcome"], reason=c["reason"])
 vset(vs, "w_close_outcome", str(res.get("outcome") or ""))
 vset(vs, "w_close_reason", str(res.get("reason") or ""))
+# w_close_sent: the engine is about to send close_call; only its answer (close_call_response) says it went through,
+# so the end-of-call safety net checks that, not this flag (w_close_done stays for the prompts: nothing more to say)
+vset(vs, "w_close_sent", "yes")
 vset(vs, "w_close_done", "yes")

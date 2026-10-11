@@ -1,4 +1,6 @@
 # Code node reached when a step ran out of turns: compute the outcome from the facts for the engine-run close.
+# Not wired into the graph at present: the turn-cap path is turn_cap -> close_check -> finish -> farewell (the goodbye,
+# before close_call) -> close_api -> end_forced (silent).
 res = compute_closing(collect_facts(vs), RT)
 if not res.get("outcome"):
     st = id_state_of(vs)

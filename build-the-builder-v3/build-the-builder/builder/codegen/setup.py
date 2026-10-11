@@ -20,9 +20,16 @@ if iso(tomorrow) not in [w["date"] for w in wins]:
 vset(vs, "w_callback_windows", "Today is " + date_label(today) + (", time " + now_time if now_time else "") + ". Allowed: "
      + ("; ".join([w["label"] for w in wins]) if wins else "none") + "." + tm_note)
 for k, v in [("w_account_facts", "Not loaded yet. Nothing about the account is known."), ("w_products_json", "[]"),
-             ("w_product_count", "0"), ("w_account_state", "pending"), ("w_promised", ""), ("w_notes", json.dumps(dict())), ("w_note_intents", json.dumps(dict())), ("w_last_event", "none"), ("w_close_sends", "0"), ("w_close_held", "no"), ("w_close_requested", "no"), ("w_close_req_outcome", ""), ("w_close_req_reason", ""), ("w_wrap_rounds", "0"), ("w_wrap_todo", ""), ("w_close_route", ""), ("w_forced", "no"), ("w_notes_rule", "Do not call add_note yet."),
+             ("w_product_count", "0"), ("w_account_state", "pending"), ("w_promised", ""), ("w_notes", json.dumps(dict())), ("w_note_intents", json.dumps(dict())), ("w_last_event", "none"), ("w_close_sends", "0"), ("w_close_held", "no"), ("w_close_requested", "no"), ("w_close_req_outcome", ""), ("w_close_req_reason", ""), ("w_wrap_rounds", "0"), ("w_wrap_todo", ""), ("w_close_route", ""), ("w_forced", "no"), ("w_notes_rule", "Do not call add_note yet."), ("w_next_action", ""),
              ("w_transfers", ""), ("w_id_state", "pending"), ("w_id_wrong", "0"), ("w_id_done", ""),
              ("w_callback_done", "no"), ("w_cb_bad", "0"), ("w_close_done", "no"), ("w_close_outcome", ""),
-             ("w_close_reason", "")]:
+             ("w_close_reason", ""), ("w_cb_over", "no"), ("w_end_say", "no"), ("w_turn_route", "stay"), ("w_no_talk", "0"),
+             ("w_enter_prompt", "")]:
     if vget(vs, k, None) is None:
         vset(vs, k, v)
+# every call variable the prompts or fixed lines show ({{first_name}}, {{title}}, ...) gets a value when the call did
+# not pass one: an unset variable would be spoken or shown as a literal placeholder
+for k in RT.get("call_vars") or []:
+    if vget(vs, k, None) is None:
+        vset(vs, k, "")
+vset(vs, "w_entry_line", vget(vs, "w_entry_line", None) or "")

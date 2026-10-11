@@ -153,7 +153,7 @@ class Sim:
         return None, None, "", holds
 
     def engine_close(self):
-        assert self.vs.get("w_close_requested") == "yes" or self.vs.get("w_forced") == "yes"
+        assert "yes" in (self.vs.get("w_close_requested"), self.vs.get("w_forced"), self.vs.get("w_end_say"))   # v4: code-forced close
         run(code_of(self.wf["nodes"]["close_check"]), self.vs)
         if self.vs.get("w_close_route") == "wrap":
             return "wrap", None, self.vs.get("w_wrap_todo", "")
@@ -266,7 +266,9 @@ class Structure(unittest.TestCase):
                         model_fields.add(f)
         self.assertTrue(model_fields)
         self.assertFalse(model_fields & set(sim.vs))
-        self.assertTrue(all(k.startswith("w_") for k in sim.vs if k not in ("now", "customer_id")))
+        # besides w_*: the call variables the setup defaults to "" (G8), never one with a tool field's name
+        calls = set([v["name"] for v in S.normalise(raw("brief-b"))["variables"]])
+        self.assertTrue(all(k.startswith("w_") or k in calls for k in sim.vs if k not in ("now", "customer_id")))
 
     def test_other_bank_names(self):
         wf = G.generate_workflow(raw("fixture-x"))
@@ -309,12 +311,20 @@ class Structure(unittest.TestCase):
         p = S.normalise(raw("brief-b"))
         greet = wf["nodes"]["greet_verify"]["task_message"]
         ph = G.rule_phases(p)
-        # every rule reaches the model: in the system prompt, or in the one step where it can apply
+        roles = G.rule_roles(p)
+        # every rule reaches the model: in the system prompt, or in the one step where it can apply, unless another
+        # part carries it (a later rule replaces it, the hooks compute it, the wrap-up step shows the outcome rows)
         where = {"all": sysp, "greet": greet, "negotiate": neg}
         for r in p["rules"]:
-            if ph[r["id"]] != "drop":
-                self.assertIn(G._brace_vars(r["text"], p), where[ph[r["id"]]], r["id"])
-        self.assertIn("Am I speaking with {{title}} {{last_name}}?", sysp)
+            if ph[r["id"]] != "drop" and r["id"] not in roles:
+                self.assertIn(G._brace_vars(G._rule_text(r["text"]), p), where[ph[r["id"]]], r["id"])
+            elif roles.get(r["id"]) == "outcome" and ph[r["id"]] != "greet":
+                self.assertIn(G._brace_vars(G._rule_text(r["text"]), p), wf["nodes"]["wrap_up"]["task_message"], r["id"])
+        # a fixed phrase is in the system prompt, or word for word in a rule of the step that uses it
+        self.assertIn("Am I speaking with {{title}} {{last_name}}?", sysp + greet)
+        for k, v in p["phrases"].items():
+            if isinstance(v, str):
+                self.assertTrue(any(G._brace_vars(v, p) in x for x in (sysp, greet, neg)), k)
 
     def test_rule_phases(self):
         p = S.normalise(raw("brief-b"))
@@ -431,14 +441,44 @@ class Compactness(unittest.TestCase):
         self.assertNotIn("}}", lit)
         self.assertEqual(json.loads(eval(lit)), rt)
 
+    # G14: size guards per snippet type, on every node of every policy (fixtures and policies/), signals on and off,
+    # with the end-of-call safety net. Sandbox payload limit is ~64 KB for code plus variables together, so these are
+    # margin guards, not the limit. Largest at FX1 (11 Oct): hooks 22211 (schedule_callback pre), 22011 (create_promise
+    # pre), 20778 (verify_identity pre); code tool check_offer 28578; code nodes prepare_account 28338, turn_state 16694.
+    HOOK_LIMIT = 23000          # pre/post-process hooks of a tool (was up to 24 KB before the 11 Oct trim)
+    CODE_LIMIT = 30000          # code nodes and code_exec tools (the code is a parameter default, not a hook)
+
+    @staticmethod
+    def snippets(wf):
+        """(kind, where, size) of every hook and every code payload in the workflow."""
+        out = []
+        tools = [(k, t) for k, n in wf["nodes"].items() for t in (n.get("tools") or []) + (n.get("pre_actions") or [])]
+        tools += [("workflow", t) for t in wf.get("tools") or []]
+        for where, t in tools:
+            fn = t.get("function") or {}
+            for hk in ("pre_process_code", "post_process_code"):
+                if t.get(hk):
+                    out.append(("hook", "%s/%s.%s" % (where, fn.get("name"), hk), len(t[hk])))
+            code = ((fn.get("parameters") or {}).get("properties") or {}).get("code")
+            if code:
+                out.append(("code", "%s/%s" % (where, fn.get("name")), len(code.get("default") or "")))
+        return out
+
     def test_hook_sizes(self):
-        wf = G.generate_workflow(raw("brief-b"))
-        for node in ("greet_verify", "negotiate"):
-            for t in wf["nodes"][node]["tools"]:
-                for hk in ("pre_process_code", "post_process_code"):
-                    # was up to 24 KB; 23000 since the number-word date/time parser and parallel-call reconciliation (11 Oct). Sandbox
-                    # payload limit is ~64 KB for code plus variables together, so this is a margin guard, not the limit
-                    self.assertLess(len(t.get(hk, "")), 23000, (t["function"]["name"], hk))
+        oa = json.loads((KIT / "tools" / "openapi.json").read_text())
+        pols = [(n, raw(n)) for n in ALL] + [(p.name, json.loads(p.read_text())) for p in sorted((KIT / "policies").glob("*.policy.json"))]
+        top = {"hook": 0, "code": 0}
+        for name, pol in pols:
+            for opts in (None, {"extract_signals": True, "final_close_fallback": True}):
+                wf = G.generate_workflow(pol, None, oa, opts)
+                kinds = set()
+                for kind, where, n in self.snippets(wf):
+                    kinds.add(kind)
+                    top[kind] = max(top[kind], n)
+                    self.assertLess(n, self.HOOK_LIMIT if kind == "hook" else self.CODE_LIMIT, (name, opts, where))
+                self.assertEqual(kinds, {"hook", "code"}, name)
+        self.assertGreater(top["hook"], 15000)        # the walk really saw the big hooks and code payloads
+        self.assertGreater(top["code"], 20000)
 
 
 class EdgeRegressions(unittest.TestCase):
@@ -476,11 +516,16 @@ class EdgeRegressions(unittest.TestCase):
     def test_phase_guards_in_prompts(self):
         for name in ALL:
             p = S.normalise(raw(name))
-            wf = G.generate_workflow(raw(name))
+            wf = G.generate_workflow(raw(name), options={"extract_signals": True})
             self.assertIn("security questions are over", wf["nodes"]["negotiate"]["task_message"], name)
             self.assertIn("never mention them or why they were asked", wf["nodes"]["negotiate"]["task_message"], name)
             neg = wf["nodes"]["negotiate"]["task_message"]
             for line in neg.splitlines():          # a close after "twice" says what to do the first time
+                if re.search(r"\btwice\b", line) and "Close:" in line:
+                    # v4: the extraction labels it and turn_state counts it (the code closes the last time)
+                    self.assertIn("Counted by the system, which closes the call the last time; before that, acknowledge it", line, name)
+            off = G.generate_workflow(raw(name), options={"extract_signals": False, "enforce_callback": False})["nodes"]["negotiate"]["task_message"]
+            for line in off.splitlines():
                 if re.search(r"\btwice\b", line) and "Close:" in line:
                     self.assertIn("The first time: do not mention security", line, name)
             self.assertIn("Ask each question without giving a reason", wf["nodes"]["greet_verify"]["task_message"], name)
@@ -578,7 +623,7 @@ class S3Flows(unittest.TestCase):
     def test_prompt_does_not_forbid_notes_before_transfer(self):
         neg = self.wf["nodes"]["negotiate"]["task_message"]
         self.assertNotIn("On a transfer send no notes.", neg)
-        self.assertIn("call transfer_to_agent with queue 'payment_plans' and wait for its result", neg)
+        self.assertIn("Call transfer_to_agent with queue 'payment_plans', wait for its result", neg)
 
 
 class S1Flows(unittest.TestCase):
@@ -635,7 +680,7 @@ class LiveDateRegressions(unittest.TestCase):
             self.assertEqual(vs["w_today"], "2026-10-14")
             offers = json.loads(vs["w_products_json"])[0]["offers"]
             self.assertEqual((offers[0]["date"], offers[1]["date"]), ("2026-10-16", "2026-10-23"))     # PUB-06
-            self.assertIn("Attempt 1 (a persuasion attempt: only after a refusal or a non-answer): amount 2125.10 (or 637.50", vs["w_account_facts"])
+            self.assertIn("Attempt 1 (a persuasion attempt: only after a refusal or a non-answer): amount 2125.10 (or 637.50", vs["w_account_facts"])   # default: no extraction, the full ladder text
             self.assertIn("on Friday 16 October 2026 (2026-10-16)", vs["w_account_facts"])
             wf, vs2 = self.facts(wall, loan)
             self.assertIn("Mon 26 Oct (holiday) -> Tuesday 27 October 2026 (2026-10-27)", vs2["w_account_facts"])  # PUB-07
@@ -1151,3 +1196,477 @@ class Generalization(unittest.TestCase):
         for _ in range(20):
             y = int(C.identity_value({"answer_format": "digits", "tool_field": "birth_year", "ask": "year of birth"}, {}, r))
             self.assertTrue(1950 <= y <= 2000, y)
+
+
+class PromptBudget(unittest.TestCase):
+    """T02: per-turn prompt size (system prompt + step task; tool schemas listed separately), rule/trigger/tool text
+    deduplication, the hidden check_offer code and the goodbye safety net."""
+
+    # system prompt + task characters per fixture before T02 (commit 9dcc658): (greet, negotiate)
+    BEFORE = {"fixture-a": (4597, 4443), "fixture-x": (3749, 3658), "brief-a": (13896, 13669), "brief-b": (14296, 16093),
+              "brief-a-live": (15205, 14392), "s3-live": (14637, 15082), "s1-live": (16499, 16081)}
+
+    @staticmethod
+    def sizes(wf):
+        sp = len(wf["system_prompt"])
+        return (sp + len(wf["nodes"]["greet_verify"]["task_message"]), sp + len(wf["nodes"]["negotiate"]["task_message"]))
+
+    def test_prompt_size_upper_bounds(self):
+        tot_before = tot_after = 0
+        for name, (g0, n0) in self.BEFORE.items():
+            g, n = self.sizes(G.generate_workflow(raw(name)))
+            if len(raw(name).get("rules") or []) < 5:   # (almost) no rules list: the section texts are carried
+                self.assertLess(g, 0.90 * g0, name)
+                self.assertLess(n, 0.83 * n0, name)     # T06: + the state hint, the hook pointer and the privacy line
+                continue
+            self.assertLess(g, 0.86 * g0, name)          # identity step: rules of the negotiation are gone
+            self.assertLess(n, 0.90 * n0, name)          # the negotiation keeps its own (verbatim) rules
+            tot_before += g0 + n0
+            tot_after += g + n
+        self.assertLess(tot_after, 0.80 * tot_before)
+        g, n = self.sizes(G.generate_workflow(raw("brief-b")))
+        self.assertLess(g, 10600)
+        self.assertLess(n, 14000)
+
+    def test_each_rule_once_per_turn(self):
+        for name in ALL:
+            p = S.normalise(raw(name))
+            wf = G.generate_workflow(raw(name))
+            sysp = wf["system_prompt"]
+            for node in ("greet_verify", "negotiate"):
+                text = sysp + "\n" + wf["nodes"][node]["task_message"]
+                for r in p["rules"]:
+                    self.assertLessEqual(text.count("[" + r["id"] + "] "), 1, (name, node, r["id"]))
+
+    def test_phases_of_moved_rules(self):
+        p = S.normalise(raw("brief-b"))
+        ph = G.rule_phases(p)
+        by = {r["text"][:40]: ph[r["id"]] for r in p["rules"]}
+        phase = lambda start: next(v for k, v in by.items() if k.startswith(start))
+        self.assertEqual(phase("`days_late`: 1 to 7"), "negotiate")            # an account field: no account before verification
+        self.assertEqual(phase("Outcome: `not_reached`"), "greet")              # pre-verification outcomes only
+        self.assertEqual(phase("Outcome: `promise`"), "negotiate")              # outcomes that need the account
+        self.assertEqual(phase("Outcome: `transferred`"), "all")                # a transfer can happen in both steps
+        self.assertEqual(phase("[overrides brief-a.34]"), "negotiate")          # an override inherits its rule's step
+        self.assertEqual(phase("A flat refusal or a non-answer"), "negotiate")
+        self.assertEqual(phase("If the customer mentions illness"), "all")
+
+    def test_trigger_lines_are_lean(self):
+        for name in ALL:
+            wf = G.generate_workflow(raw(name))
+            for node in ("greet_verify", "negotiate"):
+                task = wf["nodes"][node]["task_message"]
+                self.assertNotIn("follow its rule", task, name)
+                self.assertNotIn("Tools in this step", task, name)
+        p = S.normalise(raw("brief-b"))
+        wf = G.generate_workflow(raw("brief-b"))
+        greet, neg = wf["nodes"]["greet_verify"]["task_message"], wf["nodes"]["negotiate"]["task_message"]
+        for t in p["triggers"]:
+            if t["action"] == "say":
+                self.assertNotIn("- " + t["name"], greet + neg)     # only says something: its rule is in the prompt
+        self.assertIn("- already_paid: Note reason", neg)           # rule in the prompt: no second description
+        self.assertIn("- refuses_to_talk (", neg)                   # a "twice" situation keeps its description
+        self.assertNotIn("change_recorded_promise", greet)          # its rule is about a promise: negotiation only
+        self.assertEqual(neg.lower().count("call transfer_to_agent with queue"), len([t for t in p["triggers"] if t["action"] == "transfer"]))
+        # a trigger that continues the conversation (a refusal uses an attempt) is not told to close at once
+        q = raw("brief-b")
+        q["triggers"] = list(q["triggers"]) + [{"name": "flat_refusal", "detect": "A flat refusal", "action": "continue",
+                                                "outcome": "no_promise", "reason": "refused", "notes": []}]
+        neg2 = G.generate_workflow(q)["nodes"]["negotiate"]["task_message"]
+        line = [x for x in neg2.splitlines() if x.startswith("- flat_refusal")][0]
+        self.assertNotIn("Close:", line)
+        self.assertIn("When it ends the call, the outcome is no_promise / refused", line)
+
+    def test_tool_texts_not_repeated(self):
+        wf = G.generate_workflow(raw("brief-b"))
+        for node in ("greet_verify", "negotiate", "wrap_up"):
+            for t in wf["nodes"][node]["tools"]:
+                props = t["function"]["parameters"]["properties"]
+                for f, leaf in list((props.get("body") or {}).get("properties", {}).items()) + list(props.items()):
+                    d = leaf.get("description") or ""
+                    words = d.split()
+                    self.assertFalse(any(words[i:i + 2] == words[i + 2:i + 4] for i in range(len(words) - 3)), (t["function"]["name"], f, d))
+        cb = tool(wf, "greet_verify", "schedule_callback")["function"]["parameters"]["properties"]["body"]["properties"]
+        self.assertEqual(cb["time"]["description"].count("HH:MM"), 1)
+
+    def test_check_offer_code_is_not_model_visible(self):
+        """docs/tools-and-code.md: a literal `default` is baked into the tool's base config and removed from the schema
+        the model sees; only the parameters without a default are model-filled."""
+        wf = G.generate_workflow(raw("brief-b"))
+        fn = tool(wf, "negotiate", "check_offer")["function"]
+        props = fn["parameters"]["properties"]
+        self.assertGreater(len(props["code"]["default"]), 1000)
+        self.assertNotIn("{{", props["code"]["default"])
+        self.assertNotIn("code", fn["parameters"]["required"])
+        self.assertEqual(sorted(k for k, v in props.items() if "default" not in v), ["amount", "date", "product_id"])
+
+    def test_goodbye_safety_net(self):
+        # off by default (a routing-model call per turn): no node, no intent transition
+        dflt = G.generate_workflow(raw("brief-b"))
+        self.assertNotIn("goodbye_close", dflt["nodes"])
+        self.assertNotIn("matches_intent", json.dumps(dflt))
+        wf = G.generate_workflow(raw("brief-b"), options={"goodbye_close": True})
+        n = wf["nodes"]
+        self.assertEqual(G.lint_workflow(wf), [])
+        for k in ("greet_verify", "negotiate"):
+            tr = n[k]["transitions"]
+            self.assertEqual(tr[0]["target_node"], "close_check")          # the model's own close request comes first
+            gb = [t for t in tr if t["target_node"] == "goodbye_close"]
+            self.assertEqual(len(gb), 1, k)
+            self.assertEqual(gb[0]["condition"]["operator"], "matches_intent")
+            self.assertIn("previous message already said goodbye", gb[0]["condition"]["description"])
+            self.assertIs(tr[-1], gb[0])
+        self.assertEqual(n["goodbye_close"]["node_type"], "code")
+        self.assertEqual(n["goodbye_close"]["transitions"][-1]["target_node"], "close_check")
+        # verified, one promise recorded, nobody called close_call: closed from the facts
+        s = Sim(wf, customer_id="c1")
+        s.account([{"product_id": "p1", "type": "credit_card", "card_last4": "4821", "past_due": 300.0, "days_late": 4, "minimum_payment": 90.0}])
+        s.vs["w_id_state"] = "verified"
+        s.call("negotiate", "create_promise", {"product_id": "p1", "amount": 300, "date": "2026-10-16"})
+        run(code_of(n["goodbye_close"]), s.vs)
+        self.assertEqual(s.vs["w_goodbye_close"], "yes")
+        run(code_of(n["close_check"]), s.vs)
+        self.assertEqual(s.vs["w_close_route"], "finish")
+        self.assertEqual(s.finish()["outcome"], "promise")
+        # several products, a note missing: one wrap-up round first, as for a close request
+        s = Sim(wf, customer_id="c1")
+        s.account([{"product_id": "p1", "type": "credit_card", "card_last4": "4821", "past_due": 300.0, "days_late": 4, "minimum_payment": 90.0},
+                   {"product_id": "p2", "type": "personal_loan", "past_due": 500.0, "days_late": 9, "instalment_amount": 150.0}])
+        s.vs["w_id_state"] = "verified"
+        s.call("negotiate", "create_promise", {"product_id": "p1", "amount": 300, "date": "2026-10-16"})
+        run(code_of(n["goodbye_close"]), s.vs)
+        run(code_of(n["close_check"]), s.vs)
+        self.assertEqual(s.vs["w_close_route"], "wrap")
+        self.assertIn("p2", s.vs["w_wrap_todo"])
+        # the option switches it off
+        off = G.generate_workflow(raw("brief-b"), options={"goodbye_close": False})
+        self.assertNotIn("goodbye_close", off["nodes"])
+        self.assertNotIn("goodbye_close", json.dumps(off["nodes"]["negotiate"]["transitions"]))
+
+    def test_review_fixes(self):
+        p = S.normalise(raw("brief-b"))
+        wf = G.generate_workflow(raw("brief-b"))
+        ph = G.rule_phases(p)
+        wrap = wf["nodes"]["wrap_up"]["task_message"]
+        # wrap_up asks for notes "with the reason that applies" and the outcome follows the notes: it sees those rules
+        roles, labels = G.rule_roles(p), G._rule_labels(p)
+        for r in p["rules"]:
+            if ph[r["id"]] == "negotiate" and roles.get(r["id"]) not in ("over", "void") and \
+                    ("add_note" in r["text"] or "Outcome:" in r["text"] or "`no_promise`" in r["text"]):
+                self.assertIn("[" + labels[r["id"]] + "]", wrap, r["id"])
+        self.assertIn("add_note", wrap)
+        self.assertIn("Outcome: `transferred`", wrap)
+        self.assertIn("{{w_wrap_todo}}", wrap)
+        # a transfer or close keeps its exact condition (a human request transfers only after insisting)
+        for node in ("greet_verify", "negotiate"):
+            task = wf["nodes"][node]["task_message"]
+            self.assertIn("- human_request (", task)
+            for t in p["triggers"]:
+                if t["action"] in ("transfer", "close") and t["detect"]:
+                    for x in task.splitlines():
+                        if x.startswith("- " + t["name"] + ":") or x.startswith("- " + t["name"] + " "):
+                            self.assertIn(t["detect"], x, (node, t["name"]))
+        sysp = wf["system_prompt"]
+        self.assertIn("never 'I have recorded' before the result", sysp)
+        self.assertIn("One tool call per message, then wait for its result (parallel calls: results can be lost)", sysp)
+
+
+class JudgeReasonFixes(unittest.TestCase):
+    """T05: live chain250 judge failures (MIX-09/GEN-05-refuses: a second or repeated offer; GEN-09-no-talk: the 2nd
+    'don't want to talk' missed amid other talk; EDGE-20: callback window judged by the model, asked twice; MIX-14:
+    sympathy repeated)."""
+
+    def test_offer_ladder_counted_from_the_policy(self):
+        for name in ALL:
+            p = S.normalise(raw(name))
+            neg = G.generate_workflow(raw(name), options={"extract_signals": True})["nodes"]["negotiate"]["task_message"]
+            line = [x for x in neg.splitlines() if x.startswith("Persuasion attempts")]
+            self.assertEqual(len(line), 1, name)
+            for b in p["bands"]:
+                self.assertIn("%s %d" % (b["name"], len(b.get("attempts") or [])), line[0], name)
+            # v4: refusals are counted in code (turn_state); the line points at the state line
+            self.assertIn("the system counts refusals and gives the next offer in the state line", line[0], name)
+            neg = G.generate_workflow(raw(name), options={"extract_signals": False, "enforce_callback": False})["nodes"]["negotiate"]["task_message"]
+            line = [x for x in neg.splitlines() if x.startswith("Persuasion attempts")]
+            self.assertEqual(len(line), 1, name)
+            for b in p["bands"]:
+                self.assertIn("%s %d" % (b["name"], len(b.get("attempts") or [])), line[0], name)
+            self.assertIn("'not on <day>' with no new day too; not 'too much') uses the next", line[0])
+            self.assertIn("after the last, close", line[0])
+            self.assertIn("One sympathy sentence, once.", line[0])
+            self.assertNotIn("Persuasion attempts", G.generate_workflow(raw(name))["nodes"]["greet_verify"]["task_message"])
+        line = [x for x in G.generate_workflow(raw("fixture-x"), options={"extract_signals": False, "enforce_callback": False})["nodes"]["negotiate"]["task_message"].splitlines()
+                if x.startswith("Persuasion attempts")][0]
+        self.assertIn("(A 1, B 3, C 0)", line)
+
+    def test_second_no_talk_counted_amid_other_talk_after_verification_only(self):
+        wf = G.generate_workflow(raw("brief-a-live"), options={"extract_signals": False, "enforce_callback": False})
+        neg = wf["nodes"]["negotiate"]["task_message"]
+        greet = wf["nodes"]["greet_verify"]["task_message"]
+        line = [x for x in neg.splitlines() if x.startswith("- does_not_want_to_talk")][0]
+        self.assertIn("Count it in any words, amid other talk too. The second time: close at once", line)
+        self.assertNotIn("amid other talk", greet)
+        self.assertIn("- refuses_to_talk (", G.generate_workflow(raw("brief-b"))["nodes"]["negotiate"]["task_message"])
+
+    def test_callback_window_left_to_the_tool_and_asked_again_once(self):
+        for name in ("brief-a", "brief-a-live", "brief-b"):
+            # v4 default: the hook counts the tries and the engine closes; the "ask once" line is gone (EnforcementV4)
+            self.assertNotIn("ask for another time only once", G.generate_workflow(raw(name))["nodes"]["greet_verify"]["task_message"])
+            wf = G.generate_workflow(raw(name), options={"extract_signals": False, "enforce_callback": False})
+            greet = wf["nodes"]["greet_verify"]["task_message"]
+            self.assertIn("before you reply, even one outside the window (never judge it yourself)", greet, name)
+            ask = [x for x in greet.splitlines() if "ask for another time only once;" in x]
+            self.assertEqual(len(ask), 1, name)
+            self.assertIn("no_callback", ask[0], name)
+            self.assertNotIn("ask for another time only once", wf["nodes"]["negotiate"]["task_message"], name)
+
+
+class PromptBudgetV3(unittest.TestCase):
+    """T06: per-node per-turn prompt (system + task + model-visible tool schemas) trimmed: rules another rule replaces,
+    struck-through rules, rules the hooks compute (calendar, deadline tables, offer ladder, floor definitions) and
+    outcome-table rows are left out of the step prompts; wrap_up keeps only the note and outcome rules; a privacy line;
+    the {{w_next_action}} state hint; a fixed opening spoken without a model call when the brief quotes it."""
+
+    POLICIES = sorted((KIT / "policies").glob("*.policy.json")) + sorted(FIX.glob("*.policy.json"))
+    OPENAPI = json.loads((KIT / "tools" / "openapi.json").read_text())
+    # tokens (chars / 4) per node before T06: (greet_verify, negotiate, wrap_up); no node may grow back past these
+    BEFORE = {"brief-a": (3366, 3402, 2747), "brief-b": (3291, 4149, 3476), "S1": (3612, 4043, 3204),
+              "S2": (4043, 4711, 3923), "S3": (2911, 3565, 2904), "S4": (3131, 3795, 3129), "S5": (2987, 3958, 3289),
+              "S6": (4453, 5174, 4384), "S7": (3846, 4506, 3720), "brief-a-live": (3578, 3536, 2690),
+              "fix:brief-a": (3473, 3476, 2816), "fix:brief-b": (3167, 4144, 3493), "fixture-a": (1423, 1458, 895),
+              "fixture-x": (1183, 1281, 820), "s1-live": (3544, 4016, 3258), "s3-live": (3009, 3633, 2930)}
+    TARGET_TOKENS = 2500        # goal per node; the verbatim rules of the longer briefs still exceed it (see CEILING)
+    CEILING_TOKENS = 4000       # regression guard for every policy
+
+    def sizes(self, path):
+        pol = json.loads(path.read_text())
+        wf = G.generate_workflow(pol, None, self.OPENAPI)
+        calls = [v["name"] for v in S.normalise(pol)["variables"]]
+        return wf, {k: v / 4.0 for k, v in G.prompt_sizes(wf, calls).items()}
+
+    def test_per_node_budget(self):
+        for path in self.POLICIES:
+            _wf, sz = self.sizes(path)
+            name = path.name.split(".")[0]
+            key = "fix:" + name if path.parent == FIX and "fix:" + name in self.BEFORE else name
+            for node, b in zip(("greet_verify", "negotiate", "wrap_up"), self.BEFORE[key]):
+                self.assertLessEqual(sz[node], self.CEILING_TOKENS, (path.name, node, sz[node]))
+                self.assertLessEqual(int(sz[node]), b, (path.name, node, sz[node]))       # never above its pre-T06 size
+        for name in ("brief-a", "brief-b"):
+            before = self.BEFORE[name]
+            _wf, sz = self.sizes(KIT / "policies" / (name + ".policy.json"))
+            for node, b in zip(("greet_verify", "negotiate", "wrap_up"), before):
+                self.assertLess(sz[node], 0.92 * b, (name, node, sz[node]))
+            self.assertLess(sz["wrap_up"], 0.75 * before[2], name)
+            self.assertLessEqual(sz["wrap_up"], self.TARGET_TOKENS, name)
+        for name in ("fixture-a", "fixture-x"):
+            _wf, sz = self.sizes(FIX / (name + ".policy.json"))
+            self.assertTrue(all(v <= self.TARGET_TOKENS for v in sz.values()), (name, sz))
+
+    def test_wrap_up_keeps_note_and_outcome_rules_only(self):
+        p = S.normalise(raw("brief-b"))
+        wf = G.generate_workflow(raw("brief-b"))
+        wrap = wf["nodes"]["wrap_up"]["task_message"]
+        self.assertIn("add_note", wrap)
+        self.assertIn("Outcome: `transferred`", wrap)                         # an outcome-table row
+        self.assertIn("close as `no_promise` with the reason of the first product", wrap)
+        self.assertIn("{{w_wrap_todo}}", wrap)
+        neg_only = [r for r in p["rules"] if r["text"].startswith("Ask for the full past-due amount first")]
+        self.assertTrue(neg_only)
+        self.assertNotIn(neg_only[0]["text"], wrap)                           # negotiation rules are not repeated
+        self.assertNotIn("Persuasion attempts", wrap)
+
+    def test_rule_roles(self):
+        p = S.normalise(raw("brief-b"))
+        roles = G.rule_roles(p)
+        by = {r["text"][:40]: roles.get(r["id"]) for r in p["rules"]}
+        role = lambda start: next(v for k, v in by.items() if k.startswith(start))
+        self.assertIn("over", roles.values())                                  # a rule replaced as a whole
+        self.assertIsNone(role("Say that you are calling from the collec"))  # replaced in part: it still says what to say
+        self.assertEqual(role("`days_late`: 1 to 7"), "hook")                  # deadline table row: computed per product
+        self.assertEqual(role("Business days are Monday to Friday"), "hook")
+        self.assertEqual(role("Outcome: `transferred`"), "outcome")
+        self.assertIsNone(role("A request for a human"))
+        s6 = S.normalise(json.loads((KIT / "policies" / "S6.policy.json").read_text()))
+        r6 = G.rule_roles(s6)
+        struck = [r["id"] for r in s6["rules"] if r["text"].count("~~") >= 6]
+        self.assertTrue(struck and all(r6.get(i) == "void" for i in struck), struck)
+        # the text of a shown rule carries no "[overrides ...]" mark; a rule that changes a shown rule says so
+        wf = G.generate_workflow(raw("brief-b"))
+        neg = wf["nodes"]["negotiate"]["task_message"]
+        self.assertNotIn("[overrides", neg + wf["system_prompt"])
+        self.assertIn("(changes ", neg)
+
+    def test_privacy_line(self):
+        for path in self.POLICIES:
+            wf, _sz = self.sizes(path)
+            self.assertIn(G.PRIVACY_LINE, wf["system_prompt"], path.name)
+        self.assertIn("never read back or repeat an identity answer", G.PRIVACY_LINE)
+        self.assertNotIn("name", G.PRIVACY_LINE.lower().replace("names", ""))  # asking for {title} {last_name} stays allowed
+        greet = G.generate_workflow(raw("brief-b"))["nodes"]["greet_verify"]["task_message"]
+        self.assertIn("{{title}} {{last_name}}", greet)
+
+    def test_next_action_hint(self):
+        from builder import testmode as T
+        for name in ALL:
+            wf = G.generate_workflow(raw(name))
+            for node in ("greet_verify", "negotiate"):
+                self.assertEqual(wf["nodes"][node]["task_message"].count("{{w_next_action}}"), 1, (name, node))
+            self.assertNotIn("{{w_next_action}}", wf["nodes"]["wrap_up"]["task_message"])
+            vs = {"now": "2026-10-14T11:00"}
+            T.run_code_locally(code_of(wf["nodes"]["setup"]), {}, vs)
+            self.assertEqual(vs.get("w_next_action"), "", name)           # set at call start: never shown literally
+        self.assertIn('"w_next_action"', G._setup_source())
+
+    def test_static_opening(self):
+        s2 = json.loads((KIT / "policies" / "S2.policy.json").read_text())
+        oe = G.generate_workflow(s2, None, self.OPENAPI)["nodes"]["greet_verify"]["on_enter"]
+        self.assertEqual(oe["type"], "tts")
+        self.assertEqual(oe["text"], "Hello, this is the automated assistant of Harbourline Savings Bank. This call is recorded."
+                                     " May I speak to {{title}} {{last_name}}?")
+        # an opening described rather than quoted ("say you are a digital assistant ...") is built as a fixed line (FX6,
+        # option static_greeting); with the option off it stays with the model
+        self.assertEqual(G.generate_workflow(raw("brief-b"))["nodes"]["greet_verify"]["on_enter"]["type"], "tts")
+        self.assertEqual(G.generate_workflow(raw("brief-b"), options={"static_greeting": False})["nodes"]["greet_verify"]["on_enter"]["type"], "llm")
+        # an extracted line is used only with known call variables
+        q = raw("brief-b")
+        q["opening"]["line"] = "Hello, Freya Bank's digital assistant here; this call is recorded. Am I speaking with {title} {last_name}?"
+        oe = G.generate_workflow(q)["nodes"]["greet_verify"]["on_enter"]
+        self.assertEqual(oe, {"type": "tts", "text": "Hello, Freya Bank's digital assistant here; this call is recorded."
+                                                     " Am I speaking with {{title}} {{last_name}}?"})
+        q["opening"]["line"] = "Hello {nickname}."
+        self.assertEqual(G.generate_workflow(q, options={"static_greeting": False})["nodes"]["greet_verify"]["on_enter"]["type"], "llm")
+
+    def test_note_free_text_not_model_visible(self):
+        wf = G.generate_workflow(raw("brief-b"), None, self.OPENAPI)
+        vis = G.visible_tool_schema(tool(wf, "negotiate", "add_note"), {"customer_id"})
+        self.assertEqual(sorted(vis["parameters"]), ["product_id", "reason"])
+        self.assertEqual(G.lint_workflow(wf), [])
+
+    def test_earlier_review_fixes_kept(self):
+        pol = json.loads((KIT / "policies" / "brief-b.policy.json").read_text())
+        wf = G.generate_workflow(pol, None, self.OPENAPI)
+        for node in ("greet_verify", "negotiate"):
+            line = [x for x in wf["nodes"][node]["task_message"].splitlines() if x.startswith("- human_request")][0]
+            self.assertIn("insists after being asked once", line)
+        self.assertIn("never 'I have recorded' before the result", wf["system_prompt"])
+        self.assertIn("One tool call per message", wf["system_prompt"])
+        self.assertIn("results can be lost", wf["system_prompt"])
+
+
+class ReviewT06(unittest.TestCase):
+    """T06 review: rules the agent must follow were hidden by rule_roles / _overridden."""
+
+    OPENAPI = json.loads((KIT / "tools" / "openapi.json").read_text())
+
+    def gen(self, name):
+        pol = json.loads((KIT / "policies" / (name + ".policy.json")).read_text())
+        return S.normalise(pol), G.generate_workflow(pol, None, self.OPENAPI)
+
+    def visible(self, p, wf, rid, node):
+        r = next(x for x in p["rules"] if x["id"] == rid)
+        text = G._brace_vars(G._rule_text(r["text"]), p)
+        return text in wf["system_prompt"] + "\n" + wf["nodes"][node]["task_message"]
+
+    def test_one_date_for_all_products_rule_stays(self):
+        """No hook records a single named date on each product's own deadline: the rule is shown (b.6, S1.49, ...)."""
+        for name, rid in (("brief-b", "brief-b.6"), ("S1", "brief.49"), ("S2", "02-policy-extract.4.8.3"),
+                          ("S3", "brief.F6"), ("S6", "02-policy-extract.5.6.8"), ("S7", "brief.54")):
+            p, wf = self.gen(name)
+            self.assertNotIn(G.rule_roles(p).get(rid), ("hook", "over"), (name, rid))
+            self.assertTrue(self.visible(p, wf, rid, "negotiate"), (name, rid))
+        self.assertIsNotNone(G._SPEAKS_RX.search("say so in the read-back"))
+
+    def test_partly_replaced_rule_stays_with_its_change(self):
+        """B b.9 changes a.40 (the call goes on) but 'do not argue', 'take no promise' and 'closed in the past is a
+        dispute' still apply: a.40 is shown and b.9 says it changes it."""
+        p, wf = self.gen("brief-b")
+        neg = wf["nodes"]["negotiate"]["task_message"]
+        self.assertTrue(self.visible(p, wf, "brief-a.40", "negotiate"))
+        self.assertIn("do not argue", neg)
+        b9 = [x for x in neg.splitlines() if "A dispute or an \"already paid\" claim on one product" in x][0]
+        self.assertIn("(changes ", b9)
+        self.assertIn("40", b9)
+        for t in ("Never do X.", "Do not argue.", "Ask once.", "Offer the floor.", "Tell them to use the app.", "Say sorry."):
+            self.assertTrue(G._keeps_content(t), t)
+        self.assertFalse(G._keeps_content("Persuasion attempts are counted per call."))
+
+    def test_count_change_keeps_the_rest_of_the_rule(self):
+        """S2 4.4.3: the memo changes only the number of wrong answers; 'use the app or visit a branch' stays."""
+        p, wf = self.gen("S2")
+        self.assertNotEqual(G.rule_roles(p).get("02-policy-extract.4.4.3"), "over")
+        self.assertTrue(self.visible(p, wf, "02-policy-extract.4.4.3", "greet_verify"))
+
+    def test_withdrawn_override_restores_the_rule(self):
+        """S6: memo B withdraws memo A item 2, so 5.3.2 (callback hours) applies again; 5.10.4 stays (memo B adds a
+        note before the transfer)."""
+        p, wf = self.gen("S6")
+        over = G._overridden(p)
+        self.assertNotIn("02-policy-extract.5.3.2", over)
+        self.assertTrue(self.visible(p, wf, "02-policy-extract.5.3.2", "greet_verify"))
+        self.assertTrue(self.visible(p, wf, "02-policy-extract.5.10.4", "negotiate"))
+        # a mark from a rule that is itself replaced does not count
+        q = {"rules": [{"id": "d.1", "text": "Old."}, {"id": "m.1", "text": "[overrides d.1] New."},
+                       {"id": "m.2", "text": "[overrides m.1] Item 1 is withdrawn."}]}
+        self.assertEqual(G._overridden(q), {"m.1"})
+
+    def test_no_dangling_rule_reference(self):
+        """A shown rule that cites 'rule 30' keeps rule 30 shown (B 26/27/b.4)."""
+        for name in ("brief-a", "brief-b"):
+            p, wf = self.gen(name)
+            self.assertTrue(self.visible(p, wf, "brief-a.30", "negotiate"), name)
+        self.assertEqual(G._rule_number("a.30"), "30")
+        self.assertEqual(G._rule_number("30"), "30")
+        self.assertIsNone(G._rule_number("dates.1"))
+
+    def test_system_prompt_keeps_turn_rule(self):
+        for name in ("brief-a", "brief-b", "S6"):
+            _p, wf = self.gen(name)
+            self.assertIn("never end a turn with nothing to say", wf["system_prompt"])
+
+
+class OverrideKinds(unittest.TestCase):
+    """T06: '[overrides]' = full replacement (hidden), '[changes]' = partial change (kept, labelled). Policies with the
+    old single mark keep the keep-content heuristic, except a contradiction on the same tool (B: add_note)."""
+
+    OPENAPI = json.loads((KIT / "tools" / "openapi.json").read_text())
+
+    def gen(self, pol):
+        return S.normalise(pol), G.generate_workflow(pol, None, self.OPENAPI)
+
+    def test_brief_b_hides_never_uses_add_note_but_keeps_dispute(self):
+        for pol in (json.loads((KIT / "policies" / "brief-b.policy.json").read_text()), raw("brief-b")):
+            p, wf = self.gen(pol)
+            for node in ("greet_verify", "negotiate", "wrap_up"):
+                self.assertNotIn("never uses `add_note`", wf["system_prompt"] + wf["nodes"][node]["task_message"], node)
+            neg = wf["system_prompt"] + wf["nodes"]["negotiate"]["task_message"]
+            self.assertIn("\"This debt is not mine\" or \"I never had this product\": do not argue", neg)
+        p, wf = self.gen(json.loads((KIT / "policies" / "S2.policy.json").read_text()))
+        r = next(x for x in p["rules"] if x["id"] == "02-policy-extract.4.4.3")
+        self.assertIn(G._rule_text(r["text"]), wf["system_prompt"] + wf["nodes"]["greet_verify"]["task_message"])
+
+    def test_two_mark_kinds(self):
+        base = raw("brief-b")
+        rules = [{"id": "d.1", "text": "Never call `add_note`. Do not argue."},
+                 {"id": "d.2", "text": "Say \"hello\" first."},
+                 {"id": "m.1", "text": "[overrides d.1] Call `add_note` for each product."},
+                 {"id": "m.2", "text": "[changes d.2] Say it twice."}]
+        q = dict(base, rules=rules)
+        p = S.normalise(q)
+        roles = G.rule_roles(p)
+        self.assertEqual(roles.get("d.1"), "over")             # full replacement: hidden
+        self.assertIsNone(roles.get("d.2"))                    # partial change: kept
+        labels = G._rule_labels(p)
+        self.assertIn("(changes ", G._rule_line(p, rules[3], labels, roles))
+        self.assertNotIn("[changes", G._rule_text(rules[3]["text"]))
+        # new-style policy: an [overrides] hides even a rule with content to say
+        q2 = dict(base, rules=[{"id": "d.1", "text": "Say \"hi\"."}, {"id": "m.1", "text": "[overrides d.1] Say \"hello\"."},
+                               {"id": "m.2", "text": "[changes d.1] x"}])
+        self.assertEqual(G.rule_roles(S.normalise(q2)).get("d.1"), "over")
+        # old-style policy: content kept, unless the same tool is contradicted
+        q3 = dict(base, rules=[{"id": "d.1", "text": "Say \"hi\". Never call `add_note`."},
+                               {"id": "m.1", "text": "[overrides d.1] Call `add_note` once."}])
+        self.assertEqual(G.rule_roles(S.normalise(q3)).get("d.1"), "over")
+        q4 = dict(base, rules=[{"id": "d.1", "text": "Say \"hi\" and do not argue."},
+                               {"id": "m.1", "text": "[overrides d.1] Continue the call."}])
+        self.assertIsNone(G.rule_roles(S.normalise(q4)).get("d.1"))

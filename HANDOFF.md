@@ -112,12 +112,16 @@ weeks" treated as a refusal) is fixed by relative-period parsing + `check_offer`
 | Answer-key promises of fixture banks S1–S7 (77) through `check_offer` | 26 rejected → **0** |
 | Amounts in words | not parsed — the `amount` field is a JSON number, the model converts; fails safe (asks again) |
 
-## 8. Response time (1,507 turns of the first 250 run)
+## 8. Response time (1,508 turns of the 250-case chain run, agent v4, 5 concurrent)
 
-Turns without a tool are effectively instant; **each tool call adds ~1.5–3.5 s** (median: `verify_identity` 1.7 s,
-`verify`+`get_account` 3.6 s, `create_promise` 2.5 s, `check_offer` 2.1 s). Slowest turn per call: median 4 s, worst 27 s
-(old agent: 5 s / 3 s, worst 30 s). Lever: avoid unneeded tool calls (not prompt length). Customers hang up when the
-agent is silent too long (README); `run_cases.py` warns above a 10 s median.
+The earlier claim "turns without a tool are instant" was a measurement artefact: an assistant message's `secondsFromStart`
+is when generation STARTED; it ended at the epoch-ms suffix of its `messageId`. `tools/turn_latency.py` now uses that.
+Real turn (user -> agent finished): median 2.0 s, p90 8.2 s, max 28 s. Speak (dialogue generation) is 58% of the time
+(median 1.0 s, p90 4.9 s; grows with reply length: <60 chars 0.7 s, >300 chars 5 s), decide (model writes a tool call)
+30% (median 1.2 s on the 49% of turns with a tool), tool+hooks 6% (median 0.3 s), code/api pipeline nodes 6%, extraction+routing ~0.
+No-tool turns: median 1.0 s; tool turns 2.5-3.7 s (decide + tool + speak). Longest regular speak: negotiate entry statement (median 3.4 s).
+Focus runs (v2/v4) were 4-6x slower with 33-49 s gaps before model output: shared model-server queueing, not the workflow
+(slowdown grew as our own load fell); benchmark when the endpoint is idle. Levers: negotiate entry as `tts`, signals off, shorter replies.
 
 ## 9. Platform facts learned (add to STATUS)
 

@@ -50,6 +50,6 @@ else:
             body.pop(rf, None)
     elif not str(body.get(rf) or "").strip() or str(body.get(rf)).startswith("{"):
         body.pop(rf, None)
-    vset(vs, "w_close_done", "yes")
+    vset(vs, "w_close_sent", "yes")
     vset(vs, "w_close_sends", str(int(num(vget(vs, "w_close_sends", 0))) + 1))
     request_sent(vs)

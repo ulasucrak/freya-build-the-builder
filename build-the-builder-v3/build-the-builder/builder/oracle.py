@@ -102,10 +102,18 @@ def parse_time(value):
     """Spoken or written time -> 'HH:MM' (24 h), or '' when unreadable. '11', '11:30', '11.30', '2 pm', '12am',
     'noon', 'seven in the evening', 'half past ten', 'quarter to five in the afternoon', 'six thirty pm'."""
     try:
-        s = str(value or "").strip().lower()
+        # 'three, sorry, four pm' -> the last stated time; am/pm said before the correction carries over ('four pm,
+        # no, four thirty'); a corrected part without either keeps the old reading of the whole text
+        parts = said_parts(value, False)
+        s = parts[-1].strip()
+        ap = r"\b(?:afternoon|evening|tonight|night|morning|noon|midday|midnight)\b|(?<![a-z])[ap]\.?m\b"
+        if len(parts) > 1 and not re.search(ap, s):
+            m = re.search(r"\b(?:afternoon|evening|tonight|night|morning)\b|(?<![a-z])[ap]\.?m\b", " ".join(parts[:-1]))
+            s = s + " " + m.group(0) if m else str(value).lower()
         if not s:
             return ""
-        if re.search(r"\b(noon|midday)\b", s):          # a word: 'afternoon' holds 'noon'
+        # a word: 'afternoon' holds 'noon'
+        if re.search(r"\b(noon|midday)\b", s):
             return "12:00"
         if "midnight" in s:
             return "00:00"
@@ -156,6 +164,119 @@ def to_number(value):
             else:
                 s = s.replace(",", "")
         return float(s)
+    except Exception:
+        return None
+
+
+CORRECTION_RE = r"\b(?:sorry|i meant?|actually|wait|rather|make (?:it|that)|correction|scratch that)\b|\bno\b\s*[,.!;]|\bno no\b"
+NEGATED_RE = r"\b(?:not|instead of|rather than)\s+[^,;!?]*?(?=[,;!?]|\bbut\b|$)"
+
+
+def said_parts(text, neg=True):
+    """What the customer said, split at corrections ('the 21st, sorry, I mean the 20th'), with negated values
+    ('450, not 500') removed unless neg is False: list of lower-case parts, the last stated one last."""
+    s = str(text or "").lower()
+    s = re.sub(NEGATED_RE, " ", s) if neg else s
+    return [p for p in re.split(CORRECTION_RE, s) if p.strip(" ,.;!?")] or [s]
+
+
+def parse_amount(value):
+    """An amount as written or said -> float, or None. Numbers (both separator conventions), words ('four hundred
+    and fifty', 'two thousand ... five hundred', 'four fifty', 'a hundred', 'two grand', '1.5k'), mixed ('2 thousand
+    500'), decimals ('point five', 'euros and twenty cents'), currency signs/words; with corrections or several
+    numbers the last stated amount counts; days ('the 25th'), dates, times, periods and percentages are skipped."""
+    try:
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return float(value)
+        s = said_parts(value)[-1].replace("-", " ")
+        # '1 250,00': a space as the thousands separator
+        s = re.sub(r"(?<![\d.,])\d{1,3}(?: \d{3})+(?!\d)", lambda m: m.group(0).replace(" ", ""), s)
+        s = re.sub(r"(?<=\d)\s*k\b|\s+k\b", " thousand", s.replace("€", " euro ").replace("$", " dollar ").replace("£", " pound "))
+        toks = re.findall(r"\d[\d.,']*\d|\d|[a-z]+|[^\s\w]", s) + ["|"]
+        mult = dict(hundred=100, thousand=1000, grand=1000, million=1000000)
+        skip = ["st", "nd", "rd", "th", "percent", "%", "day", "days", "week", "weeks", "month", "months", "year", "years",
+                "am", "pm", ":", "o", "oclock", "clock"] + list(ORDINAL_WORDS) + UNIT_WORDS[9:] + MONTH_NAMES + MONTH_ABBR
+        groups = []
+        g = None
+        for i, t in enumerate(toks):
+            n = None
+            kind = "d"
+            if t[0].isdigit():
+                t = t.replace("'", "")
+                # '1.250': thousands
+                n = to_number(t.replace(".", "") if re.match(r"^[1-9]\d{0,2}(\.\d{3})+$", t) else t)
+            elif t in NUM_WORDS:
+                n = NUM_WORDS.index(t)
+                kind = "u" if n < 10 else "t"
+            elif t in TENS_WORDS:
+                n, kind = (TENS_WORDS.index(t) + 2) * 10, "x"
+            elif t == "a" and toks[i + 1] in mult:
+                n, kind = 1, "u"
+            if g is not None and n is not None:
+                last = g["last"]
+                if g["dec"] is not None:
+                    dec = g["dec"][:-1] if last == "x" and kind == "u" else g["dec"]
+                    g["dec"], g["last"], g["b"] = dec + (t if kind == "d" else str(n)), kind, i
+                    continue
+                if last == "x" and kind == "u":
+                    g["cur"] += n
+                elif last == "m" and n < g["m"]:
+                    g["cur"] += n
+                elif last in ("u", "t") and kind in ("t", "x") and g["tot"] == 0 and g["cur"] < 100:
+                    # 'four fifty'
+                    g["cur"] = g["cur"] * 100 + n
+                else:
+                    groups.append(g)
+                    g = None
+            if n is not None:
+                if g is None:
+                    g = dict(tot=0, cur=n, dec=None, last=kind, m=0, a=i, b=i)
+                g["last"], g["b"] = kind, i
+            elif t in mult:
+                if g is None:
+                    g = dict(tot=0, cur=0, dec=None, last="u", m=0, a=i, b=i)
+                if g["dec"] is not None:
+                    # 'one point two five thousand'
+                    g["cur"] += float("0." + (g["dec"] or "0"))
+                    g["dec"] = None
+                if g["cur"] >= 100 and g["cur"] % 100:
+                    # 'five hundred four hundred': a new amount starts at the last number
+                    r = g["cur"] % 100
+                    g["cur"] -= r
+                    groups.append(g)
+                    g = dict(tot=0, cur=r, dec=None, last="u", m=0, a=i - 1, b=i)
+                if mult[t] == 100:
+                    g["cur"] = (g["cur"] or 1) * 100 if g["cur"] < 100 else g["cur"]
+                else:
+                    g["tot"] += (g["cur"] or 1) * mult[t]
+                    g["cur"] = 0
+                g["last"], g["m"], g["b"] = "m", mult[t], i
+            elif t == "point" and (g is None or g["dec"] is None):
+                if g is None:
+                    g = dict(tot=0, cur=0, dec=None, last="d", m=0, a=i, b=i)
+                g["dec"] = ""
+            elif g is not None and t in ("and", "uh", "um", "er", "erm", "ah", ",", ".", "…"):
+                pass
+            elif g is not None:
+                groups.append(g)
+                g = None
+        vals = []
+        cur = ("euro", "euros", "eur", "dollar", "dollars", "pound", "pounds")
+        for g in groups:
+            v = g["tot"] + g["cur"] + (float("0." + g["dec"]) if g["dec"] else 0)
+            nxt = toks[g["b"] + 1]
+            pv = [x for x in toks[:g["a"]] if x != "the"][-1:]
+            # a day, a date, a period, a percentage or a clock time ('at 3', 'by the 25th') is not an amount
+            if nxt in skip or pv and pv[0] in MONTH_NAMES + MONTH_ABBR + ["at", "by", "on", "until", "till", "before", "after"]:
+                continue
+            cents = nxt in ("cent", "cents", "c", "pence", "p")
+            # 'twelve euros fifty', '12 euros and 50 cents': the euros, then the cents
+            if vals and v < 100 and nxt not in cur and set(toks[vals[-1][1] + 1:g["a"]]) <= set(cur + ("and",)) \
+                    and toks[vals[-1][1] + 1] in cur and (cents or v == int(v)):
+                vals[-1] = (vals[-1][0] + v / 100, g["b"])
+            else:
+                vals.append((v / 100 if cents else float(v), g["b"]))
+        return round(vals[-1][0], 2) if vals else (None if groups else to_number(value))
     except Exception:
         return None
 
@@ -691,18 +812,19 @@ def full_year(y):
 
 def resolve_weekday(wd, today, mode, next_rule):
     """wd: 0=Monday. mode 'this' -> that weekday in the current week; 'next' -> following calendar week when
-    next_rule is 'following_week', else the next occurrence strictly after today; '' -> next occurrence on or
-    after today."""
+    next_rule is 'following_week', else the next occurrence strictly after today; '' -> next occurrence strictly
+    after today (a bare 'Tuesday' said on a Tuesday is next week's; 'today' is said as 'today')."""
     mon = week_monday(today)
     if mode == "this":
-        return mon + datetime.timedelta(days=wd)
+        d = mon + datetime.timedelta(days=wd)
+        return d if d >= today else d + datetime.timedelta(days=7)
     if mode == "next":
         if next_rule == "following_week":
             return mon + datetime.timedelta(days=7 + wd)
         delta = (wd - today.weekday()) % 7
         return today + datetime.timedelta(days=delta or 7)
     delta = (wd - today.weekday()) % 7
-    return today + datetime.timedelta(days=delta)
+    return today + datetime.timedelta(days=delta or 7)
 
 
 def parse_spoken_date(text, today, next_rule="", future=True, order=""):
@@ -712,7 +834,8 @@ def parse_spoken_date(text, today, next_rule="", future=True, order=""):
     'tomorrow', 'this/next Friday'. Numeric dates follow `order` ('dmy' or 'mdy', the other reading only when the
     first is impossible); with no order an ambiguous numeric date (both readings valid and different) gives None.
     'next <weekday>' is resolved only when the policy says what it means (next_rule).
-    Without a year, `future=True` picks the next occurrence on or after today."""
+    Without a year, `future=True` picks the next occurrence on or after today. 'a week from today', 'in a fortnight',
+    'Friday next week'. Corrections and more relative forms: said_date."""
     try:
         s = str(text or "").strip().lower()
         if not s:
@@ -724,11 +847,12 @@ def parse_spoken_date(text, today, next_rule="", future=True, order=""):
         s = day_words_to_digits(s)
         s = re.sub(r"\bthe\b", " ", s).replace(",", " ").replace(" of ", " ")
         if today is not None:
-            if re.search(r"\bday after tomorrow\b", s):
-                return today + datetime.timedelta(days=2)
             if re.search(r"\btomorrow\b", s):
-                return today + datetime.timedelta(days=1)
-            m = re.search(r"\bin\s+(?:about\s+|around\s+|roughly\s+)?(\d+|an?)\s+(day|week|month)s?\b", s)   # 'in about five weeks'
+                return today + datetime.timedelta(days=2 if re.search(r"\bday after tomorrow", s) else 1)
+            # 'a week from today', 'in a fortnight'
+            s = re.sub(r"\b(\d+|an?)\s+(day|week|month)s?\b(?:\s+(?:from\s+)?(?:today|now)\b)?", r"in \1 \2", re.sub(r"\b(an?\s+)?fortnight", "2 weeks", s))
+            # 'in about five weeks'
+            m = re.search(r"\bin\s+(?:about\s+|around\s+|roughly\s+)?(\d+|an?)\s+(day|week|month)s?\b", s)
             if m:
                 k = 1 if m.group(1) in ("a", "an") else int(m.group(1))
                 return today + datetime.timedelta(days=k * dict(day=1, week=7, month=30)[m.group(2)])
@@ -766,6 +890,9 @@ def parse_spoken_date(text, today, next_rule="", future=True, order=""):
         if m and weekday_from_word(m.group(2)) is not None:
             wd = weekday_from_word(m.group(2))
             mode = "next" if m.group(1) == "next" else ("this" if m.group(1) == "this" else "")
+            # 'Friday next week': the following calendar week
+            if re.search(r"\bnext\s+week\b", s):
+                mode, next_rule = "next", "following_week"
         m2 = re.search(r"\b(?:the\s+)?(\d{1,2})\b", s)
         if m2:
             day = int(m2.group(1))
@@ -786,6 +913,113 @@ def parse_spoken_date(text, today, next_rule="", future=True, order=""):
     except Exception:
         pass
     return None
+
+
+def relative_date(text, today, cal=None):
+    """Relative days parse_spoken_date leaves out (kept out of it for the create_promise hook-size budget) -> date,
+    or None: 'end of the month' / 'month end' / 'end of (next) week' (the last business day when `cal` is given,
+    else the last day / Friday), 'this time next week', 'the 5th of next month'. '' for a day that does not exist
+    ('the 31st of next month' in a 30-day month)."""
+    try:
+        s = re.sub(r"(\d+)(st|nd|rd|th)\b", r"\1", day_words_to_digits(str(text or "").lower()))
+        s = " ".join(re.sub(r"\b(the|of)\b|,", " ", s).split())
+        s = re.sub(r"\b(this |next )?(week|month)[ -]end\b", r"end \1\2", s)
+        if re.search(r"\b(this time|same day) next week\b", s):
+            return today + datetime.timedelta(days=7)
+        m = re.search(r"\bend (this |next )?(week|month)\b", s)
+        if m:
+            k = int(m.group(1) == "next ")
+            for j in (k, k + 1):
+                # said after the period's last business day (a weekend): the next one
+                y, mo = divmod(today.month + j, 12)
+                e = week_monday(today) + datetime.timedelta(days=7 * j + 7) if m.group(2) == "week" else safe_date(today.year + y, mo + 1, 1)
+                d = previous_business_day(e, cal) if cal else e - datetime.timedelta(days=3 if m.group(2) == "week" else 1)
+                if d >= today:
+                    return d
+        m = re.search(r"\b(\d{1,2}) (this|next) month\b|\b(this|next) month (?:on )?(\d{1,2})\b", s)
+        if m:
+            y, mo = divmod(today.month - 1 + int("next" in (m.group(2), m.group(3))), 12)
+            return safe_date(today.year + y, mo + 1, int(m.group(1) or m.group(4))) or ""
+    except Exception:
+        pass
+    return None
+
+
+DAY_NAMED_RE = r"\d|\b(?:mon|tues|wednes|thurs|fri|satur|sun|to)day\b|\b(?:mon|tue|wed|thu|fri)\b|\btime\b|\btomorrow\b"
+
+
+def said_period(text, today, cal=None):
+    """The period the customer named ('next week', 'end of the month', 'month end', 'later this week', 'early next
+    month'; the last stated part when corrected) -> (first day, last day, True for the end of the period) from today
+    on, or None. 'a week from today' / 'in 2 weeks' are no period. A text that also names a day ('Friday next week')
+    keeps its period; DAY_NAMED_RE tells whether it names one. 'this' week/month whose business days are all past
+    (a weekend): the next one."""
+    try:
+        cal = cal or dict(weekend=[6, 7])
+        s = " ".join(re.sub(r"\b(the|of|in)\b|,", " ", said_parts(text)[-1]).split())
+        s = re.sub(r"\b(this |next |coming )?(week|month)[ -]end\b", r"end \1\2", s)
+        m = re.search(r"\b(end|late|later|beginning|start|early|middle|mid)?[ -]?(this |next |coming )?(week|month)\b", s)
+        if not m or not (m.group(1) or m.group(2)):
+            return None
+        k = int(m.group(2) in ("next ", "coming "))
+        for j in (k, k + 1):
+            if m.group(3) == "week":
+                a = week_monday(today) + datetime.timedelta(days=7 * j)
+                b = a + datetime.timedelta(days=6)
+            else:
+                y, mo = divmod(today.month - 1 + j, 12)
+                a = datetime.date(today.year + y, mo + 1, 1)
+                b = (a + datetime.timedelta(days=32)).replace(day=1) - datetime.timedelta(days=1)
+            a = max(a, today)
+            if next_business_day(a, cal, True) <= b:
+                return a, b, m.group(1) in ("end", "late", "later")
+    except Exception:
+        pass
+    return None
+
+
+def period_day(text, period, today, cal=None):
+    """A weekday the customer named alone ('Thursday') or with the period ('Thursday at the end of next week') ->
+    that weekday inside the period (said_period of `period`): its last one for the end of a period, else its first;
+    None when no weekday is named, the text says this/next itself, or the day is not in the period."""
+    try:
+        s = said_parts(text)[-1]
+        m = re.search(r"\b(this |next |coming )?([a-z]+day)\b", s)
+        wd = weekday_from_word(m.group(2)) if m else None
+        p = said_period(period, today, cal)
+        if wd is None or not p or (m.group(1) and not said_period(s, today, cal)) or re.search(r"\d", day_words_to_digits(s)):
+            return None
+        ds = [p[0] + datetime.timedelta(days=i) for i in range((p[1] - p[0]).days + 1)]
+        ds = [d for d in ds if d.weekday() == wd]
+        return (ds[-1] if p[2] else ds[0]) if ds else None
+    except Exception:
+        return None
+
+
+def said_date(text, today, next_rule="", cal=None, future=True, order=""):
+    """A day as the customer said it, with corrections ('Friday, sorry, I mean Monday', 'the 20th, not the 21st':
+    the last stated day that can be read) and every relative form (relative_date, then parse_spoken_date)."""
+    try:
+        parts = said_parts(text)
+        ds = []
+        for p in parts:
+            d = relative_date(p, today, cal) if today else None
+            ds.append(parse_spoken_date(p, today, next_rule, future, order) if d is None else d)
+        prev = [d for d in ds[:-1] if d]
+        if ds[-1] or not prev:
+            return ds[-1] or None
+        # only a piece was corrected ('14 March 1988, no, 1989'; '3rd of March, sorry, the 4th'): put it into the
+        # day said before; anything else that cannot be read gives None
+        p = re.sub(r"(\d+)(st|nd|rd|th)\b", r"\1", day_words_to_digits(parts[-1]))
+        y = re.search(r"\b(1[89]\d\d|20\d\d)\b", p)
+        dd = re.search(r"\b([12]?\d|3[01])\b", re.sub(r"\b(1[89]\d\d|20\d\d)\b", " ", p))
+        mo = [month_from_word(w) for w in re.findall(r"[a-z]+", p) if month_from_word(w)]
+        if not (y or dd or mo):
+            return None
+        d = prev[-1]
+        return safe_date(int(y.group(1)) if y else d.year, mo[0] if mo else d.month, int(dd.group(1)) if dd else d.day)
+    except Exception:
+        return None
 
 
 def pick_year(day, mon, today, future):
@@ -872,12 +1106,16 @@ def fix_year(d, today):
 def spoken_digits(text):
     """Digits said as words -> digits: 'four four seven one', 'double four seven one', 'oh three five eight',
     'forty-four seventy-one' -> '4471' / '0358'. Text that already holds digits keeps them."""
-    s = re.sub(r"\blast\s+\w+\s+digits?\b|\bdigits?\b", " ", str(text or "").lower())    # 'the last four digits are ...'
+    # 'the last four digits are ...'
+    s = re.sub(r"\blast\s+\w+\s+digits?\b|\bdigits?\b", " ", str(text or "").lower())
     s = re.sub(r"\b(double|triple)\s+(\w+)", lambda m: " ".join([m.group(2)] * (2 if m.group(1) == "double" else 3)), s)
-    s = day_words_to_digits(re.sub(r"\boh\b", "zero", s).replace("zero", "0"))
-    for w in TENS_WORDS[2:]:                    # forty .. ninety, alone or with a unit ('forty-four')
+    s = day_words_to_digits(re.sub(r"\b(oh|o|nought|nil)\b", "zero", s).replace("zero", "0"))
+    # forty .. ninety, alone or with a unit ('forty-four')
+    for w in TENS_WORDS[2:]:
         s = re.sub(r"\b" + w + r"(?:[\s-]+(\d))?\b", lambda m: str((TENS_WORDS.index(w) + 2) * 10 + int(m.group(1) or 0)), s)
-    return s
+    # 'twelve hundred', 'four hundred seventy one', 'four hundred and five'; 'one hundred two three' stays 123
+    return re.sub(r"(\d+)\s+hundred\b(?:\s+and\s+(\d\d?)\b|\s+(\d\d)\b(?!\s*\d)|(?!\s*(?:and\s+)?\d))",
+                  lambda m: str(int(m.group(1)) * 100 + int(m.group(2) or m.group(3) or 0)), s)
 
 
 def normalise_answer(answer, how, answer_format=""):
@@ -888,13 +1126,13 @@ def normalise_answer(answer, how, answer_format=""):
     s = str(answer if answer is not None else "").strip()
     how = str(how or "")
     if how in ("dmy_to_iso", "mdy_to_iso"):
-        d = parse_spoken_date(s, None, future=False, order=how[:3])
+        d = said_date(s, None, future=False, order=how[:3])
         return iso(d) if d else s
     if how == "digits_only":
         digits = re.sub(r"\D", "", spoken_digits(s))
         return digits or s
     if answer_format == "date":
-        d = parse_spoken_date(s, None, future=False)
+        d = said_date(s, None, future=False)
         return iso(d) if d else s
     return s
 
@@ -915,7 +1153,7 @@ def check_promise(product, amount, date_value, today, cal, already=None, next_ru
             out["message"] = "A promise is already recorded for this product. It cannot be changed in this call."
             return out
         amt = to_number(amount)
-        d = to_date(date_value) or parse_spoken_date(date_value, today, next_rule)
+        d = parse_spoken_date(date_value, today, next_rule)
         out["amount"] = amt
         out["date"] = iso(d)
         full = product.get("full")
@@ -1017,7 +1255,7 @@ def check_callback(date_value, time_value, today, now_time, policy, cal, next_ru
     out = dict(ok=False, code="", message="", date="", time="")
     try:
         cb = (policy or dict()).get("callback") or dict()
-        d = to_date(date_value) or parse_spoken_date(date_value, today, next_rule)
+        d = to_date(date_value) or said_date(date_value, today, next_rule, cal)
         t = parse_time(time_value)
         out["date"] = iso(d)
         out["time"] = t
@@ -1137,7 +1375,8 @@ def compute_closing(facts, policy):
         if not res["source"]:
             llm = pair(facts.get("llm"))
             if llm["outcome"] and facts.get("verified") and llm["outcome"] in pre_verification_outcomes(cl):
-                llm = pair(None)        # identity passed: an outcome of a failed check or of someone else answering cannot apply
+                # identity passed: an outcome of a failed check or of someone else answering cannot apply
+                llm = pair(None)
             if llm["outcome"]:
                 res.update(llm)
                 res["source"] = "llm"
@@ -1209,9 +1448,9 @@ def date_facts_text(policy, today, now_time, cal):
         return "Today: " + iso(today)
 
 
-def offer_text(o):
+def offer_text(o, short=False):
     amt = o.get("amount")
-    parts = ["Attempt " + str(o.get("n")) + " (a persuasion attempt: only after a refusal or a non-answer):"]
+    parts = ["Attempt " + str(o.get("n")) + (":" if short else " (a persuasion attempt: only after a refusal or a non-answer):")]
     if amt is not None:
         parts.append("amount " + money(amt))
         if o.get("alt_amount") is not None:
@@ -1246,39 +1485,60 @@ def replacement_days_text(today, deadline, cal):
     return "; ".join(out)
 
 
-def account_facts_text(products, cal, today=None):
-    """Multi-line block of per-product facts for the prompts."""
+def account_facts_text(products, cal, today=None, ladder_in_code=False):
+    """Multi-line block of per-product facts for the prompts. `ladder_in_code`: refusals are counted by the
+    workflow's code (the next offer comes in the state line), so the offer-count paragraph is one sentence.
+    Products after the first open with their Attempt 1 offer; a word shared by product names ('loan' in 'Personal
+    Loan' and 'Car Loan') is listed as ambiguous (ask which one)."""
     try:
         if not products:
             return "The account could not be loaded. No product facts are available."
         lines = ["Late products, in the order to handle them (" + str(len(products)) + " in total):"]
+        ap = lines.append
         for p in products:
-            lines.append(str(p.get("index")) + ". product_id " + str(p.get("id")) + ": " + str(p.get("name")) + ".")
-            lines.append("   Past-due amount (full amount): " + money(p.get("full")) + ". Days late: " + str(p.get("days_late")) + ".")
-            if p.get("floor") is not None:
-                lines.append("   Floor (lowest amount that can be recorded, field " + str(p.get("floor_field")) + "): " + money(p.get("floor")) + "."
-                             + " Offer the floor only when the customer says the amount itself is too much; a plain no or 'I can't' is a refusal,"
-                             + " not that. Offering the floor for an amount that is too much does not change the day being discussed.")
-            if p.get("band"):
-                lines.append("   Band: " + p.get("band") + ". Persuasion attempts allowed: " + str(p.get("attempts")) + ".")
-            if p.get("deadline"):
-                lines.append("   Deadline (latest promise date): " + date_label(to_date(p.get("deadline"))) + ".")
-            for o in p.get("offers") or []:
-                lines.append("   " + offer_text(o))
-            if p.get("offers"):
-                lines.append("   After attempt " + str(len(p.get("offers"))) + " is refused, make no other offer for this product: no other amount"
-                             + " (not the floor either), no other day.")
-            if p.get("deadline"):
-                lines.append("   A promise for " + str(p.get("id")) + " is valid with an amount from " + money(p.get("floor"))
-                             + " to " + money(p.get("full")) + " and a business day from today to " + str(p.get("deadline")) + "."
-                             + " A day the customer names on or before " + str(p.get("deadline")) + " is inside the deadline;"
-                             + " if it is not a business day, offer the replacement day from the calendar facts.")
-                rep = replacement_days_text(today, to_date(p.get("deadline")), cal)
+            g = p.get
+            dl = g("deadline")
+            ap(str(g("index")) + ". product_id " + str(g("id")) + ": " + str(g("name")) + ".")
+            ap("   Past-due amount (full amount): " + money(g("full")) + ". Days late: " + str(g("days_late")) + ".")
+            if g("floor") is not None and ladder_in_code:
+                ap("   Floor (lowest amount that can be recorded): " + money(g("floor")) + ". Offer it only when a tool result"
+                 + " or the state line says so; it keeps the day being discussed.")
+            elif g("floor") is not None:
+                ap("   Floor (lowest amount that can be recorded, field " + str(g("floor_field")) + "): " + money(g("floor")) + "."
+                 + " Offer the floor only when the customer says the amount itself is too much; a plain no or 'I can't' is a refusal,"
+                 + " not that. Offering the floor for an amount that is too much does not change the day being discussed.")
+            if g("band"):
+                ap("   Band: " + g("band") + ". Persuasion attempts allowed: " + str(g("attempts"))
+                 + ("; never repeat an offer that was refused." if ladder_in_code else "."))
+            if dl:
+                ap("   Deadline (latest promise date): " + date_label(to_date(dl)) + ".")
+            for o in g("offers") or []:
+                ap("   " + offer_text(o, ladder_in_code))
+            if g("offers") and p is not products[0]:
+                ap("   First question for it: its Attempt 1 offer, never 'can you pay today'.")
+            if g("offers") and not ladder_in_code:
+                n = str(len(g("offers")))
+                ap("   Offers allowed for this product: " + n + " in total, counting every offer you make. After attempt " + n
+                 + " is refused (a plain no or 'I can't' is a refusal), make no other offer for this product: no other amount"
+                 + " (not the floor either), no other day, and never repeat an offer that was refused.")
+            if dl:
+                ap("   A promise for " + str(g("id")) + " is valid with an amount from " + money(g("floor"))
+                 + " to " + money(g("full")) + " and a business day from today to " + str(dl) + "."
+                 + " A day the customer names on or before " + str(dl) + " is inside the deadline;"
+                 + " if it is not a business day, offer the replacement day from the calendar facts.")
+                rep = replacement_days_text(today, to_date(dl), cal)
                 if rep:
-                    lines.append("   Days up to the deadline that are not business days, and the one day to offer instead (offer exactly"
-                                 + " that day; say only that the named day is not a business day, never call it a public or bank holiday): " + rep + ".")
-                lines.append("   Any day after " + date_label(to_date(p.get("deadline"))) + ", a weekend day or holiday too, is after the deadline:"
-                             + " do not move it to a nearby business day; say the latest date you can record is the deadline and offer it.")
+                    ap("   Days up to the deadline that are not business days, and the one day to offer instead (offer exactly"
+                     + " that day; say only that the named day is not a business day, never call it a public or bank holiday): " + rep + ".")
+                ap("   Any day after " + date_label(to_date(dl)) + ", a weekend day or holiday too, is after the deadline:"
+                 + " do not move it to a nearby business day; say the latest date you can record is the deadline and offer it.")
+        ws = dict()
+        for p in products:
+            for w in set(re.findall(r"[a-z]{3,}", str(p.get("name")).lower())) - set(["and", "the", "for"]):
+                ws.setdefault(w, []).append(str(p.get("name")))
+        amb = ["'" + w + "': " + " or ".join(v) for w, v in sorted(ws.items()) if len(v) > 1]
+        if amb:
+            ap("Ambiguous names (" + "; ".join(amb) + "): if the customer uses only that word, ask which one.")
         return "\n".join(lines)
     except Exception:
         return "The account facts could not be prepared."
