@@ -368,6 +368,16 @@ class GenericDatedRulesLineTest(unittest.TestCase):
 class GenericRulesDigestTest(unittest.TestCase):
     def test_usable_digest_bounds(self):
         self.assertEqual(G.usable_digest({"rules_digest": "short"}), "")
-        self.assertEqual(G.usable_digest({"rules_digest": "x" * (G.DIGEST_MAX_CHARS + 1)}), "")
+        self.assertEqual(G.usable_digest({"rules_digest": "x" * (G.DIGEST_HARD_MAX_CHARS + 1)}), "")
+
+    def test_prompt_with_a_full_size_digest_stays_under_3k_tokens(self):
+        pol = json.loads((pathlib.Path(__file__).resolve().parent.parent / "out" / "final4.policy.json").read_text()) \
+            if (pathlib.Path(__file__).resolve().parent.parent / "out" / "final4.policy.json").exists() else None
+        if pol is None:
+            self.skipTest("no generic policy at hand")
+        pol["rules_digest"] = "R" * G.DIGEST_MAX_CHARS
+        sp = G.generic_workflow(G.policy_schema.normalise(pol) | {"rules_digest": pol["rules_digest"]})["system_prompt"]
+        self.assertLessEqual(len(sp), G.GENERIC_PROMPT_MAX_CHARS)
+        self.assertLessEqual(G.prompt_tokens(sp), 3000)
         ok = "Say \"Merhaba.\" first. " * 100
         self.assertEqual(G.usable_digest({"rules_digest": ok}), ok.strip())

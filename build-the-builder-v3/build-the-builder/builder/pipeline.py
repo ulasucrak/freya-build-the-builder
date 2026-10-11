@@ -35,6 +35,12 @@ KIT = pathlib.Path(os.path.abspath(__file__)).parent.parent
 # Stage plans in seconds (each capped by what is left after the reserve).
 PLAN = {"extract": 330, "digest": 240, "policy_fix": 120, "prompts": 240, "casegen": 150, "repair_llm": 200}
 DIGEST_SYSTEM = "You turn a client's raw rules into the short, exact rulebook of a phone agent. You never invent rules."
+DIGEST_SHORTEN = """This phone-agent rulebook is %(have)d characters; it must be at most %(max)d. Shorten it: merge
+duplicates, cut words, keep every quoted sentence word for word, every count, limit, condition and its action, and
+the tool and field names. Return only the rulebook.
+
+%(text)s
+"""
 DIGEST_PROMPT = """Below are ALL rules extracted word for word from a client's documents for a phone agent (each tagged
 with its document; a date in a tag is the document's date), the list of situations and the fixed phrases.
 The full list is far too long for the agent's prompt. Write the agent's rulebook: complete for its job, short.
@@ -446,16 +452,27 @@ class Builder:
             return False
         try:
             gen = self.deps.generate
+            if not hasattr(gen, "generic_rules_text"):
+                self.stage_end("digest", t0, "skipped", "generator has no digest support")
+                return False
             p = schema_mod.normalise(self.policy)
             src = gen.generic_rules_text(p)
             if len(src) <= gen.DIGEST_MAX_CHARS:
                 self.stage_end("digest", t0, "skipped", "rules already short (%d chars)" % len(src))
                 return False
             tools = ", ".join(sorted((self.policy.get("tools") or {}).keys())) or "(see the rules)"
-            target = max(gen.DIGEST_MIN_CHARS * 4, min(10000, gen.DIGEST_MAX_CHARS - 2000))
-            text = self.deps.llm.ask(DIGEST_PROMPT % {"max": target, "tools": tools, "rules": src},
+            end = time.time() + sub
+            text = self.deps.llm.ask(DIGEST_PROMPT % {"max": gen.DIGEST_TARGET_CHARS, "tools": tools, "rules": src},
                                      system=DIGEST_SYSTEM, purpose="condense rules for the prompt", timeout_s=sub)
             text = re.sub(r"^```[a-z]*\s*|\s*```$", "", str(text or "").strip())
+            if len(text) > gen.DIGEST_MAX_CHARS and end - time.time() >= MIN_LLM_STAGE_S:
+                self.trace.note("rules digest %d chars, over %d: one shortening call" % (len(text), gen.DIGEST_MAX_CHARS))
+                text2 = self.deps.llm.ask(
+                    DIGEST_SHORTEN % {"max": gen.DIGEST_TARGET_CHARS, "have": len(text), "text": text},
+                    system=DIGEST_SYSTEM, purpose="shorten rules digest", timeout_s=max(1.0, end - time.time()))
+                text2 = re.sub(r"^```[a-z]*\s*|\s*```$", "", str(text2 or "").strip())
+                if gen.DIGEST_MIN_CHARS <= len(text2) < len(text):
+                    text = text2
             self.policy["rules_digest"] = text
             if not gen.usable_digest(self.policy):
                 self.policy.pop("rules_digest", None)
@@ -704,8 +721,19 @@ class Builder:
                 except Exception as e:  # noqa: BLE001
                     self.trace.note("generate with prompts failed: %s" % one_line(e, 200))
 
+            lim = int(getattr(self.deps.generate, "GENERIC_PROMPT_MAX_CHARS", 0) or 0)
+            if generic and lim and wf1 is not None:
+                n1, n0 = len(wf1.get("system_prompt") or ""), len(wf0.get("system_prompt") or "")
+                if n1 > lim and n1 > n0:
+                    self.trace.note("LLM prompt edits make the system prompt %d chars (limit %d): edits dropped" % (n1, lim))
+                    wf1, prompts = None, {}
+
             t0 = self.stage_start("dry_run")
             label, wf, verr = self.pick_valid([("generated + LLM prompts", wf1), ("generated defaults", wf0)])
+            if generic and lim and isinstance(wf, dict):
+                sp = wf.get("system_prompt") or ""
+                self.trace.note("system prompt size: %d chars, about %d tokens (limit %d chars)%s" % (
+                    len(sp), int(len(sp) / 3.5 + 0.5), lim, "" if len(sp) <= lim else ": OVER THE LIMIT"))
             if wf is wf0:
                 prompts = {}
             self.stage_end("dry_run", t0, "ok" if not verr else "rejected", verr or label)
