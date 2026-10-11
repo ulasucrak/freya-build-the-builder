@@ -55,11 +55,17 @@ class CheckOfferParsing(unittest.TestCase):
         self.assertTrue(self.run_check(amount="100, no, 200")["ok"])
         self.assertTrue(self.run_check(amount="200, not 100")["ok"])
 
-    def test_unreadable_amount_is_not_waved_through(self):
-        out = self.run_check(amount="the 25th")
-        self.assertEqual(out["code"], "bad_amount")
-        self.assertFalse(out["ok"])
-        self.assertIn("exact amount", out["what_to_do_next"])
+    def test_full_and_minimum_words_and_old_fallback(self):
+        """Review item 8: words that passed before must never be blocked."""
+        for said, amount in [("full", "420.00"), ("the full amount", "420.00"), ("all of it", "420.00"),
+                             ("minimum", "126.00"), ("the minimum", "126.00"), ("the minimum payment", "126.00")]:
+            out = self.run_check(amount=said)
+            self.assertTrue(out["ok"], (said, out))
+            self.assertEqual(out["amount"], amount, said)
+        self.assertTrue(self.run_check(amount="whatever they can")["ok"])            # nothing readable: not checked
+        self.assertEqual(self.run_check(amount="the 25th")["code"], "below_floor")   # the old digit reading
+        for out in (self.run_check(amount="bla"), self.run_check(amount="the full amount")):
+            self.assertNotEqual(out["code"], "bad_amount")
 
     def test_no_amount_is_not_checked(self):
         self.assertIsNone(self.run_check(date="tomorrow", amount="")["amount"])
@@ -114,6 +120,20 @@ class HookParsing(unittest.TestCase):
         cfg, _r, _m = self.sim.call("greet_verify", "verify_identity", {"field": "phone_last4", "answer": "four o seven one"},
                                     {"ok": True, "verified": True, "wrong_answers_left": 3, "all_verified": False})
         self.assertEqual(cfg["body"]["answer"], "4071")
+
+    def test_identity_digit_corrections_by_length(self):
+        """Review item 9: a correction replaces the answer only when it is a whole answer."""
+        for said, want in [("1520, sorry, 1502", "1502"), ("1502, not 1520", "1502"), ("four four, no, seven one", "4471"),
+                           ("one hundred two three four", "1234")]:
+            s = TG.Sim(self.wf, customer_id="c1")
+            cfg, _r, _m = s.call("greet_verify", "verify_identity", {"field": "phone_last4", "answer": said},
+                                 {"ok": True, "verified": True, "wrong_answers_left": 3, "all_verified": False})
+            self.assertEqual(cfg["body"]["answer"], want, said)
+
+    def test_identity_partial_date_correction(self):
+        cfg, _r, _m = self.sim.call("greet_verify", "verify_identity", {"field": "date_of_birth", "answer": "14 March 1988, no, 1989"},
+                                    {"ok": True, "verified": True, "wrong_answers_left": 3, "all_verified": False})
+        self.assertEqual(cfg["body"]["answer"], "1989-03-14")
 
     def test_identity_date_with_a_correction(self):
         cfg, _r, _m = self.sim.call("greet_verify", "verify_identity",

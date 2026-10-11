@@ -102,8 +102,14 @@ def parse_time(value):
     """Spoken or written time -> 'HH:MM' (24 h), or '' when unreadable. '11', '11:30', '11.30', '2 pm', '12am',
     'noon', 'seven in the evening', 'half past ten', 'quarter to five in the afternoon', 'six thirty pm'."""
     try:
-        # 'three, sorry, four pm' -> the last stated time
-        s = said_parts(value)[-1].strip()
+        # 'three, sorry, four pm' -> the last stated time; am/pm said before the correction carries over ('four pm,
+        # no, four thirty'); a corrected part without either keeps the old reading of the whole text
+        parts = said_parts(value, False)
+        s = parts[-1].strip()
+        ap = r"\b(?:afternoon|evening|tonight|night|morning|noon|midday|midnight)\b|(?<![a-z])[ap]\.?m\b"
+        if len(parts) > 1 and not re.search(ap, s):
+            m = re.search(r"\b(?:afternoon|evening|tonight|night|morning)\b|(?<![a-z])[ap]\.?m\b", " ".join(parts[:-1]))
+            s = s + " " + m.group(0) if m else str(value).lower()
         if not s:
             return ""
         # a word: 'afternoon' holds 'noon'
@@ -166,10 +172,11 @@ CORRECTION_RE = r"\b(?:sorry|i meant?|actually|wait|rather|make (?:it|that)|corr
 NEGATED_RE = r"\b(?:not|instead of|rather than)\s+[^,;!?]*?(?=[,;!?]|\bbut\b|$)"
 
 
-def said_parts(text):
+def said_parts(text, neg=True):
     """What the customer said, split at corrections ('the 21st, sorry, I mean the 20th'), with negated values
-    ('450, not 500') removed: list of lower-case parts, the last stated one last."""
-    s = re.sub(NEGATED_RE, " ", str(text or "").lower())
+    ('450, not 500') removed unless neg is False: list of lower-case parts, the last stated one last."""
+    s = str(text or "").lower()
+    s = re.sub(NEGATED_RE, " ", s) if neg else s
     return [p for p in re.split(CORRECTION_RE, s) if p.strip(" ,.;!?")] or [s]
 
 
@@ -182,7 +189,9 @@ def parse_amount(value):
         if isinstance(value, (int, float)) and not isinstance(value, bool):
             return float(value)
         s = said_parts(value)[-1].replace("-", " ")
-        s = re.sub(r"(\d)\s*k\b", r"\1 thousand", s.replace("€", " euro ").replace("$", " dollar ").replace("£", " pound "))
+        # '1 250,00': a space as the thousands separator
+        s = re.sub(r"(?<![\d.,])\d{1,3}(?: \d{3})+(?!\d)", lambda m: m.group(0).replace(" ", ""), s)
+        s = re.sub(r"(?<=\d)\s*k\b|\s+k\b", " thousand", s.replace("€", " euro ").replace("$", " dollar ").replace("£", " pound "))
         toks = re.findall(r"\d[\d.,']*\d|\d|[a-z]+|[^\s\w]", s) + ["|"]
         mult = dict(hundred=100, thousand=1000, grand=1000, million=1000000)
         skip = ["st", "nd", "rd", "th", "percent", "%", "day", "days", "week", "weeks", "month", "months", "year", "years",
@@ -226,6 +235,10 @@ def parse_amount(value):
             elif t in mult:
                 if g is None:
                     g = dict(tot=0, cur=0, dec=None, last="u", m=0, a=i, b=i)
+                if g["dec"] is not None:
+                    # 'one point two five thousand'
+                    g["cur"] += float("0." + (g["dec"] or "0"))
+                    g["dec"] = None
                 if g["cur"] >= 100 and g["cur"] % 100:
                     # 'five hundred four hundred': a new amount starts at the last number
                     r = g["cur"] % 100
@@ -233,12 +246,14 @@ def parse_amount(value):
                     groups.append(g)
                     g = dict(tot=0, cur=r, dec=None, last="u", m=0, a=i - 1, b=i)
                 if mult[t] == 100:
-                    g["cur"] = max(g["cur"], 1) * 100 if g["cur"] < 100 else g["cur"]
+                    g["cur"] = (g["cur"] or 1) * 100 if g["cur"] < 100 else g["cur"]
                 else:
-                    g["tot"] += max(g["cur"], 1) * mult[t]
+                    g["tot"] += (g["cur"] or 1) * mult[t]
                     g["cur"] = 0
                 g["last"], g["m"], g["b"] = "m", mult[t], i
-            elif g is not None and t == "point" and g["dec"] is None:
+            elif t == "point" and (g is None or g["dec"] is None):
+                if g is None:
+                    g = dict(tot=0, cur=0, dec=None, last="d", m=0, a=i, b=i)
                 g["dec"] = ""
             elif g is not None and t in ("and", "uh", "um", "er", "erm", "ah", ",", ".", "…"):
                 pass
@@ -246,20 +261,22 @@ def parse_amount(value):
                 groups.append(g)
                 g = None
         vals = []
+        cur = ("euro", "euros", "eur", "dollar", "dollars", "pound", "pounds")
         for g in groups:
             v = g["tot"] + g["cur"] + (float("0." + g["dec"]) if g["dec"] else 0)
             nxt = toks[g["b"] + 1]
-            prev = toks[g["a"] - 1] if g["a"] > 0 else ""
-            if nxt in skip or prev in MONTH_NAMES + MONTH_ABBR:
+            pv = [x for x in toks[:g["a"]] if x != "the"][-1:]
+            # a day, a date, a period, a percentage or a clock time ('at 3', 'by the 25th') is not an amount
+            if nxt in skip or pv and pv[0] in MONTH_NAMES + MONTH_ABBR + ["at", "by", "on", "until", "till", "before", "after"]:
                 continue
-            if nxt in ("cent", "cents", "c", "pence", "p"):
-                if vals and vals[-1][1] >= g["a"] - 3 and any(x in toks[vals[-1][1]:g["a"]] for x in ("euro", "euros", "dollar", "dollars", "pound", "pounds")):
-                    vals[-1] = (vals[-1][0] + v / 100, g["b"])
-                else:
-                    vals.append((v / 100, g["b"]))
-                continue
-            vals.append((float(v), g["b"]))
-        return vals[-1][0] if vals else (None if groups else to_number(value))
+            cents = nxt in ("cent", "cents", "c", "pence", "p")
+            # 'twelve euros fifty', '12 euros and 50 cents': the euros, then the cents
+            if vals and v < 100 and nxt not in cur and set(toks[vals[-1][1] + 1:g["a"]]) <= set(cur + ("and",)) \
+                    and toks[vals[-1][1] + 1] in cur and (cents or v == int(v)):
+                vals[-1] = (vals[-1][0] + v / 100, g["b"])
+            else:
+                vals.append((v / 100 if cents else float(v), g["b"]))
+        return round(vals[-1][0], 2) if vals else (None if groups else to_number(value))
     except Exception:
         return None
 
@@ -799,7 +816,8 @@ def resolve_weekday(wd, today, mode, next_rule):
     after today."""
     mon = week_monday(today)
     if mode == "this":
-        return mon + datetime.timedelta(days=wd)
+        d = mon + datetime.timedelta(days=wd)
+        return d if d >= today else d + datetime.timedelta(days=7)
     if mode == "next":
         if next_rule == "following_week":
             return mon + datetime.timedelta(days=7 + wd)
@@ -832,7 +850,7 @@ def parse_spoken_date(text, today, next_rule="", future=True, order=""):
             if re.search(r"\btomorrow\b", s):
                 return today + datetime.timedelta(days=2 if re.search(r"\bday after tomorrow", s) else 1)
             # 'a week from today', 'in a fortnight'
-            s = re.sub(r"\b(\d+|an?)\s+(day|week|month)s?\s+(?:from\s+)?(?:today|now)\b", r"in \1 \2", re.sub(r"\b(an?\s+)?fortnight", "2 weeks", s))
+            s = re.sub(r"\b(\d+|an?)\s+(day|week|month)s?\b(?:\s+(?:from\s+)?(?:today|now)\b)?", r"in \1 \2", re.sub(r"\b(an?\s+)?fortnight", "2 weeks", s))
             # 'in about five weeks'
             m = re.search(r"\bin\s+(?:about\s+|around\s+|roughly\s+)?(\d+|an?)\s+(day|week|month)s?\b", s)
             if m:
@@ -911,9 +929,13 @@ def relative_date(text, today, cal=None):
         m = re.search(r"\bend (this |next )?(week|month)\b", s)
         if m:
             k = int(m.group(1) == "next ")
-            y, mo = divmod(today.month + k, 12)
-            e = week_monday(today) + datetime.timedelta(days=7 * k + 7) if m.group(2) == "week" else safe_date(today.year + y, mo + 1, 1)
-            return previous_business_day(e, cal) if cal else e - datetime.timedelta(days=3 if m.group(2) == "week" else 1)
+            for j in (k, k + 1):
+                # said after the period's last business day (a weekend): the next one
+                y, mo = divmod(today.month + j, 12)
+                e = week_monday(today) + datetime.timedelta(days=7 * j + 7) if m.group(2) == "week" else safe_date(today.year + y, mo + 1, 1)
+                d = previous_business_day(e, cal) if cal else e - datetime.timedelta(days=3 if m.group(2) == "week" else 1)
+                if d >= today:
+                    return d
         m = re.search(r"\b(\d{1,2}) (this|next) month\b|\b(this|next) month (?:on )?(\d{1,2})\b", s)
         if m:
             y, mo = divmod(today.month - 1 + int("next" in (m.group(2), m.group(3))), 12)
@@ -926,13 +948,27 @@ def relative_date(text, today, cal=None):
 def said_date(text, today, next_rule="", cal=None, future=True, order=""):
     """A day as the customer said it, with corrections ('Friday, sorry, I mean Monday', 'the 20th, not the 21st':
     the last stated day that can be read) and every relative form (relative_date, then parse_spoken_date)."""
-    for p in reversed(said_parts(text)):
-        d = relative_date(p, today, cal) if today else None
-        if d is None:
-            d = parse_spoken_date(p, today, next_rule, future, order)
-        if d:
-            return d
-    return None
+    try:
+        parts = said_parts(text)
+        ds = []
+        for p in parts:
+            d = relative_date(p, today, cal) if today else None
+            ds.append(parse_spoken_date(p, today, next_rule, future, order) if d is None else d)
+        prev = [d for d in ds[:-1] if d]
+        if ds[-1] or not prev:
+            return ds[-1] or None
+        # only a piece was corrected ('14 March 1988, no, 1989'; '3rd of March, sorry, the 4th'): put it into the
+        # day said before; anything else that cannot be read gives None
+        p = re.sub(r"(\d+)(st|nd|rd|th)\b", r"\1", day_words_to_digits(parts[-1]))
+        y = re.search(r"\b(1[89]\d\d|20\d\d)\b", p)
+        dd = re.search(r"\b([12]?\d|3[01])\b", re.sub(r"\b(1[89]\d\d|20\d\d)\b", " ", p))
+        mo = [month_from_word(w) for w in re.findall(r"[a-z]+", p) if month_from_word(w)]
+        if not (y or dd or mo):
+            return None
+        d = prev[-1]
+        return safe_date(int(y.group(1)) if y else d.year, mo[0] if mo else d.month, int(dd.group(1)) if dd else d.day)
+    except Exception:
+        return None
 
 
 def pick_year(day, mon, today, future):
@@ -1020,13 +1056,15 @@ def spoken_digits(text):
     """Digits said as words -> digits: 'four four seven one', 'double four seven one', 'oh three five eight',
     'forty-four seventy-one' -> '4471' / '0358'. Text that already holds digits keeps them."""
     # 'the last four digits are ...'
-    s = re.sub(r"\blast\s+\w+\s+digits?\b|\bdigits?\b", " ", said_parts(text)[-1])
+    s = re.sub(r"\blast\s+\w+\s+digits?\b|\bdigits?\b", " ", str(text or "").lower())
     s = re.sub(r"\b(double|triple)\s+(\w+)", lambda m: " ".join([m.group(2)] * (2 if m.group(1) == "double" else 3)), s)
     s = day_words_to_digits(re.sub(r"\b(oh|o|nought|nil)\b", "zero", s).replace("zero", "0"))
     # forty .. ninety, alone or with a unit ('forty-four')
     for w in TENS_WORDS[2:]:
         s = re.sub(r"\b" + w + r"(?:[\s-]+(\d))?\b", lambda m: str((TENS_WORDS.index(w) + 2) * 10 + int(m.group(1) or 0)), s)
-    return re.sub(r"(\d+)\s+hundred(?:\s+and)?(?:\s+(\d\d?)\b)?", lambda m: str(int(m.group(1)) * 100 + int(m.group(2) or 0)), s)
+    # 'twelve hundred', 'four hundred seventy one', 'four hundred and five'; 'one hundred two three' stays 123
+    return re.sub(r"(\d+)\s+hundred\b(?:\s+and\s+(\d\d?)\b|\s+(\d\d)\b(?!\s*\d)|(?!\s*(?:and\s+)?\d))",
+                  lambda m: str(int(m.group(1)) * 100 + int(m.group(2) or m.group(3) or 0)), s)
 
 
 def normalise_answer(answer, how, answer_format=""):

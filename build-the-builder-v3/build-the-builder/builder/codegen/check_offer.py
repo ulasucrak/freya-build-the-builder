@@ -11,16 +11,20 @@ said = str(args.get("date") or "").strip()
 # then gets an exact date, or a day that cannot be read ('?')
 if said:
     said = iso(said_date(said, today, nm("next_weekday", ""), cal)) or "?"
-# words, both separator conventions, corrections: the last stated amount ('?' when one was named but cannot be read)
-named = str(args.get("amount") or "").strip()
-amt = parse_amount(args.get("amount")) if named else None
+# words, both separator conventions, corrections: the last stated amount; 'the full amount' / 'the minimum' are the
+# product's full amount / floor; otherwise the old reading (digits only), and nothing readable is not checked
+named = str(args.get("amount") or "").strip().lower()
+amt = parse_amount(named) if named else None
+if amt is None and named and prod is not None:
+    amt = prod.get("floor") if re.search(r"\b(min|minimum|floor|lowest|least)\b", named) else (
+        prod.get("full") if re.search(r"\b(full|whole|all|everything|total)\b", named) else to_number(named))
 out = dict(ok=False, code="", date="", amount=None, suggest_date="", suggest_amount=None, what_to_do_next="")
 if prod is None:
     out["code"] = "unknown_product"
     out["what_to_do_next"] = "Unknown product. Call check_offer again with a product_id exactly as listed in the account facts."
 else:
     # a missing part is checked with a value that always passes, so only the part the customer named is judged
-    chk = check_promise(prod, amt if amt is not None else ("?" if named else prod.get("full")), said or prod.get("deadline"), today, cal,
+    chk = check_promise(prod, amt if amt is not None else prod.get("full"), said or prod.get("deadline"), today, cal,
                         promised_of(vs), nm("next_weekday", ""))
     code = chk.get("code") or "error"
     d = to_date(chk.get("date")) if said else None
@@ -34,8 +38,6 @@ else:
     what = " and ".join([x for x in (out["amount"], out["date"]) if x])
     if chk.get("ok"):
         out["what_to_do_next"] = "Valid for " + str(prod.get("id")) + ((": " + what) if what else "") + ". Use it in the read-back."
-    elif code == "bad_amount":
-        out["what_to_do_next"] = "The amount could not be read as one exact amount. Ask the customer for the exact amount."
     elif code == "bad_date":
         out["what_to_do_next"] = "The day could not be read as one exact date. Ask the customer for the exact day, as the rules say for a vague date."
     elif code == "after_deadline":

@@ -183,12 +183,76 @@ class TimesAndDigits(unittest.TestCase):
         self.assertEqual(O.parse_time("in the afternoon at two"), "14:00")
 
     def test_spoken_digits(self):
-        for text, want in [("1520, sorry, 1502", "1502"), ("1502, not 1520", "1502"), ("four o seven one", "4071"),
+        for text, want in [("four o seven one", "4071"), ("one hundred two three", "123"), ("four hundred and five", "405"),
+                           ("four four, no, seven one", "4471"),
                            ("four nought seven one", "4071"), ("twelve hundred", "1200"), ("four hundred seventy one", "471"),
                            ("forty-four seventy-one", "4471"), ("double oh seven one", "0071"), ("4471", "4471"),
                            ("the last four digits are four four seven one", "4471")]:
             self.assertEqual("".join(c for c in O.spoken_digits(text) if c.isdigit()), want, text)
-        self.assertEqual(O.normalise_answer("44 71, sorry, 44 17", "digits_only"), "4417")
+
+
+class ReviewRegressions(unittest.TestCase):
+    """Review of T03: each item is a case the first version got wrong."""
+
+    def test_1_euros_then_cents_without_the_word_cents(self):
+        for text, v in [("twelve euros fifty", 12.5), ("12 euros 50", 12.5), ("one twenty six euros fifty", 126.5),
+                        ("12 euros and 50", 12.5), ("1,250 euros and 50 cents", 1250.5), ("50 cents", 0.5)]:
+            self.assertAlmostEqual(O.parse_amount(text), v, places=2, msg=text)
+        self.assertEqual(O.parse_amount("300 euros 200 euros"), 200)          # two amounts, not euros + cents
+
+    def test_2_point_without_a_whole_part_and_before_a_multiplier(self):
+        self.assertEqual(O.parse_amount("point five"), 0.5)
+        self.assertEqual(O.parse_amount("one point two five thousand"), 1250)
+        self.assertEqual(O.parse_amount("two point five k"), 2500)
+        self.assertEqual(O.parse_amount("1.5 thousand"), 1500)
+
+    def test_3_space_as_thousands_separator(self):
+        self.assertEqual(O.parse_amount("1 250"), 1250)
+        self.assertEqual(O.parse_amount("1 250,00"), 1250)
+        self.assertEqual(O.parse_amount("12 500.50 EUR"), 12500.5)
+
+    def test_4_clock_time_or_number_after_at_or_by_is_not_the_amount(self):
+        self.assertEqual(O.parse_amount("two hundred euros at 3"), 200)
+        self.assertEqual(O.parse_amount("200 by 5"), 200)
+        self.assertEqual(O.parse_amount("200 by the 25"), 200)
+        self.assertEqual(O.parse_amount("300 on Friday at 3"), 300)
+
+    def test_5_callback_times_never_worse_than_before(self):
+        self.assertEqual(O.parse_time("not before 3 pm"), "15:00")
+        self.assertEqual(O.parse_time("four pm, no, four thirty"), "16:30")
+        self.assertEqual(O.parse_time("in the afternoon, sorry, at three"), "15:00")
+        self.assertEqual(O.parse_time("half past three, sorry, four"), "03:30")     # old reading of the whole text
+        self.assertEqual(O.parse_time("three, sorry, four pm"), "16:00")
+        self.assertEqual(O.parse_time("noon, sorry, one pm"), "13:00")
+
+    def test_6_partial_correction_is_merged_into_the_day_said_before(self):
+        self.assertEqual(O.said_date("14 March 1988, no, 1989", None, future=False), D(1989, 3, 14))
+        self.assertEqual(O.said_date("3rd of March 1988, sorry, the 4th", None, future=False), D(1988, 3, 4))
+        self.assertEqual(O.said_date("14 March 1988, sorry, April", None, future=False), D(1988, 4, 14))
+        self.assertEqual(O.normalise_answer("14 March 1988, no, 1989", "dmy_to_iso"), "1989-03-14")
+        self.assertEqual(O.said_date("23 October, sorry, the 22nd", TODAY), D(2026, 10, 22))
+        self.assertIsNone(O.said_date("Friday, no, I don't know", TODAY))
+        self.assertIsNone(O.said_date("14 March 1988, sorry, the 31st of February", None, future=False))
+
+    def test_7_end_of_the_week_said_on_a_weekend(self):
+        sat, sun = D(2026, 10, 17), D(2026, 10, 18)
+        for day in (sat, sun):
+            self.assertEqual(O.said_date("end of the week", day), D(2026, 10, 23))
+            self.assertEqual(O.said_date("end of the week", day, cal=CAL), D(2026, 10, 23))
+            self.assertEqual(O.said_date("end of next week", day, cal=CAL), D(2026, 10, 23))   # the week starting after it
+        self.assertEqual(O.said_date("end of the week", D(2026, 10, 16)), D(2026, 10, 16))     # Friday itself
+        self.assertEqual(O.said_date("end of the month", D(2026, 10, 31), cal=CAL), D(2026, 11, 30))
+
+    def test_9_shorter_correction_of_digits_keeps_the_old_reading(self):
+        self.assertEqual("".join(c for c in O.spoken_digits("four four, no, seven one") if c.isdigit()), "4471")
+        self.assertEqual("".join(c for c in O.spoken_digits("one hundred two three") if c.isdigit()), "123")
+
+    def test_10_bare_period_and_this_weekday_on_a_weekend(self):
+        self.assertEqual(O.parse_spoken_date("two weeks", TODAY), D(2026, 10, 28))
+        self.assertEqual(O.parse_spoken_date("a month", TODAY), D(2026, 11, 13))
+        self.assertEqual(O.parse_spoken_date("this Friday", D(2026, 10, 18)), D(2026, 10, 23))   # said on a Sunday
+        self.assertEqual(O.parse_spoken_date("this Friday", TODAY), D(2026, 10, 16))
+        self.assertEqual(O.parse_spoken_date("this Monday", TODAY), D(2026, 10, 19))
 
 
 if __name__ == "__main__":
