@@ -166,8 +166,9 @@ class GenericWorkflowTest(unittest.TestCase):
         status, out = testmode.run_code_locally(code, {"reason": "whatever"}, vs)
         self.assertFalse(out["ok"])
         self.assertNotIn("w_end_reason", vs)
-        tr = {x["target_node"]: x["condition"]["conditions"][0] for x in self.wf["nodes"]["assistant"]["transitions"]}
-        self.assertEqual(tr["end_main_menu"], {"variable": "w_end_reason", "operator": "equals", "operand": "main_menu"})
+        tr = {x["target_node"]: x["condition"]["conditions"] for x in self.wf["nodes"]["assistant"]["transitions"]}
+        self.assertEqual(tr["end_main_menu"], [{"variable": "w_end_reason", "operator": "equals", "operand": "main_menu"},
+                                               {"variable": "end_conversation_args.reason", "operator": "equals", "operand": "main_menu"}])
 
     def test_setup_uses_the_call_now(self):
         code = self.wf["nodes"]["setup"]["pre_actions"][0]["function"]["parameters"]["properties"]["code"]["default"]

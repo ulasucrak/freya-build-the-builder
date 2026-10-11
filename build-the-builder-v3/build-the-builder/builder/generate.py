@@ -1936,8 +1936,9 @@ def generic_workflow(p, prompts=None, openapi=None, opts=None, language=None):
         "tools": tools + [t_end],
         "max_node_turns": opts["negotiate_max_turns"],
         "max_turn_transition": "end_" + ("transfer_to_agent" if "transfer_to_agent" in reasons else reasons[0]),
+        # the tool's own write (w_end_reason), or the engine's copy of the model's argument (<tool>_args.<field>)
         "transitions": [{"target_node": "end_" + r, "description": "end_conversation: " + r,
-                         "condition": _or(_eq("w_end_reason", r))} for r in reasons],
+                         "condition": _or(_eq("w_end_reason", r), _eq("end_conversation_args.reason", r))} for r in reasons],
     }
     if opts["reasoning_off"]:
         nodes["assistant"]["reasoning_override"] = "disabled"
