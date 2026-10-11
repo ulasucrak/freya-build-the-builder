@@ -1718,6 +1718,10 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
     nodes["farewell"] = _code_node("farewell", "farewell", rt, "close_api",
                                    on_enter={"type": "tts", "text": P.get("farewell", "Thank you for your time. Goodbye.")},
                                    source='vset(vs, "w_farewell_done", "yes")\n')
+    # maxRetries stays 0 (250new N081/N169: close sent, no result): close_call is not idempotent at the bank ("Nothing is
+    # accepted after it"; the rules want exactly one), and a timed-out close may already be recorded, so an engine retry
+    # can add a second close row. Only a 500 is documented as "nothing recorded, may be repeated"; connection failures
+    # are already retried safely by the platform (connect_retries, default 2). A lost result is not fixed by a retry.
     close_fixed = _api_tool(p, tn["close"], "Close the call.", baked={names["close_outcome"]: "{{w_close_outcome}}",
                                                                      names["close_reason"]: "{{w_close_reason}}"},
                             pre="close_final_pre", rt=rt, retries=0, timeout=to)
