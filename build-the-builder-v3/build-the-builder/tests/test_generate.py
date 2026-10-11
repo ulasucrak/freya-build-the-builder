@@ -1524,8 +1524,10 @@ class PromptBudgetV3(unittest.TestCase):
         self.assertEqual(oe["type"], "tts")
         self.assertEqual(oe["text"], "Hello, this is the automated assistant of Harbourline Savings Bank. This call is recorded."
                                      " May I speak to {{title}} {{last_name}}?")
-        # an opening described rather than quoted ("say you are a digital assistant ...") stays with the model
-        self.assertEqual(G.generate_workflow(raw("brief-b"))["nodes"]["greet_verify"]["on_enter"]["type"], "llm")
+        # an opening described rather than quoted ("say you are a digital assistant ...") is built as a fixed line (FX6,
+        # option static_greeting); with the option off it stays with the model
+        self.assertEqual(G.generate_workflow(raw("brief-b"))["nodes"]["greet_verify"]["on_enter"]["type"], "tts")
+        self.assertEqual(G.generate_workflow(raw("brief-b"), options={"static_greeting": False})["nodes"]["greet_verify"]["on_enter"]["type"], "llm")
         # an extracted line is used only with known call variables
         q = raw("brief-b")
         q["opening"]["line"] = "Hello, Freya Bank's digital assistant here; this call is recorded. Am I speaking with {title} {last_name}?"
@@ -1533,7 +1535,7 @@ class PromptBudgetV3(unittest.TestCase):
         self.assertEqual(oe, {"type": "tts", "text": "Hello, Freya Bank's digital assistant here; this call is recorded."
                                                      " Am I speaking with {{title}} {{last_name}}?"})
         q["opening"]["line"] = "Hello {nickname}."
-        self.assertEqual(G.generate_workflow(q)["nodes"]["greet_verify"]["on_enter"]["type"], "llm")
+        self.assertEqual(G.generate_workflow(q, options={"static_greeting": False})["nodes"]["greet_verify"]["on_enter"]["type"], "llm")
 
     def test_note_free_text_not_model_visible(self):
         wf = G.generate_workflow(raw("brief-b"), None, self.OPENAPI)
