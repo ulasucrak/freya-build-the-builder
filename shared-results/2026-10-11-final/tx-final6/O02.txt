@@ -1,0 +1,32 @@
+#### O02  family=ordinary  FAIL (fail)  call 7952b921-804c-48bd-8ed3-7473202a3548  ended=assistant-ended-call  slowest_turn=5.5 s
+judge: - Currency names: The agent used codes (TL, USD, EUR, GBP) in [Message 4] and [Message 6] instead of full names (Türk Lirası, Dolar, Euro, İngiliz Sterlini). - Decimal pronunciation: The agent used 'virgül' instead of the required 'sent' and 'peni' for cents/pence in [Message 4] and [Message 6]. - Repeat request: The agent did not repeat the last message word for word in [Message 6], instead providing only the Dolar information requested by the user. - Missing content: The agent did not read the 'remaining debt' for the Türk Lirası balance in [Message 4].
+criteria:
+  - cards.balance('540000******7007'): reads Türk Lirası, then Dolar, Euro, İngiliz Sterlini in this order, each with statement debt, remaining debt and minimum where applicable; all four have debt so NO no-debt sentence.
+  - Exact amounts, no rounding: TL 14250.35 (min 5700.14, nothing paid), Dolar 812.45 (min 324.98), Euro 563.20 (min 225.28), İngiliz Sterlini 347.85 (min 139.14); cents as 'sent', pence as 'peni'; full currency names, never 'Sterlin'/'Avro'/codes.
+  - The repeat request is answered by repeating the last text word for word (not a failed try: no 'yardımcı olamıyorum', no transfer); due date 15 Ekim 2026 is the last item before the offer.
+variables: {"customerNumber": "94896459", "now": "2026-10-13T15:10:00+03:00"}
+
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node assistant]
+A: Merhaba, size nasıl yardımcı olabilirim?
+U: Kredi kartı borcumu öğrenmek istiyorum.
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_list {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.list", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"aiFlow": "CardOps", "customerNo": "94896459"}, "call": {"lang": "tr"}}}
+   << cards_list {"cards": [{"cardNumber": "540000******7007", "cardNumberLast4": "7007", "productName": "Yıldız Platinum", "status": "A", "isMainCard": true}], "validCardsCount": 1, "exitState": "1_CARD", "ok": true}
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_balance {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.balance", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******7007"}, "call": {"lang": "tr"}}}
+   << cards_balance {"cardNumber": "5400********7007", "cardNumberLast4": "7007", "productName": "Yıldız Platinum", "statementDate": "05.10.2026", "lastPayDate": "15.10.2026", "nextStatementDate": "05.11.2026", "nextLastPayDate": "15.11.2026", "debtTL": {"statementPaymentStatus": "HAS_DEBT", "transferAmount": 0.0, "statementDebt": 14250.35, "minPayment": 5700.14, "remainingDebt": 14250.35, "remainingMinPayment": 5700
+A: Sonu 7007 ile biten Yıldız Platinum kartınıza ait 5 Ekim 2026 tarihinde kesilen ekstre Türk Lirası borcunuz on dört bin iki yüz elli virgül otuz beş TL, ödenmesi gereken minimum tutar beş bin yedi yüz virgül on dört TL'dir. Dolar borcunuz sekiz yüz on iki virgül kırk beş USD, kalan toplam borcunuz sekiz yüz on iki virgül kırk beş USD, ödenmesi gereken minimum tutar üç yüz yirmi dört virgül doksan sekiz USD'dir. Euro borcunuz beş yüz altmış üç virgül yirmi EUR, kalan toplam borcunuz beş yüz altmış üç virgül yirmi EUR, ödenmesi gereken minimum tutar iki yüz yirmi beş virgül yirmi sekiz EUR'dir. İngiliz Sterlini borcunuz üç yüz kırk yedi virgül seksen beş GBP, kalan toplam borcunuz üç yüz kırk yedi virgül seksen beş GBP, ödenmesi gereken minimum tutar yüz otuz dokuz virgül on dört GBP'dir. Borçlarınız için son ödeme tarihiniz 15 Ekim 2026 Perşembe'dir.
+ Hesap kesim tarihinizi değiştirebilirim ya da ekstrenizi kayıtlı mail adresinize gönderebilirim. Hangisini istersiniz?
+U: Dolar kısmını tekrar eder misiniz?
+A: Dolar borcunuz sekiz yüz on iki virgül kırk beş USD, kalan toplam borcunuz sekiz yüz on iki virgül kırk beş USD, ödenmesi gereken minimum tutar üç yüz yirmi dört virgül doksan sekiz USD'dir.
+ Hesap kesim tarihinizi değiştirebilirim ya da ekstrenizi kayıtlı mail adresinize gönderebilirim. Hangisini istersiniz?
+U: Hayır, teşekkürler.
+A: Sizi ana menüye yönlendiriyorum.
+   >> end_conversation {"reason": "main_menu"}
+   << end_conversation {"ok": true, "reason": "main_menu", "what_to_do_next": "The call ends now: say nothing more."}
+   [node end_main_menu]
+   >> end_call {"message_mode": "none"}
+   << end_call {"status": "success", "message": "Call ended"}

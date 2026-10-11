@@ -1,0 +1,39 @@
+#### EX-3  family=edge  PASS (pass)  call 27ea2144-ea24-4c6c-88bc-2176414979cb  ended=assistant-ended-call  slowest_turn=3.6 s
+judge: All success criteria were met: the assistant correctly identified multiple cards and asked for a specific one instead of reading all together; it handled the repeated request by asking again for a selection; it provided the specific debt details for ‘Yıldız Premium’ as required; and it ended the call by routing to the main menu.
+criteria:
+  - The debts of the three cards are not read together; the assistant asks which card, giving examples from the customer's own cards (max two).
+  - When the request is repeated the call is NOT ended or transferred; the caller is asked again to choose a single card.
+  - Yıldız Premium chosen: only that card's debt is read: 22.500 TL, minimum 9.000 TL, due date 15 Ekim 2026.
+  - The call ends with routing to the main menu.
+variables: {"customerNumber": "97526380", "now": "2026-10-12T10:30:00+03:00"}
+
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node assistant]
+A: Merhaba, size nasıl yardımcı olabilirim?
+U: Bütün kartlarımın borcunu söyle.
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_list {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.list", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"aiFlow": "CardOps", "customerNo": "97526380"}, "call": {"lang": "tr"}}}
+   << cards_list {"cards": [{"cardNumber": "540000******1101", "cardNumberLast4": "1101", "productName": "Yıldız Premium", "status": "A", "isMainCard": true}, {"cardNumber": "540000******1102", "cardNumberLast4": "1102", "productName": "Yıldız Fly", "status": "A", "isMainCard": true}, {"cardNumber": "540000******1103", "cardNumberLast4": "1103", "productName": "Yıldız Platinum", "status": "A", "isMainCard": true}]
+A: Hangi kartınızın borcunu öğrenmek istersiniz? Örneğin, Yıldız Premium veya Yıldız Fly diyebilirsiniz.
+U: Dedim ya, bütün kartlarımın borcunu söyle.
+A: Hangi kartınızın borcunu öğrenmek istersiniz? Örneğin, Yıldız Premium veya Yıldız Fly diyebilirsiniz.
+U: Yıldız Premium.
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_balance {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.balance", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******1101"}, "call": {"lang": "tr"}}}
+   << cards_balance {"cardNumber": "5400********1101", "cardNumberLast4": "1101", "productName": "Yıldız Premium", "statementDate": "05.10.2026", "lastPayDate": "15.10.2026", "nextStatementDate": "05.11.2026", "nextLastPayDate": "15.11.2026", "debtTL": {"statementPaymentStatus": "HAS_DEBT", "transferAmount": 0.0, "statementDebt": 22500.0, "minPayment": 9000.0, "remainingDebt": 22500.0, "remainingMinPayment": 9000.0, 
+A: Sonu bir bir sıfır bir ile biten Yıldız Premium kartınıza ait 5 Ekim 2026 tarihinde kesilen ekstre Türk Lirası borcunuz 22500 TL, ödenmesi gereken minimum tutar 9000 TL'dir. Dolar, Euro ve İngiliz Sterlini borcunuz bulunmamaktadır. Borçlarınız için son ödeme tarihiniz 15 Ekim 2026'dır.
+ Başka bir kartınızın borcunu öğrenmek ister misiniz?
+U: Hayır, teşekkürler.
+A: Bilgilerinizi kontrol ediyorum.
+   >> contact_email_get {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/contact.email.get", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"customerNo": "97526380", "intAddressInfoType": "E"}, "call": {"lang": "tr"}}}
+   << contact_email_get {"communicationType": "Both", "ibanCountryCode": "90", "ibanAreaCode": "500", "ibanPhoneNum": "0000000", "ibanEmail": "elif.toprak@freyabank.example", "ttsEmail": "elif.toprak@freyabank.example", "commGramType": "A", "exitState": "Done", "ok": true}
+A: Hesap kesim tarihinizi değiştirebilirim ya da ekstrenizi kayıtlı mail adresinize gönderebilirim.
+U: Gerek yok.
+A: Sizi ana menüye yönlendiriyorum.
+   >> end_conversation {"reason": "main_menu"}
+   << end_conversation {"ok": true, "reason": "main_menu", "what_to_do_next": "The call ends now: say nothing more."}
+   [node end_main_menu]
+   >> end_call {"message_mode": "none"}
+   << end_call {"status": "success", "message": "Call ended"}

@@ -1,0 +1,22 @@
+#### E06  family=edge  PASS (pass)  call bc2fe2d0-5c4d-41ba-941b-5bca199acc1d  ended=assistant-ended-call  slowest_turn=2.0 s
+judge: All criteria met. The assistant correctly identified the technical error (FBE00099) and responded with the exact mandatory phrase. Following the response, it initiated a transfer to an agent rather than returning to a menu or continuing with dummy data, as evidenced by the end_conversation call with reason 'agent'.
+criteria:
+  - cards.list HTTP 500 FBE00099: says 'Şu anda işleminizi gerçekleştiremiyorum, sizi müşteri temsilcimize aktarıyorum.' and hands to an AGENT, not the main menu.
+  - No made-up card/debt data; the technical message or code is never read; no further calls with guessed card numbers.
+variables: {"customerNumber": "97073972", "now": "2026-10-12T10:00:00+03:00"}
+
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node assistant]
+A: Merhaba, size nasıl yardımcı olabilirim?
+U: Kart borcumu öğrenmek istiyorum.
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_list {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.list", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"aiFlow": "CardOps", "customerNo": "97073972"}, "call": {"lang": "tr"}}}
+   << cards_list ERROR "API request failed: {'result': {'guid': 'f0e1d2c3b4a5968778695a4b3c2d0001', 'returnCode': 'FBE00099', 'messageText': 'Teknik hata: ABORTED: ', 'code': 'FBE00099', 'message': 'Teknik hata: ABORTED: ', 'type': 'ERROR', 'details': {'guid': 'f0e1d2c3b4a5968778695a4b3c2d0001', 'rootCause': 'TechnicalError', 'errorOrigin': 'ivr-gateway-test:ivr-channel-v0'}}}"
+A: Şu anda işleminizi gerçekleştiremiyorum, sizi müşteri temsilcimize aktarıyorum.
+   >> end_conversation {"reason": "agent"}
+   << end_conversation {"ok": true, "reason": "agent", "what_to_do_next": "The call ends now: say nothing more."}
+   [node end_agent]
+   >> end_call {"message_mode": "none"}
+   << end_call {"status": "success", "message": "Call ended"}

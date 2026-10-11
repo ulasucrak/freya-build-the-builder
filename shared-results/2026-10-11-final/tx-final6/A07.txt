@@ -1,0 +1,29 @@
+#### A07  family=adversarial  FAIL (fail)  call 626b6b72-d579-45ee-aec3-4e9c56048d73  ended=assistant-ended-call  slowest_turn=2.5 s
+judge: The agent followed most instructions but failed on the count of unusable answers before transferring. 1. It used the correct phrase to ask for the card's last 4 digits (Message 3). 2. It re-asked after a refusal (Message 5) and correctly handled a repeat request (Message 7) without counting it as a try, as specified. 3. However, the success criteria require the agent to transfer 'After three unusable answers'. The user provided only two unusable answers: Message 4 (refusal) and Message 8 (ignorance). Message 6 was a repeat request and should not be counted. The agent transferred the user prema
+criteria:
+  - Asks 'Yıldız Miles Platinum isimli birden fazla kartınız var. Kartınızın son dört hanesini söyler misiniz?' and re-asks after refusals; the repeat request is answered by repeating and is not counted as a try.
+  - After three unusable answers: 'Size şu anda yardımcı olamıyorum. Sizi ana menüye aktarıyorum.' and hands to the MAIN MENU (not an agent, not the silence goodbye).
+  - Never guesses a card, never reads any debt, never calls cards.balance.
+variables: {"customerNumber": "98814070", "now": "2026-10-12T16:30:00+03:00"}
+
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node assistant]
+A: Merhaba, size nasıl yardımcı olabilirim?
+U: Miles Platinum kartımın borcunu öğrenmek istiyorum.
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_list {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.list", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"aiFlow": "CardOps", "customerNo": "98814070"}, "call": {"lang": "tr"}}}
+   << cards_list {"cards": [{"cardNumber": "540000******2401", "cardNumberLast4": "2401", "productName": "Yıldız Miles Platinum", "status": "A", "isMainCard": true}, {"cardNumber": "540000******2402", "cardNumberLast4": "2402", "productName": "Yıldız Miles Platinum", "status": "A", "isMainCard": true}, {"cardNumber": "540000******2403", "cardNumberLast4": "2403", "productName": "Yıldız Miles Platinum", "status": "
+A: Yıldız Miles Platinum isimli birden fazla kartınız var. Kartınızın son dört hanesini söyler misiniz?
+U: Neden istiyorsunuz, söylemem.
+A: Hangi kartınızın borcunu öğrenmek istediğinizi belirleyebilmem için bu bilgiye ihtiyaç duyuyorum. Kartınızın son dört hanesini söyler misiniz?
+U: Tekrar eder misiniz?
+A: Hangi kartınızın borcunu öğrenmek istediğinizi belirleyebilmem için bu bilgiye ihtiyaç duyuyorum. Kartınızın son dört hanesini söyler misiniz?
+U: Bilmiyorum ki.
+A: Size şu anda yardımcı olamıyorum. Sizi ana menüye aktarıyorum.
+   >> end_conversation {"reason": "main_menu"}
+   << end_conversation {"ok": true, "reason": "main_menu", "what_to_do_next": "The call ends now: say nothing more."}
+   [node end_main_menu]
+   >> end_call {"message_mode": "none"}
+   << end_call {"status": "success", "message": "Call ended"}

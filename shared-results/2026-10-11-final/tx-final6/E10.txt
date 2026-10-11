@@ -1,0 +1,35 @@
+#### E10  family=edge  PASS (pass)  call db2482f5-2555-4440-ae28-f1a877e77531  ended=assistant-ended-call  slowest_turn=3.7 s
+judge: The assistant met all success criteria: it used named cards (Yıldız Premium/Fly) as examples for selection, identified the card ending in 1303 by its last four digits spoken one by one ('bir üç sıfır üç') without using a blank or null name, and provided the correct debt amounts. It also used the exact phrase regarding foreign currency debt and asked if the user wanted to check another card before offering account services. The call was ended properly by the assistant after the user declined further help.
+criteria:
+  - Selection examples use only cards that have a name (Yıldız Premium / Yıldız Fly), never the empty name.
+  - For 540000******1303 (empty productName) the card is introduced by last four only: 'Sonu bir üç sıfır üç ile biten kartınıza ait 5 Ekim 2026 tarihinde kesilen ekstre …' (no blank/'null' name); TL 6350.80 nothing paid (min 2540.32); 'Dolar, Euro ve İngiliz Sterlini borcunuz bulunmamaktadır'.
+  - Digits one by one, full number never spoken; other-card question asked before the offer.
+variables: {"customerNumber": "96451507", "now": "2026-10-12T12:30:00+03:00"}
+
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node assistant]
+A: Merhaba, size nasıl yardımcı olabilirim?
+U: Kart borcumu öğrenmek istiyorum.
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_list {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.list", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"aiFlow": "CardOps", "customerNo": "96451507"}, "call": {"lang": "tr"}}}
+   << cards_list {"cards": [{"cardNumber": "540000******1301", "cardNumberLast4": "1301", "productName": "Yıldız Premium", "status": "A", "isMainCard": true}, {"cardNumber": "540000******1302", "cardNumberLast4": "1302", "productName": "Yıldız Fly", "status": "A", "isMainCard": true}, {"cardNumber": "540000******1303", "cardNumberLast4": "1303", "productName": "", "status": "A", "isMainCard": true}], "validCardsCo
+A: Hangi kartınızın borcunu öğrenmek istersiniz? Örneğin, Yıldız Premium veya Yıldız Fly diyebilirsiniz.
+U: Adı olmayan kartım, sonu bir üç sıfır üç.
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_balance {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.balance", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******1303"}, "call": {"lang": "tr"}}}
+   << cards_balance {"cardNumber": "5400********1303", "cardNumberLast4": "1303", "productName": "", "statementDate": "05.10.2026", "lastPayDate": "15.10.2026", "nextStatementDate": "05.11.2026", "nextLastPayDate": "15.11.2026", "debtTL": {"statementPaymentStatus": "HAS_DEBT", "transferAmount": 0.0, "statementDebt": 6350.8, "minPayment": 2540.32, "remainingDebt": 6350.8, "remainingMinPayment": 2540.32, "currentPeriod
+A: Sonu bir üç sıfır üç ile biten kartınıza ait 5 Ekim 2026 tarihinde kesilen ekstre Türk Lirası borcunuz altı bin üç yüz elli virgül seksen TL, ödenmesi gereken minimum tutar iki bin beş yüz kırk virgül otuz iki TL'dir. Dolar, Euro ve İngiliz Sterlini borcunuz bulunmamaktadır. Borçlarınız için son ödeme tarihiniz 15 Ekim 2026 Perşembe'dir. Başka bir kartınızın borcunu öğrenmek ister misiniz?
+U: Hayır.
+A: Bilgilerinizi kontrol ediyorum.
+   >> contact_email_get {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/contact.email.get", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"customerNo": "96451507", "intAddressInfoType": "E"}, "call": {"lang": "tr"}}}
+   << contact_email_get {"communicationType": "Both", "ibanCountryCode": "90", "ibanAreaCode": "500", "ibanPhoneNum": "0000000", "ibanEmail": "burak.ates@freyabank.example", "ttsEmail": "burak.ates@freyabank.example", "commGramType": "A", "exitState": "Done", "ok": true}
+A: Hesap kesim tarihinizi değiştirebilirim ya da ekstrenizi kayıtlı mail adresinize gönderebilirim.
+U: Hayır.
+A: Sizi ana menüye yönlendiriyorum.
+   >> end_conversation {"reason": "main_menu"}
+   << end_conversation {"ok": true, "reason": "main_menu", "what_to_do_next": "The call ends now: say nothing more."}
+   [node end_main_menu]
+   >> end_call {"message_mode": "none"}
+   << end_call {"status": "success", "message": "Call ended"}

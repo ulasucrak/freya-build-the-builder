@@ -1,0 +1,29 @@
+#### E09  family=edge  FAIL (fail)  call c98b3b4b-b635-4ac3-bfa2-fdf103362468  ended=assistant-ended-call  slowest_turn=7.3 s
+judge: The conversation failed on several specific constraints: 1. The agent included a due date ('Son ödeme tarihiniz 15 Kasım 2026 olacaktır') despite the instruction to provide 'no due date, no other date' besides the first-cut date. 2. The debt amount was spoken as '860 virgül 4 Türk Lirası' instead of the required 'sekiz yüz altmış lira kırk kuruş'. 3. The agent offered to send the statement to the user's e-mail address, violating the 'no e-mail offer' constraint. 4. The agent offered to change the statement date, which was not allowed as it was instructed to give only the first-cut date.
+criteria:
+  - New card without a statement (statementDate/lastPayDate empty): says 'Kartınızın henüz kesilmiş bir ekstresi olmadığı için ekstre borcunuz bulunmamaktadır.'; NEVER invents a date (not '5 Ekim 2026') and never fills '… tarihli ekstresinden' with any date.
+  - Gives only the returned first-cut date, exactly: 'İlk hesap kesim tarihiniz 5 Kasım 2026 olacak.' (nextStatementDate, future tense); no due date, no other date; if the total 860.40 is spoken it is exactly sekiz yüz altmış lira kırk kuruş and not called a statement.
+  - Single card: no other-card question, no e-mail offer (phone only), no agent transfer; ends with the main-menu line.
+variables: {"customerNumber": "97631186", "now": "2026-10-12T10:30:00+03:00"}
+
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node assistant]
+A: Merhaba, size nasıl yardımcı olabilirim?
+U: Merhaba, ben Arda Bulut. Kart borcum ne kadar ve ekstrem ne zaman kesildi acaba?
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_list {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.list", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"aiFlow": "CardOps", "customerNo": "97631186"}, "call": {"lang": "tr"}}}
+   << cards_list {"cards": [{"cardNumber": "540000******2020", "cardNumberLast4": "2020", "productName": "Yıldız Genç", "status": "A", "isMainCard": true}], "validCardsCount": 1, "exitState": "1_CARD", "ok": true}
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_balance {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.balance", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******2020"}, "call": {"lang": "tr"}}}
+   << cards_balance {"cardNumber": "5400********2020", "cardNumberLast4": "2020", "productName": "Yıldız Genç", "statementDate": "", "lastPayDate": "", "nextStatementDate": "05.11.2026", "nextLastPayDate": "15.11.2026", "debtTL": {"statementPaymentStatus": "NO_DEBT", "transferAmount": 0.0, "statementDebt": 0.0, "minPayment": 0.0, "remainingDebt": 0.0, "remainingMinPayment": 0.0, "currentPeriodExpense": 0.0, "totalDeb
+A: Kartınızın henüz kesilmiş bir ekstresi olmadığı için ekstre borcunuz bulunmamaktadır. İlk hesap kesim tarihiniz 5 Kasım 2026 olacak. Gelecek dönemler dahil toplam borcunuz 860 virgül 4 Türk Lirası'dır. Son ödeme tarihiniz 15 Kasım 2026 olacaktır.
+ Hesap kesim tarihinizi değiştirebilirim ya da ekstrenizi kayıtlı mail adresinize gönderebilirim. İster misiniz?
+U: Hayır, şu an için bir değişiklik istemiyorum, teşekkürler.
+A: Sizi ana menüye yönlendiriyorum.
+   >> end_conversation {"reason": "main_menu"}
+   << end_conversation {"ok": true, "reason": "main_menu", "what_to_do_next": "The call ends now: say nothing more."}
+   [node end_main_menu]
+   >> end_call {"message_mode": "none"}
+   << end_call {"status": "success", "message": "Call ended"}

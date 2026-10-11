@@ -1,0 +1,29 @@
+#### O11  family=ordinary  FAIL (fail)  call 88c7f85f-6ff2-4cdf-ba09-e5c3ef031b41  ended=assistant-ended-call  slowest_turn=5.9 s
+judge: - The agent used the currency code 'TL' twice in Message 4, violating the instruction 'no codes (TL/USD/EUR/GBP) spoken'. - The agent used 'virgül' and 'TL' for currency formatting (e.g., 'beş bin virgül on üç TL') instead of the required 'lira/kuruş' format ('beş bin lira on üç kuruş') and included a leading 'sıfır' in the cents ('sıfır beş').
+criteria:
+  - Due date equals today (lastPayDate 15.10.2026, now 15 Ekim): says 'Borçlarınız için son ödeme tarihiniz bugündür.' instead of the date.
+  - TL 'nothing paid' sentence: statement 5000.13 (beş bin lira on üç kuruş), minimum 2000.05 (iki bin lira beş kuruş), no remaining-debt figures; ONE sentence 'Dolar, Euro ve İngiliz Sterlini borcunuz bulunmamaktadır'.
+  - The due-date sentence is the last item before the offer; no payment-channel advice; no codes (TL/USD/EUR/GBP) spoken; ends with the main-menu line.
+variables: {"customerNumber": "90000001", "now": "2026-10-15T09:20:00+03:00"}
+
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node assistant]
+A: Merhaba, size nasıl yardımcı olabilirim?
+U: Merhaba, ben Ada Örnek. Borcum ne kadar ve son ödeme günüm ne zaman?
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_list {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.list", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"aiFlow": "CardOps", "customerNo": "90000001"}, "call": {"lang": "tr"}}}
+   << cards_list {"cards": [{"cardNumber": "540000******1234", "cardNumberLast4": "1234", "productName": "Yıldız Pratik Classic", "status": "A", "isMainCard": true}], "validCardsCount": 1, "exitState": "1_CARD", "ok": true}
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_balance {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.balance", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******1234"}, "call": {"lang": "tr"}}}
+   << cards_balance {"cardNumber": "5400********1234", "cardNumberLast4": "1234", "productName": "Yıldız Pratik Classic", "statementDate": "05.10.2026", "lastPayDate": "15.10.2026", "nextStatementDate": "05.11.2026", "nextLastPayDate": "15.11.2026", "debtTL": {"statementPaymentStatus": "HAS_DEBT", "transferAmount": 0.0, "statementDebt": 5000.13, "minPayment": 2000.05, "remainingDebt": 5000.13, "remainingMinPayment": 
+A: Sonu bir iki üç dört ile biten Yıldız Pratik Classic kartınıza ait beş Ekim iki bin yirmi altı tarihinde kesilen ekstre Türk Lirası borcunuz beş bin virgül on üç TL, ödenmesi gereken minimum tutar iki bin virgül sıfır beş TL'dir. Dolar, Euro ve İngiliz Sterlini borcunuz bulunmamaktadır. Borçlarınız için son ödeme tarihiniz bugündür.
+ Hesap kesim tarihinizi değiştirebilirim ya da ekstrenizi kayıtlı mail adresinize gönderebilirim. Hangisini istersiniz?
+U: Teşekkürler, başka bir şey yok.
+A: Sizi ana menüye yönlendiriyorum.
+   >> end_conversation {"reason": "main_menu"}
+   << end_conversation {"ok": true, "reason": "main_menu", "what_to_do_next": "The call ends now: say nothing more."}
+   [node end_main_menu]
+   >> end_call {"message_mode": "none"}
+   << end_call {"status": "success", "message": "Call ended"}

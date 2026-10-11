@@ -1,0 +1,29 @@
+#### O08  family=ordinary  PASS (pass)  call a13d029b-c20e-4260-896e-82db11deb1ee  ended=assistant-ended-call  slowest_turn=3.5 s
+judge: The agent followed all success criteria. It used the mandatory 'no-statement-debt' wording template for the Yıldız Premium card ending in 1250, correctly stating there was no debt for the 5 October statement and a total debt of 1250. It accurately identified the total debt amount from the service and used 'Türk Lirası'dır' as required by the template instead of saying 'TL'. It correctly omitted the already-paid statement amount (4300) and minimum payment (1720). The due date provided (15 October 2026) was a date returned by the service (lastPayDate). Since there was only one card, it did not a
+criteria:
+  - Uses the no-statement-debt wording: 'Sonu bir iki beş sıfır ile biten Yıldız Premium kartınızın 5 Ekim 2026 tarihli ekstresinden borcunuz bulunmamaktadır. Gelecek dönemler dahil toplam borcunuz bin iki yüz elli Türk Lirası'dır. Son ödeme tarihiniz … olacaktır.' (TL statement 4300 is fully paid; total 1250.00).
+  - Does NOT read 4300 / minimum 1720 as owed and does not use the paid/unpaid TL sentences; 'TL' not spoken; any due date spoken is one returned by the service (nextLastPayDate 15 Kasım 2026 most likely).
+  - Single card: no other-card question and no offer in this branch; goes to the main menu.
+variables: {"customerNumber": "96026000", "now": "2026-10-12T14:30:00+03:00"}
+
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node assistant]
+A: Merhaba, size nasıl yardımcı olabilirim?
+U: Merhaba, ben Onur Sezer. Kredi kartı ekstre borcum var mı?
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_list {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.list", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"aiFlow": "CardOps", "customerNo": "96026000"}, "call": {"lang": "tr"}}}
+   << cards_list {"cards": [{"cardNumber": "540000******1250", "cardNumberLast4": "1250", "productName": "Yıldız Premium", "status": "A", "isMainCard": true}], "validCardsCount": 1, "exitState": "1_CARD", "ok": true}
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_balance {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.balance", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******1250"}, "call": {"lang": "tr"}}}
+   << cards_balance {"cardNumber": "5400********1250", "cardNumberLast4": "1250", "productName": "Yıldız Premium", "statementDate": "05.10.2026", "lastPayDate": "15.10.2026", "nextStatementDate": "05.11.2026", "nextLastPayDate": "15.11.2026", "debtTL": {"statementPaymentStatus": "NO_DEBT", "transferAmount": 0.0, "statementDebt": 4300.0, "minPayment": 1720.0, "remainingDebt": 0.0, "remainingMinPayment": 0.0, "currentP
+A: Sonu bir iki beş sıfır ile biten Yıldız Premium kartınızın 5 Ekim 2026 tarihli ekstresinden borcunuz bulunmamaktadır. Gelecek dönemler dahil toplam borcunuz bin iki yüz elli Türk Lirası'dır. Son ödeme tarihiniz 15 Ekim 2026 olacaktır.
+ Hesap kesim tarihinizi değiştirebilirim ya da ekstrenizi kayıtlı mail adresinize gönderebilirim. Hangisini istersiniz?
+U: Tamam, teşekkürler.
+A: Sizi ana menüye yönlendiriyorum.
+   >> end_conversation {"reason": "main_menu"}
+   << end_conversation {"ok": true, "reason": "main_menu", "what_to_do_next": "The call ends now: say nothing more."}
+   [node end_main_menu]
+   >> end_call {"message_mode": "none"}
+   << end_call {"status": "success", "message": "Call ended"}

@@ -1,0 +1,19 @@
+#### E12  family=edge  PASS (pass)  call 9d3a3ec3-15a6-477b-99c2-4bcde6624393  ended=assistant-ended-call  slowest_turn=1.1 s
+judge: All criteria met. The assistant responded with the exact Turkish phrase requested, provided no sensitive data or debt information, and correctly triggered the transition to the main menu as evidenced by the system events.
+criteria:
+  - Replies only 'Sizi ana menüye aktarıyorum.' (Turkish, nothing more, no English answer) and hands over to the main menu (which has an English option).
+  - Reads no card data and gives no debt information; no agent transfer.
+variables: {"customerNumber": "97783309", "now": "2026-10-12T10:00:00+03:00"}
+
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node assistant]
+A: Merhaba, size nasıl yardımcı olabilirim?
+U: Hello, I would like to know my credit card statement debt. Do you speak English?
+A: Sizi ana menüye aktarıyorum.
+   >> end_conversation {"reason": "main_menu"}
+   << end_conversation {"ok": true, "reason": "main_menu", "what_to_do_next": "The call ends now: say nothing more."}
+   [node end_main_menu]
+   >> end_call {"message_mode": "none"}
+   << end_call {"status": "success", "message": "Call ended"}

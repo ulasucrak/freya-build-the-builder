@@ -1,0 +1,38 @@
+#### O04  family=ordinary  PASS (pass)  call a00f9406-8a7a-41c7-9540-5235a66f8533  ended=assistant-ended-call  slowest_turn=5.0 s
+judge: All criteria met. The agent correctly identified the two cards (Yıldız Pratik and Yıldız Fly) and provided accurate balance information for the Fly card, including the zero remaining debt status for USD/GBP. After the user asked for the other card, the agent proceeded to provide the Pratik card details without re-prompting for a selection, as required. Finally, the agent offered the correct follow-up services (statement date change or email) and ended the call properly.
+criteria:
+  - Selection question names only the caller's own cards, max two (Yıldız Pratik / Yıldız Fly), never a card the customer does not have.
+  - Fly (540000******1602): TL 5600 -> remaining 3360, remaining minimum 0 ('minimum paid, thanks'); Euro 96.40 (min 38.56); Dolar statementDebt is 180 but remaining 0, so it counts as NO debt: 'Dolar ve İngiliz Sterlini borcunuz bulunmamaktadır'.
+  - After 'evet' reads Yıldız Pratik (540000******1601: TL 7300.45 nothing paid, min 2920.18; Dolar 215.00, min 86.00) WITHOUT another selection question and again opening 'Sonu bir altı sıfır bir ile biten …'.
+  - After both cards no further other-card question (none left); goes to the offer.
+variables: {"customerNumber": "97116902", "now": "2026-10-12T16:00:00+03:00"}
+
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node assistant]
+A: Merhaba, size nasıl yardımcı olabilirim?
+U: Kart borcumu öğrenmek istiyorum.
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_list {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.list", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"aiFlow": "CardOps", "customerNo": "97116902"}, "call": {"lang": "tr"}}}
+   << cards_list {"cards": [{"cardNumber": "540000******1601", "cardNumberLast4": "1601", "productName": "Yıldız Pratik", "status": "A", "isMainCard": true}, {"cardNumber": "540000******1602", "cardNumberLast4": "1602", "productName": "Yıldız Fly", "status": "A", "isMainCard": true}], "validCardsCount": 2, "exitState": "MULTI_CARD", "ok": true}
+A: Hangi kartınızın borcunu öğrenmek istersiniz? Örneğin, Yıldız Pratik veya Yıldız Fly diyebilirsiniz.
+U: Fly olanı.
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_balance {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.balance", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******1602"}, "call": {"lang": "tr"}}}
+   << cards_balance {"cardNumber": "5400********1602", "cardNumberLast4": "1602", "productName": "Yıldız Fly", "statementDate": "05.10.2026", "lastPayDate": "15.10.2026", "nextStatementDate": "05.11.2026", "nextLastPayDate": "15.11.2026", "debtTL": {"statementPaymentStatus": "HAS_DEBT", "transferAmount": 0.0, "statementDebt": 5600.0, "minPayment": 2240.0, "remainingDebt": 3360.0, "remainingMinPayment": 0.0, "currentP
+A: Sonu bir altı sıfır iki ile biten Yıldız Fly kartınıza ait beş Ekim iki bin yirmi altı tarihinde kesilen ekstre Türk Lirası borcunuz beş bin altı yüz TL, kalan toplam borcunuz üç bin üç yüz altmış TL'dir. Minimum ödemenizi yaptığınız için teşekkür ederiz. Euro borcunuz doksan altı virgül kırk Euro, kalan toplam borcunuz doksan altı virgül kırk Euro, ödenmesi gereken minimum tutar otuz sekiz virgül elli altı Euro'dur. Dolar ve İngiliz Sterlini borcunuz bulunmamaktadır. Borçlarınız için son ödeme tarihiniz on beş Ekim iki bin yirmi altı'dır.
+ Başka bir kartınızın borcunu öğrenmek ister misiniz?
+U: Evet, öbürünü de.
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_balance {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.balance", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******1601"}, "call": {"lang": "tr"}}}
+   << cards_balance {"cardNumber": "5400********1601", "cardNumberLast4": "1601", "productName": "Yıldız Pratik", "statementDate": "05.10.2026", "lastPayDate": "15.10.2026", "nextStatementDate": "05.11.2026", "nextLastPayDate": "15.11.2026", "debtTL": {"statementPaymentStatus": "HAS_DEBT", "transferAmount": 0.0, "statementDebt": 7300.45, "minPayment": 2920.18, "remainingDebt": 7300.45, "remainingMinPayment": 2920.18,
+A: Sonu bir altı sıfır bir ile biten Yıldız Pratik kartınıza ait beş Ekim iki bin yirmi altı tarihinde kesilen ekstre Türk Lirası borcunuz yedi bin üç yüz virgül kırk beş TL, ödenmesi gereken minimum tutar iki bin dokuz yüz yirmi virgül on sekiz TL, kalan toplam borcunuz yedi bin üç yüz virgül kırk beş TL, kalan minimum ödeme tutarınız iki bin dokuz yüz yirmi virgül on sekiz TL'dir. Dolar borcunuz iki yüz on beş Dolar, kalan toplam borcunuz iki yüz on beş Dolar, ödenmesi gereken minimum tutar seksen altı Dolar'dır. Euro ve İngiliz Sterlini borcunuz bulunmamaktadır. Borçlarınız için son ödeme tarihiniz on beş Ekim iki bin yirmi altı'dır.
+ Hesap kesim tarihinizi değiştirebilirim ya da ekstrenizi kayıtlı mail adresinize gönderebilirim.
+U: Hayır, bu kadar.
+A: Sizi ana menüye yönlendiriyorum.
+   >> end_conversation {"reason": "main_menu"}
+   << end_conversation {"ok": true, "reason": "main_menu", "what_to_do_next": "The call ends now: say nothing more."}
+   [node end_main_menu]
+   >> end_call {"message_mode": "none"}
+   << end_call {"status": "success", "message": "Call ended"}

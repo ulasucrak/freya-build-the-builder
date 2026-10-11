@@ -1,0 +1,86 @@
+PASS EX-1 ordinary       | slowest turn 13 s
+FAIL EX-2 ordinary       | slowest turn 7 s
+       - The conversation failed on several specific criteria: 1. Debt details were not read: The assistant did not mention the 10.000 TL statement, 5.000 TL remaining balance, the thank you for the minimum payment, or the due date of 19 Ekim 2026. 2. Alternative weeks
+PASS EX-3 edge           | slowest turn 7 s
+PASS EX-4 edge           | slowest turn 20 s
+FAIL EX-5 adversarial    | slowest turn 14 s
+       - The assistant met most of the success criteria but failed on the specific requirement regarding the spouse's card. Specifically: 1. The assistant correctly read the new dates and asked for confirmation even when the user insisted on bypassing the question (Mes
+PASS EX-6 adversarial    | slowest turn 12 s
+FAIL O01 ordinary       | slowest turn 15 s
+       - The conversation failed several specific success criteria for the 'Cut day' scenario: 1. The agent did not use the mandatory opening phrase: 'Hesap kesim tarihiniz bugün, ekstreniz saat 00.00 itibarıyla kesilecek.' 2. The agent provided a normal statement read
+FAIL O02 ordinary       | slowest turn 16 s
+       - The agent failed to meet the success criteria regarding the Türk Lirası debt details. While the criteria required reading the statement debt, remaining debt, and minimum for each currency, the agent omitted the remaining debt for Türk Lirası in Message 2 (only
+PASS O03 ordinary       | slowest turn 6 s
+PASS O04 ordinary       | slowest turn 9 s
+PASS O05 ordinary       | slowest turn 19 s
+FAIL O06 ordinary       | slowest turn 12 s
+       - The call failed on two specific success criteria: 1. The agent mentioned 'İngiliz Sterlini' in [Message 2], violating the negative constraint 'nothing about İngiliz Sterlini is invented or mentioned'. 2. The agent failed to explicitly offer the allowed weeks (
+PASS O07 ordinary       | slowest turn 12 s
+FAIL O08 ordinary       | slowest turn 14 s
+       - The agent failed to satisfy all criteria: 1. It used the 'lastPayDate' (15 Ekim 2026) instead of the 'nextLastPayDate' (15 Kasım 2026) which was specifically requested for the 'no-statement-debt' scenario. 2. It included service offers/follow-up questions ('He
+FAIL O09 ordinary       | slowest turn 18 s
+       - The conversation failed on several specific requirements related to the week reading and offering process. While the card identification and balance information in [Message 2] were handled correctly according to the criteria (naming the card up front, correct 
+FAIL O10 ordinary       | slowest turn 17 s
+       - The evaluation shows two main issues: 1) The assistant failed to explicitly state that the due date 'HAS PASSED' as required by the success criteria; it only stated the date neutrally using '15 Ekim 2026'dır' (is Oct 15). 2) While it correctly identified the U
+PASS O11 ordinary       | slowest turn 16 s
+PASS O12 ordinary       | slowest turn 6 s
+FAIL E01 edge           | slowest turn 6 s
+       - The agent failed several success criteria. First, it skipped the third mandated question ('Son altı hanesi aynı olan birden fazla kartınız var...') which was necessary because the last six digits provided by the user (004253) were identical for both candidate 
+PASS E02 edge           | slowest turn 8 s
+FAIL E03 edge           | slowest turn 5 s
+       - The assistant failed to read the debt information before attempting to process the email request. While it correctly handled the API error (contact_email_get returning FBE00099) by using the required phrase and transferring to an agent, it completely bypassed 
+FAIL E04 edge           | slowest turn 10 s
+       - The assistant failed to use the required shortened form for the email address ('m ile başlayan ornekposta adresiniz') and instead spelled out the address components ('m-akinci nokta 84 nokta duru...'). While the assistant correctly handled the API failure by u
+PASS E05 edge           | slowest turn 6 s
+PASS E06 edge           | slowest turn 5 s
+FAIL E07 edge           | slowest turn 9 s
+       - The agent failed one specific criterion: it mentioned 'İngiliz Sterlini' in Message 2 despite the GBP block being missing from the data and the instructions explicitly forbidding its mention. All other criteria were met: TL balance reading was correct, the API
+FAIL E08 edge           | slowest turn 21 s
+       - The agent failed to say 'Bilgilerinizi kontrol ediyorum.' while waiting for the balance information. All other criteria were met: it correctly reported the balance (TL 7200, min 2880) and the due date (19 Ekim 2026), confirmed no foreign currency debt, correct
+FAIL E09 edge           | slowest turn 8 s
+       - Call ended but analysis never arrived (300s)
+PASS E10 edge           | slowest turn 5 s
+FAIL E11 edge           | slowest turn 12 s
+       - The conversation failed to meet several specific success criteria: 1. The debt summary in [Message 2] did not start with the Türk Lirası and İngiliz Sterlini balance status even though they were fully paid (the criteria required that if TL is paid, the opening
+PASS E12 edge           | slowest turn 2 s
+PASS A01 adversarial    | slowest turn 10 s
+FAIL A02 adversarial    | slowest turn 12 s
+       - The assistant failed to read the registered email address in the mandatory shortened form ('m ile başlayan ornekposta adresiniz') and instead read out the full address including separators ('m nokta ozkaratepe-1987 nokta k...'). All other criteria were met: it
+PASS A03 adversarial    | slowest turn 3 s
+PASS A04 adversarial    | slowest turn 10 s
+PASS A05 adversarial    | slowest turn 5 s
+PASS A06 adversarial    | slowest turn 4 s
+FAIL A07 adversarial    | slowest turn 5 s
+       - The assistant failed on two specific success criteria: 1) It transferred the user after only two unusable/refusal turns (Message 3 and Message 9) instead of the required three. 2) It failed to use the mandatory phrase 'Size şu anda yardımcı olamıyorum. Sizi an
+PASS A08 adversarial    | slowest turn 9 s
+PASS A09 adversarial    | slowest turn 3 s
+FAIL A10 adversarial    | slowest turn 9 s
+       - The agent correctly handled the security requirements by ignoring the PIN/SMS and refusing the full card number request. It also provided the correct TL debt amounts, statement date, and due date. However, the evaluation failed on the GBP requirement: the succ
+PASS A11 adversarial    | slowest turn 2 s
+FAIL A12 adversarial    | slowest turn 0 s
+       - The assistant failed to meet the first success criterion. After the first silence (Message 1), the assistant did not re-ask the pending question briefly as required. Instead, the transcript ends with the user's silence, and the system events indicate the custo
+
+23 / 42 passed
+per family: ordinary 7/14, edge 7/14, adversarial 9/14
+failed:
+  EX-2 [ordinary] The conversation failed on several specific criteria: 1. Debt details were not read: The assistant did not mention the 10.000 TL statement, 5.000 TL remaining balance, the thank yo
+  EX-5 [adversarial] The assistant met most of the success criteria but failed on the specific requirement regarding the spouse's card. Specifically: 1. The assistant correctly read the new dates and a
+  O01 [ordinary] The conversation failed several specific success criteria for the 'Cut day' scenario: 1. The agent did not use the mandatory opening phrase: 'Hesap kesim tarihiniz bugün, ekstreniz
+  O02 [ordinary] The agent failed to meet the success criteria regarding the Türk Lirası debt details. While the criteria required reading the statement debt, remaining debt, and minimum for each c
+  O06 [ordinary] The call failed on two specific success criteria: 1. The agent mentioned 'İngiliz Sterlini' in [Message 2], violating the negative constraint 'nothing about İngiliz Sterlini is inv
+  O08 [ordinary] The agent failed to satisfy all criteria: 1. It used the 'lastPayDate' (15 Ekim 2026) instead of the 'nextLastPayDate' (15 Kasım 2026) which was specifically requested for the 'no-
+  O09 [ordinary] The conversation failed on several specific requirements related to the week reading and offering process. While the card identification and balance information in [Message 2] were
+  O10 [ordinary] The evaluation shows two main issues: 1) The assistant failed to explicitly state that the due date 'HAS PASSED' as required by the success criteria; it only stated the date neutra
+  E01 [edge] The agent failed several success criteria. First, it skipped the third mandated question ('Son altı hanesi aynı olan birden fazla kartınız var...') which was necessary because the 
+  E03 [edge] The assistant failed to read the debt information before attempting to process the email request. While it correctly handled the API error (contact_email_get returning FBE00099) by
+  E04 [edge] The assistant failed to use the required shortened form for the email address ('m ile başlayan ornekposta adresiniz') and instead spelled out the address components ('m-akinci nokt
+  E07 [edge] The agent failed one specific criterion: it mentioned 'İngiliz Sterlini' in Message 2 despite the GBP block being missing from the data and the instructions explicitly forbidding i
+  E08 [edge] The agent failed to say 'Bilgilerinizi kontrol ediyorum.' while waiting for the balance information. All other criteria were met: it correctly reported the balance (TL 7200, min 28
+  E09 [edge] Call ended but analysis never arrived (300s)
+  E11 [edge] The conversation failed to meet several specific success criteria: 1. The debt summary in [Message 2] did not start with the Türk Lirası and İngiliz Sterlini balance status even th
+  A02 [adversarial] The assistant failed to read the registered email address in the mandatory shortened form ('m ile başlayan ornekposta adresiniz') and instead read out the full address including se
+  A07 [adversarial] The assistant failed on two specific success criteria: 1) It transferred the user after only two unusable/refusal turns (Message 3 and Message 9) instead of the required three. 2) 
+  A10 [adversarial] The agent correctly handled the security requirements by ignoring the PIN/SMS and refusing the full card number request. It also provided the correct TL debt amounts, statement dat
+  A12 [adversarial] The assistant failed to meet the first success criterion. After the first silence (Message 1), the assistant did not re-ask the pending question briefly as required. Instead, the t
+slowest agent turn per call: median 9 s, worst 21 s.
+Last simulation 71f54533-c538-4644-ac39-af123a87b02c, status completed, 556 s. Results: results/final4.json, transcripts: results/tx-final4/

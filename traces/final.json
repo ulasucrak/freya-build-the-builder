@@ -1,13 +1,13 @@
 {
- "slot": "final",
- "start": "2026-10-11T18:48:52Z",
- "end": "2026-10-11T18:52:35Z",
- "duration_s": 223.0,
+ "slot": "final6",
+ "start": "2026-10-11T19:15:25Z",
+ "end": "2026-10-11T19:21:27Z",
+ "duration_s": 361.7,
  "info": {
   "briefs": "../../Build the Builder - Final Case",
   "openapi": "../../final-mock/openapi.json",
   "budget_s": 1200,
-  "slot": "final",
+  "slot": "final6",
   "state_file": "/home/user/freya-build-the-builder/build-the-builder-v3/build-the-builder/.freya-agents.json",
   "agent_model_rule": "phone agent runs on freya.AGENT_LLM (unchanged)"
  },
@@ -15,8 +15,8 @@
   {
    "stage": "extract",
    "status": "ok",
-   "duration_s": 181.0,
-   "detail": "1 warnings: resolved closing; evidence: [\"| Main menu | Three tries used up | \u201cSize \u015fu anda yard\u0131mc\u0131 olam\u0131yorum. Sizi ana men\u00fcye aktar\u0131yorum.\u201d |\", \"| Call closed | Third silence | \u201cSesinizi alamad\u0131\u011f\u0131m i\u00e7in g\u00f6r\u00fc\u015fmeyi sonland\u0131r\u0131yorum.\u201d |\", \"| Agent | Card list or balance service fails | \u201c\u015eu anda i\u015f..."
+   "duration_s": 215.8,
+   "detail": "3 warnings: resolved outcomes; evidence: [\"| Ends in | Why | Last sentence |\", \"| Call closed | Third silence | \u201cSesinizi alamad\u0131\u011f\u0131m i\u00e7in g\u00f6r\u00fc\u015fmeyi sonland\u0131r\u0131yorum.\u201d |\", \"| IVR login step | Asking about someone else's card | (security, 8.6) |\", \"For an agent, the assistant gives the call back to ..."
   },
   {
    "stage": "validate",
@@ -31,22 +31,28 @@
    "detail": "8 nodes; generic service agent (no tool for verify_identity/get_account/create_promise/close_call among 7 tools)"
   },
   {
+   "stage": "digest",
+   "status": "ok",
+   "duration_s": 121.5,
+   "detail": "87965 chars of rules/situations/phrases -> 9066 chars"
+  },
+  {
    "stage": "prompts",
    "status": "ok",
-   "duration_s": 36.6,
-   "detail": "0 edits kept (); 6 dropped"
+   "duration_s": 21.2,
+   "detail": "8 edits kept (system_prompt); 0 dropped"
   },
   {
    "stage": "dry_run",
    "status": "ok",
-   "duration_s": 0.7,
-   "detail": "generated + LLM prompts"
+   "duration_s": 0.9,
+   "detail": "generated defaults"
   },
   {
    "stage": "save",
    "status": "ok",
-   "duration_s": 4.1,
-   "detail": "generated + LLM prompts -> f57e653e-a245-4702-bb7b-d90777b2d481"
+   "duration_s": 1.5,
+   "detail": "generated defaults -> 4dd16563-5202-481c-9ccf-d599d25b50d6"
   }
  ],
  "model_calls": [
@@ -54,381 +60,403 @@
    "model": "claude-opus-5-5",
    "purpose": "extract verbatim rules (part 7 of 7)",
    "backend": "sdk",
-   "start": "2026-10-11T18:48:53+0000",
-   "duration_s": 25.32,
+   "start": "2026-10-11T19:15:26+0000",
+   "duration_s": 28.93,
    "ok": true,
    "error": null,
    "prompt_chars": 167011,
-   "response_chars": 2776
+   "response_chars": 3426
   },
   {
    "model": "claude-opus-5-5",
    "purpose": "extract verbatim rules (part 6 of 7)",
    "backend": "sdk",
-   "start": "2026-10-11T18:48:53+0000",
-   "duration_s": 30.32,
+   "start": "2026-10-11T19:15:26+0000",
+   "duration_s": 32.94,
    "ok": true,
    "error": null,
    "prompt_chars": 166965,
-   "response_chars": 3110
-  },
-  {
-   "model": "claude-opus-5-5",
-   "purpose": "extract policy part 1 (replicate 1)",
-   "backend": "sdk",
-   "start": "2026-10-11T18:48:53+0000",
-   "duration_s": 49.07,
-   "ok": true,
-   "error": null,
-   "prompt_chars": 204914,
-   "response_chars": 9860
+   "response_chars": 3857
   },
   {
    "model": "claude-opus-5-5",
    "purpose": "extract policy part 1 (replicate 2)",
    "backend": "sdk",
-   "start": "2026-10-11T18:48:53+0000",
-   "duration_s": 55.01,
+   "start": "2026-10-11T19:15:26+0000",
+   "duration_s": 47.92,
    "ok": true,
    "error": null,
    "prompt_chars": 204914,
-   "response_chars": 9669
+   "response_chars": 9508
   },
   {
    "model": "claude-opus-5-5",
-   "purpose": "extract verbatim rules (part 5 of 7)",
+   "purpose": "extract policy part 1 (replicate 1)",
    "backend": "sdk",
-   "start": "2026-10-11T18:48:53+0000",
-   "duration_s": 55.9,
+   "start": "2026-10-11T19:15:26+0000",
+   "duration_s": 49.52,
    "ok": true,
    "error": null,
-   "prompt_chars": 166964,
-   "response_chars": 7782
+   "prompt_chars": 204914,
+   "response_chars": 11275
   },
   {
    "model": "claude-opus-5-5",
    "purpose": "extract verbatim rules (part 2 of 7)",
    "backend": "sdk",
-   "start": "2026-10-11T18:48:53+0000",
-   "duration_s": 63.52,
+   "start": "2026-10-11T19:15:26+0000",
+   "duration_s": 58.08,
    "ok": true,
    "error": null,
    "prompt_chars": 166953,
-   "response_chars": 12403
+   "response_chars": 10904
+  },
+  {
+   "model": "claude-opus-5-5",
+   "purpose": "extract verbatim rules (part 5 of 7)",
+   "backend": "sdk",
+   "start": "2026-10-11T19:15:26+0000",
+   "duration_s": 77.36,
+   "ok": true,
+   "error": null,
+   "prompt_chars": 166964,
+   "response_chars": 10206
   },
   {
    "model": "claude-opus-5-5",
    "purpose": "extract verbatim rules (part 1 of 7)",
    "backend": "sdk",
-   "start": "2026-10-11T18:48:53+0000",
-   "duration_s": 81.53,
+   "start": "2026-10-11T19:15:26+0000",
+   "duration_s": 83.81,
    "ok": true,
    "error": null,
    "prompt_chars": 167203,
-   "response_chars": 18455
+   "response_chars": 17948
   },
   {
    "model": "claude-opus-5-5",
    "purpose": "extract policy part 2 (replicate 2)",
    "backend": "sdk",
-   "start": "2026-10-11T18:48:53+0000",
-   "duration_s": 125.32,
+   "start": "2026-10-11T19:15:26+0000",
+   "duration_s": 128.86,
    "ok": true,
    "error": null,
    "prompt_chars": 201553,
-   "response_chars": 29647
+   "response_chars": 28653
   },
   {
    "model": "claude-opus-5-5",
    "purpose": "extract policy part 2 (replicate 1)",
    "backend": "sdk",
-   "start": "2026-10-11T18:48:53+0000",
-   "duration_s": 130.79,
+   "start": "2026-10-11T19:15:26+0000",
+   "duration_s": 138.07,
    "ok": true,
    "error": null,
    "prompt_chars": 201553,
-   "response_chars": 29990
-  },
-  {
-   "model": "claude-opus-5-5",
-   "purpose": "resolve disagreement on closing",
-   "backend": "sdk",
-   "start": "2026-10-11T18:51:04+0000",
-   "duration_s": 12.43,
-   "ok": true,
-   "error": null,
-   "prompt_chars": 200182,
-   "response_chars": 2729
+   "response_chars": 33132
   },
   {
    "model": "claude-opus-5-5",
    "purpose": "extract verbatim rules (part 3 of 7)",
    "backend": "sdk",
-   "start": "2026-10-11T18:48:53+0000",
-   "duration_s": 157.41,
+   "start": "2026-10-11T19:15:26+0000",
+   "duration_s": 156.0,
    "ok": true,
    "error": null,
    "prompt_chars": 167069,
-   "response_chars": 27695
+   "response_chars": 26453
   },
   {
    "model": "claude-opus-5-5",
    "purpose": "extract verbatim rules (part 4 of 7)",
    "backend": "sdk",
-   "start": "2026-10-11T18:48:53+0000",
-   "duration_s": 180.19,
+   "start": "2026-10-11T19:15:26+0000",
+   "duration_s": 185.84,
    "ok": true,
    "error": null,
    "prompt_chars": 166969,
-   "response_chars": 38593
+   "response_chars": 37466
+  },
+  {
+   "model": "claude-opus-5-5",
+   "purpose": "resolve disagreement on outcomes, triggers, closing",
+   "backend": "sdk",
+   "start": "2026-10-11T19:17:44+0000",
+   "duration_s": 76.85,
+   "ok": true,
+   "error": null,
+   "prompt_chars": 238023,
+   "response_chars": 25032
+  },
+  {
+   "model": "claude-opus-5-5",
+   "purpose": "condense rules for the prompt",
+   "backend": "sdk",
+   "start": "2026-10-11T19:19:01+0000",
+   "duration_s": 66.35,
+   "ok": true,
+   "error": null,
+   "prompt_chars": 89647,
+   "response_chars": 11411
+  },
+  {
+   "model": "claude-opus-5-5",
+   "purpose": "shorten rules digest",
+   "backend": "sdk",
+   "start": "2026-10-11T19:20:08+0000",
+   "duration_s": 54.99,
+   "ok": true,
+   "error": null,
+   "prompt_chars": 11772,
+   "response_chars": 9066
   },
   {
    "model": "claude-opus-5-5",
    "purpose": "write node prompts",
    "backend": "sdk",
-   "start": "2026-10-11T18:51:54+0000",
-   "duration_s": 36.56,
+   "start": "2026-10-11T19:21:03+0000",
+   "duration_s": 21.16,
    "ok": true,
    "error": null,
-   "prompt_chars": 184998,
-   "response_chars": 3225
+   "prompt_chars": 106174,
+   "response_chars": 2116
   }
  ],
  "freya": [
   {
-   "action": "saved phone agent (generated + LLM prompts)",
-   "slot": "final",
-   "workflow_id": "f57e653e-a245-4702-bb7b-d90777b2d481",
-   "agent_id": "96fa189f-aa40-4805-b8d4-ded26628ddb2",
+   "action": "saved phone agent (generated defaults)",
+   "slot": "final6",
+   "workflow_id": "4dd16563-5202-481c-9ccf-d599d25b50d6",
+   "agent_id": "abcbb49f-111a-4be2-9855-8bf7ea12304c",
    "version": null
   },
   {
    "action": "exported",
-   "workflow_id": "f57e653e-a245-4702-bb7b-d90777b2d481",
-   "path": "/home/user/freya-build-the-builder/build-the-builder-v3/build-the-builder/out/final.workflow.json"
+   "workflow_id": "4dd16563-5202-481c-9ccf-d599d25b50d6",
+   "path": "/home/user/freya-build-the-builder/build-the-builder-v3/build-the-builder/out/final6.workflow.json"
   }
  ],
  "test_runs": [],
  "events": [
   {
-   "t": 26.2,
-   "at": "2026-10-11T18:49:19Z",
+   "t": 29.9,
+   "at": "2026-10-11T19:15:55Z",
    "kind": "model",
-   "text": "model call: claude-opus-5-5 | extract verbatim rules (part 7 of 7) | 25.3 s | ok",
+   "text": "model call: claude-opus-5-5 | extract verbatim rules (part 7 of 7) | 28.9 s | ok",
    "data": {
     "model": "claude-opus-5-5",
     "purpose": "extract verbatim rules (part 7 of 7)",
     "backend": "sdk",
-    "start": "2026-10-11T18:48:53+0000",
-    "duration_s": 25.32,
+    "start": "2026-10-11T19:15:26+0000",
+    "duration_s": 28.93,
     "ok": true,
     "error": null,
     "prompt_chars": 167011,
-    "response_chars": 2776
+    "response_chars": 3426
    }
   },
   {
-   "t": 31.2,
-   "at": "2026-10-11T18:49:24Z",
+   "t": 33.9,
+   "at": "2026-10-11T19:15:59Z",
    "kind": "model",
-   "text": "model call: claude-opus-5-5 | extract verbatim rules (part 6 of 7) | 30.3 s | ok",
+   "text": "model call: claude-opus-5-5 | extract verbatim rules (part 6 of 7) | 32.9 s | ok",
    "data": {
     "model": "claude-opus-5-5",
     "purpose": "extract verbatim rules (part 6 of 7)",
     "backend": "sdk",
-    "start": "2026-10-11T18:48:53+0000",
-    "duration_s": 30.32,
+    "start": "2026-10-11T19:15:26+0000",
+    "duration_s": 32.94,
     "ok": true,
     "error": null,
     "prompt_chars": 166965,
-    "response_chars": 3110
+    "response_chars": 3857
    }
   },
   {
-   "t": 50.0,
-   "at": "2026-10-11T18:49:42Z",
+   "t": 48.9,
+   "at": "2026-10-11T19:16:14Z",
    "kind": "model",
-   "text": "model call: claude-opus-5-5 | extract policy part 1 (replicate 1) | 49.1 s | ok",
-   "data": {
-    "model": "claude-opus-5-5",
-    "purpose": "extract policy part 1 (replicate 1)",
-    "backend": "sdk",
-    "start": "2026-10-11T18:48:53+0000",
-    "duration_s": 49.07,
-    "ok": true,
-    "error": null,
-    "prompt_chars": 204914,
-    "response_chars": 9860
-   }
-  },
-  {
-   "t": 55.9,
-   "at": "2026-10-11T18:49:48Z",
-   "kind": "model",
-   "text": "model call: claude-opus-5-5 | extract policy part 1 (replicate 2) | 55.0 s | ok",
+   "text": "model call: claude-opus-5-5 | extract policy part 1 (replicate 2) | 47.9 s | ok",
    "data": {
     "model": "claude-opus-5-5",
     "purpose": "extract policy part 1 (replicate 2)",
     "backend": "sdk",
-    "start": "2026-10-11T18:48:53+0000",
-    "duration_s": 55.01,
+    "start": "2026-10-11T19:15:26+0000",
+    "duration_s": 47.92,
     "ok": true,
     "error": null,
     "prompt_chars": 204914,
-    "response_chars": 9669
+    "response_chars": 9508
    }
   },
   {
-   "t": 56.8,
-   "at": "2026-10-11T18:49:49Z",
+   "t": 50.5,
+   "at": "2026-10-11T19:16:16Z",
    "kind": "model",
-   "text": "model call: claude-opus-5-5 | extract verbatim rules (part 5 of 7) | 55.9 s | ok",
+   "text": "model call: claude-opus-5-5 | extract policy part 1 (replicate 1) | 49.5 s | ok",
    "data": {
     "model": "claude-opus-5-5",
-    "purpose": "extract verbatim rules (part 5 of 7)",
+    "purpose": "extract policy part 1 (replicate 1)",
     "backend": "sdk",
-    "start": "2026-10-11T18:48:53+0000",
-    "duration_s": 55.9,
+    "start": "2026-10-11T19:15:26+0000",
+    "duration_s": 49.52,
     "ok": true,
     "error": null,
-    "prompt_chars": 166964,
-    "response_chars": 7782
+    "prompt_chars": 204914,
+    "response_chars": 11275
    }
   },
   {
-   "t": 64.4,
-   "at": "2026-10-11T18:49:57Z",
+   "t": 59.0,
+   "at": "2026-10-11T19:16:24Z",
    "kind": "model",
-   "text": "model call: claude-opus-5-5 | extract verbatim rules (part 2 of 7) | 63.5 s | ok",
+   "text": "model call: claude-opus-5-5 | extract verbatim rules (part 2 of 7) | 58.1 s | ok",
    "data": {
     "model": "claude-opus-5-5",
     "purpose": "extract verbatim rules (part 2 of 7)",
     "backend": "sdk",
-    "start": "2026-10-11T18:48:53+0000",
-    "duration_s": 63.52,
+    "start": "2026-10-11T19:15:26+0000",
+    "duration_s": 58.08,
     "ok": true,
     "error": null,
     "prompt_chars": 166953,
-    "response_chars": 12403
+    "response_chars": 10904
    }
   },
   {
-   "t": 82.5,
-   "at": "2026-10-11T18:50:15Z",
+   "t": 78.3,
+   "at": "2026-10-11T19:16:43Z",
    "kind": "model",
-   "text": "model call: claude-opus-5-5 | extract verbatim rules (part 1 of 7) | 81.5 s | ok",
+   "text": "model call: claude-opus-5-5 | extract verbatim rules (part 5 of 7) | 77.4 s | ok",
+   "data": {
+    "model": "claude-opus-5-5",
+    "purpose": "extract verbatim rules (part 5 of 7)",
+    "backend": "sdk",
+    "start": "2026-10-11T19:15:26+0000",
+    "duration_s": 77.36,
+    "ok": true,
+    "error": null,
+    "prompt_chars": 166964,
+    "response_chars": 10206
+   }
+  },
+  {
+   "t": 84.8,
+   "at": "2026-10-11T19:16:50Z",
+   "kind": "model",
+   "text": "model call: claude-opus-5-5 | extract verbatim rules (part 1 of 7) | 83.8 s | ok",
    "data": {
     "model": "claude-opus-5-5",
     "purpose": "extract verbatim rules (part 1 of 7)",
     "backend": "sdk",
-    "start": "2026-10-11T18:48:53+0000",
-    "duration_s": 81.53,
+    "start": "2026-10-11T19:15:26+0000",
+    "duration_s": 83.81,
     "ok": true,
     "error": null,
     "prompt_chars": 167203,
-    "response_chars": 18455
+    "response_chars": 17948
    }
   },
   {
-   "t": 126.2,
-   "at": "2026-10-11T18:50:59Z",
+   "t": 129.8,
+   "at": "2026-10-11T19:17:35Z",
    "kind": "model",
-   "text": "model call: claude-opus-5-5 | extract policy part 2 (replicate 2) | 125.3 s | ok",
+   "text": "model call: claude-opus-5-5 | extract policy part 2 (replicate 2) | 128.9 s | ok",
    "data": {
     "model": "claude-opus-5-5",
     "purpose": "extract policy part 2 (replicate 2)",
     "backend": "sdk",
-    "start": "2026-10-11T18:48:53+0000",
-    "duration_s": 125.32,
+    "start": "2026-10-11T19:15:26+0000",
+    "duration_s": 128.86,
     "ok": true,
     "error": null,
     "prompt_chars": 201553,
-    "response_chars": 29647
+    "response_chars": 28653
    }
   },
   {
-   "t": 131.7,
-   "at": "2026-10-11T18:51:04Z",
+   "t": 139.0,
+   "at": "2026-10-11T19:17:44Z",
    "kind": "model",
-   "text": "model call: claude-opus-5-5 | extract policy part 2 (replicate 1) | 130.8 s | ok",
+   "text": "model call: claude-opus-5-5 | extract policy part 2 (replicate 1) | 138.1 s | ok",
    "data": {
     "model": "claude-opus-5-5",
     "purpose": "extract policy part 2 (replicate 1)",
     "backend": "sdk",
-    "start": "2026-10-11T18:48:53+0000",
-    "duration_s": 130.79,
+    "start": "2026-10-11T19:15:26+0000",
+    "duration_s": 138.07,
     "ok": true,
     "error": null,
     "prompt_chars": 201553,
-    "response_chars": 29990
+    "response_chars": 33132
    }
   },
   {
-   "t": 144.1,
-   "at": "2026-10-11T18:51:16Z",
+   "t": 157.0,
+   "at": "2026-10-11T19:18:02Z",
    "kind": "model",
-   "text": "model call: claude-opus-5-5 | resolve disagreement on closing | 12.4 s | ok",
-   "data": {
-    "model": "claude-opus-5-5",
-    "purpose": "resolve disagreement on closing",
-    "backend": "sdk",
-    "start": "2026-10-11T18:51:04+0000",
-    "duration_s": 12.43,
-    "ok": true,
-    "error": null,
-    "prompt_chars": 200182,
-    "response_chars": 2729
-   }
-  },
-  {
-   "t": 158.3,
-   "at": "2026-10-11T18:51:31Z",
-   "kind": "model",
-   "text": "model call: claude-opus-5-5 | extract verbatim rules (part 3 of 7) | 157.4 s | ok",
+   "text": "model call: claude-opus-5-5 | extract verbatim rules (part 3 of 7) | 156.0 s | ok",
    "data": {
     "model": "claude-opus-5-5",
     "purpose": "extract verbatim rules (part 3 of 7)",
     "backend": "sdk",
-    "start": "2026-10-11T18:48:53+0000",
-    "duration_s": 157.41,
+    "start": "2026-10-11T19:15:26+0000",
+    "duration_s": 156.0,
     "ok": true,
     "error": null,
     "prompt_chars": 167069,
-    "response_chars": 27695
+    "response_chars": 26453
    }
   },
   {
-   "t": 181.1,
-   "at": "2026-10-11T18:51:53Z",
+   "t": 186.8,
+   "at": "2026-10-11T19:18:32Z",
    "kind": "model",
-   "text": "model call: claude-opus-5-5 | extract verbatim rules (part 4 of 7) | 180.2 s | ok",
+   "text": "model call: claude-opus-5-5 | extract verbatim rules (part 4 of 7) | 185.8 s | ok",
    "data": {
     "model": "claude-opus-5-5",
     "purpose": "extract verbatim rules (part 4 of 7)",
     "backend": "sdk",
-    "start": "2026-10-11T18:48:53+0000",
-    "duration_s": 180.19,
+    "start": "2026-10-11T19:15:26+0000",
+    "duration_s": 185.84,
     "ok": true,
     "error": null,
     "prompt_chars": 166969,
-    "response_chars": 38593
+    "response_chars": 37466
    }
   },
   {
-   "t": 181.1,
-   "at": "2026-10-11T18:51:53Z",
+   "t": 215.9,
+   "at": "2026-10-11T19:19:01Z",
+   "kind": "model",
+   "text": "model call: claude-opus-5-5 | resolve disagreement on outcomes, triggers, closing | 76.8 s | ok",
+   "data": {
+    "model": "claude-opus-5-5",
+    "purpose": "resolve disagreement on outcomes, triggers, closing",
+    "backend": "sdk",
+    "start": "2026-10-11T19:17:44+0000",
+    "duration_s": 76.85,
+    "ok": true,
+    "error": null,
+    "prompt_chars": 238023,
+    "response_chars": 25032
+   }
+  },
+  {
+   "t": 215.9,
+   "at": "2026-10-11T19:19:01Z",
    "kind": "stage",
-   "text": "extract: ok (181.0 s) - 1 warnings: resolved closing; evidence: [\"| Main menu | Three tries used up | \u201cSize \u015fu anda yard\u0131mc\u0131 olam\u0131yorum. Sizi ana men\u00fcye aktar\u0131yorum.\u201d |\", \"| Call closed | Third silence | \u201cSesinizi alamad\u0131\u011f\u0131m i\u00e7in g\u00f6r\u00fc\u015fmeyi sonland\u0131r\u0131yorum.\u201d |\", \"| Agent | Card list or balance service fails | \u201c\u015eu anda i\u015f...",
+   "text": "extract: ok (215.8 s) - 3 warnings: resolved outcomes; evidence: [\"| Ends in | Why | Last sentence |\", \"| Call closed | Third silence | \u201cSesinizi alamad\u0131\u011f\u0131m i\u00e7in g\u00f6r\u00fc\u015fmeyi sonland\u0131r\u0131yorum.\u201d |\", \"| IVR login step | Asking about someone else's card | (security, 8.6) |\", \"For an agent, the assistant gives the call back to ...",
    "data": {
     "stage": "extract",
     "status": "ok",
-    "duration_s": 181.0,
-    "detail": "1 warnings: resolved closing; evidence: [\"| Main menu | Three tries used up | \u201cSize \u015fu anda yard\u0131mc\u0131 olam\u0131yorum. Sizi ana men\u00fcye aktar\u0131yorum.\u201d |\", \"| Call closed | Third silence | \u201cSesinizi alamad\u0131\u011f\u0131m i\u00e7in g\u00f6r\u00fc\u015fmeyi sonland\u0131r\u0131yorum.\u201d |\", \"| Agent | Card list or balance service fails | \u201c\u015eu anda i\u015f..."
+    "duration_s": 215.8,
+    "detail": "3 warnings: resolved outcomes; evidence: [\"| Ends in | Why | Last sentence |\", \"| Call closed | Third silence | \u201cSesinizi alamad\u0131\u011f\u0131m i\u00e7in g\u00f6r\u00fc\u015fmeyi sonland\u0131r\u0131yorum.\u201d |\", \"| IVR login step | Asking about someone else's card | (security, 8.6) |\", \"For an agent, the assistant gives the call back to ..."
    }
   },
   {
-   "t": 181.2,
-   "at": "2026-10-11T18:51:53Z",
+   "t": 215.9,
+   "at": "2026-10-11T19:19:01Z",
    "kind": "stage",
    "text": "validate: ok (0.0 s)",
    "data": {
@@ -439,8 +467,8 @@
    }
   },
   {
-   "t": 181.4,
-   "at": "2026-10-11T18:51:54Z",
+   "t": 216.2,
+   "at": "2026-10-11T19:19:01Z",
    "kind": "stage",
    "text": "generate: ok (0.2 s) - 8 nodes; generic service agent (no tool for verify_identity/get_account/create_promise/close_call among 7 tools)",
    "data": {
@@ -451,129 +479,193 @@
    }
   },
   {
-   "t": 217.9,
-   "at": "2026-10-11T18:52:30Z",
+   "t": 282.7,
+   "at": "2026-10-11T19:20:08Z",
    "kind": "model",
-   "text": "model call: claude-opus-5-5 | write node prompts | 36.6 s | ok",
+   "text": "model call: claude-opus-5-5 | condense rules for the prompt | 66.3 s | ok",
+   "data": {
+    "model": "claude-opus-5-5",
+    "purpose": "condense rules for the prompt",
+    "backend": "sdk",
+    "start": "2026-10-11T19:19:01+0000",
+    "duration_s": 66.35,
+    "ok": true,
+    "error": null,
+    "prompt_chars": 89647,
+    "response_chars": 11411
+   }
+  },
+  {
+   "t": 282.7,
+   "at": "2026-10-11T19:20:08Z",
+   "kind": "note",
+   "text": "rules digest 11411 chars, over 7600: one shortening call"
+  },
+  {
+   "t": 337.7,
+   "at": "2026-10-11T19:21:03Z",
+   "kind": "model",
+   "text": "model call: claude-opus-5-5 | shorten rules digest | 55.0 s | ok",
+   "data": {
+    "model": "claude-opus-5-5",
+    "purpose": "shorten rules digest",
+    "backend": "sdk",
+    "start": "2026-10-11T19:20:08+0000",
+    "duration_s": 54.99,
+    "ok": true,
+    "error": null,
+    "prompt_chars": 11772,
+    "response_chars": 9066
+   }
+  },
+  {
+   "t": 337.7,
+   "at": "2026-10-11T19:21:03Z",
+   "kind": "stage",
+   "text": "digest: ok (121.5 s) - 87965 chars of rules/situations/phrases -> 9066 chars",
+   "data": {
+    "stage": "digest",
+    "status": "ok",
+    "duration_s": 121.5,
+    "detail": "87965 chars of rules/situations/phrases -> 9066 chars"
+   }
+  },
+  {
+   "t": 359.0,
+   "at": "2026-10-11T19:21:24Z",
+   "kind": "model",
+   "text": "model call: claude-opus-5-5 | write node prompts | 21.2 s | ok",
    "data": {
     "model": "claude-opus-5-5",
     "purpose": "write node prompts",
     "backend": "sdk",
-    "start": "2026-10-11T18:51:54+0000",
-    "duration_s": 36.56,
+    "start": "2026-10-11T19:21:03+0000",
+    "duration_s": 21.16,
     "ok": true,
     "error": null,
-    "prompt_chars": 184998,
-    "response_chars": 3225
+    "prompt_chars": 106174,
+    "response_chars": 2116
    }
   },
   {
-   "t": 217.9,
-   "at": "2026-10-11T18:52:30Z",
+   "t": 359.0,
+   "at": "2026-10-11T19:21:24Z",
    "kind": "stage",
-   "text": "prompts: ok (36.6 s) - 0 edits kept (); 6 dropped",
+   "text": "prompts: ok (21.2 s) - 8 edits kept (system_prompt); 0 dropped",
    "data": {
     "stage": "prompts",
     "status": "ok",
-    "duration_s": 36.6,
-    "detail": "0 edits kept (); 6 dropped"
+    "duration_s": 21.2,
+    "detail": "8 edits kept (system_prompt); 0 dropped"
    }
   },
   {
-   "t": 218.9,
-   "at": "2026-10-11T18:52:31Z",
+   "t": 359.2,
+   "at": "2026-10-11T19:21:24Z",
    "kind": "note",
-   "text": "dry-run validation of generated + LLM prompts: ok"
+   "text": "LLM prompt edits make the system prompt 11585 chars (limit 10000): edits dropped"
   },
   {
-   "t": 218.9,
-   "at": "2026-10-11T18:52:31Z",
+   "t": 360.1,
+   "at": "2026-10-11T19:21:25Z",
+   "kind": "note",
+   "text": "dry-run validation of generated defaults: ok"
+  },
+  {
+   "t": 360.1,
+   "at": "2026-10-11T19:21:25Z",
+   "kind": "note",
+   "text": "system prompt size: 11388 chars, about 3254 tokens (limit 10000 chars): OVER THE LIMIT"
+  },
+  {
+   "t": 360.1,
+   "at": "2026-10-11T19:21:25Z",
    "kind": "stage",
-   "text": "dry_run: ok (0.7 s) - generated + LLM prompts",
+   "text": "dry_run: ok (0.9 s) - generated defaults",
    "data": {
     "stage": "dry_run",
     "status": "ok",
-    "duration_s": 0.7,
-    "detail": "generated + LLM prompts"
+    "duration_s": 0.9,
+    "detail": "generated defaults"
    }
   },
   {
-   "t": 221.8,
-   "at": "2026-10-11T18:52:34Z",
+   "t": 360.8,
+   "at": "2026-10-11T19:21:26Z",
    "kind": "freya",
-   "text": "Freya saved phone agent (generated + LLM prompts): slot=final, workflow_id=f57e653e-a245-4702-bb7b-d90777b2d481, agent_id=96fa189f-aa40-4805-b8d4-ded26628ddb2",
+   "text": "Freya saved phone agent (generated defaults): slot=final6, workflow_id=4dd16563-5202-481c-9ccf-d599d25b50d6, agent_id=abcbb49f-111a-4be2-9855-8bf7ea12304c",
    "data": {
-    "action": "saved phone agent (generated + LLM prompts)",
-    "slot": "final",
-    "workflow_id": "f57e653e-a245-4702-bb7b-d90777b2d481",
-    "agent_id": "96fa189f-aa40-4805-b8d4-ded26628ddb2",
+    "action": "saved phone agent (generated defaults)",
+    "slot": "final6",
+    "workflow_id": "4dd16563-5202-481c-9ccf-d599d25b50d6",
+    "agent_id": "abcbb49f-111a-4be2-9855-8bf7ea12304c",
     "version": null
    }
   },
   {
-   "t": 223.0,
-   "at": "2026-10-11T18:52:35Z",
+   "t": 361.7,
+   "at": "2026-10-11T19:21:27Z",
    "kind": "freya",
-   "text": "Freya exported: workflow_id=f57e653e-a245-4702-bb7b-d90777b2d481, path=/home/user/freya-build-the-builder/build-the-builder-v3/build-the-builder/out/final.workflow.json",
+   "text": "Freya exported: workflow_id=4dd16563-5202-481c-9ccf-d599d25b50d6, path=/home/user/freya-build-the-builder/build-the-builder-v3/build-the-builder/out/final6.workflow.json",
    "data": {
     "action": "exported",
-    "workflow_id": "f57e653e-a245-4702-bb7b-d90777b2d481",
-    "path": "/home/user/freya-build-the-builder/build-the-builder-v3/build-the-builder/out/final.workflow.json"
+    "workflow_id": "4dd16563-5202-481c-9ccf-d599d25b50d6",
+    "path": "/home/user/freya-build-the-builder/build-the-builder-v3/build-the-builder/out/final6.workflow.json"
    }
   },
   {
-   "t": 223.0,
-   "at": "2026-10-11T18:52:35Z",
+   "t": 361.7,
+   "at": "2026-10-11T19:21:27Z",
    "kind": "stage",
-   "text": "save: ok (4.1 s) - generated + LLM prompts -> f57e653e-a245-4702-bb7b-d90777b2d481",
+   "text": "save: ok (1.5 s) - generated defaults -> 4dd16563-5202-481c-9ccf-d599d25b50d6",
    "data": {
     "stage": "save",
     "status": "ok",
-    "duration_s": 4.1,
-    "detail": "generated + LLM prompts -> f57e653e-a245-4702-bb7b-d90777b2d481"
+    "duration_s": 1.5,
+    "detail": "generated defaults -> 4dd16563-5202-481c-9ccf-d599d25b50d6"
    }
   },
   {
-   "t": 223.0,
-   "at": "2026-10-11T18:52:35Z",
+   "t": 361.7,
+   "at": "2026-10-11T19:21:27Z",
    "kind": "note",
    "text": "self-test skipped: generic service agent (no tool for verify_identity/get_account/create_promise/close_call among 7 tools); the synthetic cases and the test-mode bank cover debt-collection agents only"
   },
   {
-   "t": 223.0,
-   "at": "2026-10-11T18:52:35Z",
+   "t": 361.7,
+   "at": "2026-10-11T19:21:27Z",
    "kind": "result",
-   "text": "final result: ok (workflow_id=f57e653e-a245-4702-bb7b-d90777b2d481, agent_id=96fa189f-aa40-4805-b8d4-ded26628ddb2, export=/home/user/freya-build-the-builder/build-the-builder-v3/build-the-builder/out/final.workflow.json, best_version=v1, build_seconds=223, stage_seconds={\"extract\": 181.0, \"validate\": 0.0, \"generate\": 0.2, \"prompts\": 36.6, \"dry_run\": 0.7, \"save\": 4.1})",
+   "text": "final result: ok (workflow_id=4dd16563-5202-481c-9ccf-d599d25b50d6, agent_id=abcbb49f-111a-4be2-9855-8bf7ea12304c, export=/home/user/freya-build-the-builder/build-the-builder-v3/build-the-builder/out/final6.workflow.json, best_version=v1, build_seconds=362, stage_seconds={\"extract\": 215.8, \"validate\": 0.0, \"generate\": 0.2, \"digest\": 121.5, \"prompts\": 21.2, \"dry_run\": 0.9, \"save\": 1.5})",
    "data": {
     "status": "ok",
-    "workflow_id": "f57e653e-a245-4702-bb7b-d90777b2d481",
-    "agent_id": "96fa189f-aa40-4805-b8d4-ded26628ddb2",
+    "workflow_id": "4dd16563-5202-481c-9ccf-d599d25b50d6",
+    "agent_id": "abcbb49f-111a-4be2-9855-8bf7ea12304c",
     "version": null,
-    "export": "/home/user/freya-build-the-builder/build-the-builder-v3/build-the-builder/out/final.workflow.json",
+    "export": "/home/user/freya-build-the-builder/build-the-builder-v3/build-the-builder/out/final6.workflow.json",
     "best_version": "v1",
     "selftest_score": null,
-    "build_seconds": 223,
+    "build_seconds": 362,
     "error": null,
-    "stage_seconds": "{\"extract\": 181.0, \"validate\": 0.0, \"generate\": 0.2, \"prompts\": 36.6, \"dry_run\": 0.7, \"save\": 4.1}"
+    "stage_seconds": "{\"extract\": 215.8, \"validate\": 0.0, \"generate\": 0.2, \"digest\": 121.5, \"prompts\": 21.2, \"dry_run\": 0.9, \"save\": 1.5}"
    }
   },
   {
-   "t": 223.0,
-   "at": "2026-10-11T18:52:35Z",
+   "t": 361.7,
+   "at": "2026-10-11T19:21:27Z",
    "kind": "note",
    "text": "scoreboard line appended to /home/user/freya-build-the-builder/build-the-builder-v3/build-the-builder/results/log.jsonl"
   }
  ],
  "result": {
   "status": "ok",
-  "workflow_id": "f57e653e-a245-4702-bb7b-d90777b2d481",
-  "agent_id": "96fa189f-aa40-4805-b8d4-ded26628ddb2",
+  "workflow_id": "4dd16563-5202-481c-9ccf-d599d25b50d6",
+  "agent_id": "abcbb49f-111a-4be2-9855-8bf7ea12304c",
   "version": null,
-  "export": "/home/user/freya-build-the-builder/build-the-builder-v3/build-the-builder/out/final.workflow.json",
+  "export": "/home/user/freya-build-the-builder/build-the-builder-v3/build-the-builder/out/final6.workflow.json",
   "best_version": "v1",
   "selftest_score": null,
-  "build_seconds": 223,
+  "build_seconds": 362,
   "error": null,
-  "stage_seconds": "{\"extract\": 181.0, \"validate\": 0.0, \"generate\": 0.2, \"prompts\": 36.6, \"dry_run\": 0.7, \"save\": 4.1}"
+  "stage_seconds": "{\"extract\": 215.8, \"validate\": 0.0, \"generate\": 0.2, \"digest\": 121.5, \"prompts\": 21.2, \"dry_run\": 0.9, \"save\": 1.5}"
  }
 }

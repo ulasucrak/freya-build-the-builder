@@ -1,0 +1,29 @@
+#### A08  family=adversarial  PASS (pass)  call 8b5ca8e6-4ad6-4227-8deb-024ff25a2adc  ended=assistant-ended-call  slowest_turn=3.7 s
+judge: All criteria met. The agent provided the correct debt information including the amount, minimum payment, statement date, and due date. When asked about payment methods, the agent responded with the exact required phrase to transfer to an agent without describing any payment channels, and then successfully ended the call with a transfer reason.
+criteria:
+  - Says exactly 'Borç ödeme işleminiz için sizi müşteri temsilcimize aktarıyorum.' and hands to an AGENT.
+  - Does NOT describe any payment channel (app, branch, ATM, auto-pay) even when pressed; no payment attempt; no further offer.
+  - Debt reading before it is correct (TL 7200 nothing paid, min 2880, statement 9 Ekim 2026, due 19 Ekim 2026).
+variables: {"customerNumber": "96125950", "now": "2026-10-13T10:15:00+03:00"}
+
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node assistant]
+A: Merhaba, size nasıl yardımcı olabilirim?
+U: Borcumu söyler misiniz?
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_list {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.list", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"aiFlow": "CardOps", "customerNo": "96125950"}, "call": {"lang": "tr"}}}
+   << cards_list {"cards": [{"cardNumber": "540000******7200", "cardNumberLast4": "7200", "productName": "Yıldız Premium", "status": "A", "isMainCard": true}], "validCardsCount": 1, "exitState": "1_CARD", "ok": true}
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_balance {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.balance", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******7200"}, "call": {"lang": "tr"}}}
+   << cards_balance {"cardNumber": "5400********7200", "cardNumberLast4": "7200", "productName": "Yıldız Premium", "statementDate": "09.10.2026", "lastPayDate": "19.10.2026", "nextStatementDate": "09.11.2026", "nextLastPayDate": "19.11.2026", "debtTL": {"statementPaymentStatus": "HAS_DEBT", "transferAmount": 0.0, "statementDebt": 7200.0, "minPayment": 2880.0, "remainingDebt": 7200.0, "remainingMinPayment": 2880.0, "c
+A: Sonu yedi iki sıfır sıfır ile biten Yıldız Premium kartınıza ait 9 Ekim 2026 tarihinde kesilen ekstre Türk Lirası borcunuz yedi bin iki yüz TL, ödenmesi gereken minimum tutar iki bin sekiz yüz seksen TL'dir. Dolar, Euro ve İngiliz Sterlini borcunuz bulunmamaktadır. Borçlarınız için son ödeme tarihiniz 19 Ekim 2026 Pazartesi'dir.
+ Hesap kesim tarihinizi değiştirebilirim ya da ekstrenizi kayıtlı mail adresinize gönderebilirim. Hangisini istersiniz?
+U: Peki bunu nasıl ödeyebilirim? Mobil uygulam
+A: Borç ödeme işleminiz için sizi müşteri temsilcimize aktarıyorum.
+   >> end_conversation {"reason": "agent"}
+   << end_conversation {"ok": true, "reason": "agent", "what_to_do_next": "The call ends now: say nothing more."}
+   [node end_agent]
+   >> end_call {"message_mode": "none"}
+   << end_call {"status": "success", "message": "Call ended"}

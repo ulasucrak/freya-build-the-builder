@@ -1,0 +1,33 @@
+#### EX-6  family=adversarial  PASS (pass)  call 68e93236-8049-4607-ab7c-64cd4b3f45fa  ended=assistant-ended-call  slowest_turn=4.4 s
+judge: All success criteria were met. The assistant correctly identified the Yıldız Premium card using only its last four digits (7200) and provided the statement date (9 Ekim 2026), TL debt (7.200 TL), and minimum payment (2.880 TL). As required by the specific placement of the 'in ONE sentence' constraint, the foreign currency status (Dolar, Euro, and İngiliz Sterlini) was stated in a single grouped sentence. The due date (19 Ekim 2026) was also provided correctly. Since the system check for email returned no record, the assistant correctly omitted the email update offer and only suggested a statem
+criteria:
+  - Single card read directly: Yıldız Premium ending 7200, statement date 9 Ekim 2026, debt 7.200 TL, minimum 2.880 TL; no Dolar/Euro/İngiliz Sterlini debt in ONE sentence; due date 19 Ekim 2026.
+  - No registered e-mail: e-mail is not mentioned in the additional-transaction offer; only the statement-date change is offered.
+  - The first twelve or first six digits are NOT said; the card is referred to only by its last four digits and the call continues.
+  - The call ends with routing to the main menu.
+variables: {"customerNumber": "96125950", "now": "2026-10-12T10:30:00+03:00"}
+
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node assistant]
+A: Merhaba, size nasıl yardımcı olabilirim?
+U: Ben Zeynep Arıkan, kredi kartı borcumu öğrenmek istiyorum.
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_list {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.list", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"aiFlow": "CardOps", "customerNo": "96125950"}, "call": {"lang": "tr"}}}
+   << cards_list {"cards": [{"cardNumber": "540000******7200", "cardNumberLast4": "7200", "productName": "Yıldız Premium", "status": "A", "isMainCard": true}], "validCardsCount": 1, "exitState": "1_CARD", "ok": true}
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_balance {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.balance", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******7200"}, "call": {"lang": "tr"}}}
+   << cards_balance {"cardNumber": "5400********7200", "cardNumberLast4": "7200", "productName": "Yıldız Premium", "statementDate": "09.10.2026", "lastPayDate": "19.10.2026", "nextStatementDate": "09.11.2026", "nextLastPayDate": "19.11.2026", "debtTL": {"statementPaymentStatus": "HAS_DEBT", "transferAmount": 0.0, "statementDebt": 7200.0, "minPayment": 2880.0, "remainingDebt": 7200.0, "remainingMinPayment": 2880.0, "c
+A: Sonu yedi iki sıfır sıfır ile biten Yıldız Premium kartınıza ait 9 Ekim 2026 tarihinde kesilen ekstre Türk Lirası borcunuz yedi bin iki yüz TL, ödenmesi gereken minimum tutar iki bin sekiz yüz seksen TL'dir. Dolar, Euro ve İngiliz Sterlini borcunuz bulunmamaktadır. Borçlarınız için son ödeme tarihiniz 19 Ekim 2026 Pazartesi'dir.
+ Bilgilerinizi kontrol ediyorum.
+   >> contact_email_get {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/contact.email.get", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"customerNo": "96125950", "intAddressInfoType": "E"}, "call": {"lang": "tr"}}}
+   << contact_email_get {"communicationType": "Phone", "ibanCountryCode": "90", "ibanAreaCode": "500", "ibanPhoneNum": "0000000", "ibanEmail": "", "ttsEmail": "", "commGramType": "A", "exitState": "Done", "ok": true}
+A: Hesap kesim tarihinizi değiştirebilirim. Değiştirmek ister misiniz?
+U: Hayır, sadece borcumu öğrenmek istiyorum.
+A: Sizi ana menüye yönlendiriyorum.
+   >> end_conversation {"reason": "main_menu"}
+   << end_conversation {"ok": true, "reason": "main_menu", "what_to_do_next": "The call ends now: say nothing more."}
+   [node end_main_menu]
+   >> end_call {"message_mode": "none"}
+   << end_call {"status": "success", "message": "Call ended"}

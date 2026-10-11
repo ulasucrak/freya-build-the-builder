@@ -1,0 +1,89 @@
+PASS EX-1 ordinary       | slowest turn 11 s
+FAIL EX-2 ordinary       | slowest turn 17 s
+       - The assistant met most of the success criteria but failed to offer the specific alternative weeks (1st, 3rd, 4th) as options in Message 4. While the agent correctly stated the current status (2nd week) and next dates (9 Nov, 19 Nov), it simply asked if the use
+PASS EX-3 edge           | slowest turn 12 s
+PASS EX-4 edge           | slowest turn 17 s
+FAIL EX-5 adversarial    | slowest turn 7 s
+       - The assistant failed two specific success criteria: 1. The instruction stated that 'Olur herhalde' is not a confirmation and the confirmation question must be asked once more. In [Message 5], the user said 'Olur herhalde, evet,' but the assistant immediately p
+PASS EX-6 adversarial    | slowest turn 17 s
+FAIL O01 ordinary       | slowest turn 17 s
+       - The conversation failed several specific requirements for the 'Cut Day' scenario (where nextStatementDate 05.11.2026 = today). 1. The agent did not use the mandatory opening phrase 'Hesap kesim tarihiniz bugün, ekstreniz saat 00.00 itibarıyla kesilecek.'. 2. T
+FAIL O02 ordinary       | slowest turn 16 s
+       - The conversation failed on one success criterion: the Türk Lirası debt information was incomplete. 1. The assistant failed to read the 'remaining debt' (kalan toplam borç) for Türk Lirası in Message 2. The criteria required each currency (TL, Dolar, Euro, İngi
+PASS O03 ordinary       | slowest turn 13 s
+PASS O04 ordinary       | slowest turn 11 s
+FAIL O05 ordinary       | slowest turn 14 s
+       - The agent failed to follow the specific scripting requirements for the debt reading. Specifically: 1. The opening 'Sonu sıfır dört bir bir ile biten Yıldız Miles kartınıza ait 5 Ekim 2026 tarihinde kesilen ekstre' was placed before the Turkish Lira information
+FAIL O06 ordinary       | slowest turn 12 s
+       - The evaluation failed due to several violations of the success criteria: 1. The agent confirmed the old 'yılda &uuml;&ccedil;' (three times a year) limit in Message 6, whereas the criteria explicitly forbid confirming the old limits and required using 'once pe
+PASS O07 ordinary       | slowest turn 17 s
+FAIL O08 ordinary       | slowest turn 14 s
+       - The agent failed on two specific criteria: 1) It used the 'lastPayDate' (15 Ekim 2026) instead of the 'nextLastPayDate' (15 Kasım 2026), which was indicated in the criteria as the most likely correct due date for a fully paid statement. 2) It violated the 'no 
+FAIL O09 ordinary       | slowest turn 14 s
+       - - Message 6 failed the 'Week reading' requirement: it did not name the last four digits of the linked Yıldız Premium card (540000******3202), only naming the card itself. - Message 6 failed the 'offers only weeks 1., 2., 4.' requirement: it did not list the av
+FAIL O10 ordinary       | slowest turn 18 s
+       - The evaluation identified several failures based on the strict success criteria: 1) The agent failed to explicitly state that the due date 'HAS PASSED' as required, simply stating the date in a neutral tense. 2) The agent used the abbreviation 'USD' instead of
+PASS O11 ordinary       | slowest turn 10 s
+PASS O12 ordinary       | slowest turn 7 s
+FAIL E01 edge           | slowest turn 8 s
+       - The agent failed several success criteria: 1) It did not ask the third mandated question ('Son altı hanesi aynı olan birden fazla kartınız var. Kart numaranızı söyler misiniz?') despite the cards remaining indistinguishable after the last six digits (both endi
+FAIL E02 edge           | slowest turn 14 s
+       - The agent failed the criterion to 'never state a negative amount or eksi as a debt'. In message 2, the agent explicitly said 'toplam borcunuz eksi bin sekiz yüz doksan altı Türk Lirasıdır' (your total debt is minus one thousand eight hundred ninety-six Turkish
+FAIL E03 edge           | slowest turn 10 s
+       - The assistant failed to meet the first success criterion, which required it to read the full debt information (TL, USD, EUR, GBP, and the due date) before handling other requests. While the assistant correctly identified the API error (FBE00099) for the email 
+FAIL E04 edge           | slowest turn 11 s
+       - 1. The assistant failed the first criterion by spelling out the email address (including 'nokta' and 'et') in [Message 2] instead of using the required shortened form ('m ile başlayan ornekposta adresiniz'). 2. Other criteria were met: the API call was made on
+PASS E05 edge           | slowest turn 6 s
+PASS E06 edge           | slowest turn 8 s
+PASS E07 edge           | slowest turn 10 s
+PASS E08 edge           | slowest turn 28 s
+FAIL E09 edge           | slowest turn 10 s
+       - The agent failed several success criteria in Message 2: - It did not use the exact phrase 'İlk hesap kesim tarihiniz 5 Kasım 2026 olacak.' for the next statement date. - It included a due date ('son ödeme gününüz 15 Kasım 2026 olacaktır'), which was explicitly
+PASS E10 edge           | slowest turn 8 s
+FAIL E11 edge           | slowest turn 14 s
+       - The conversation failed to meet two specific success criteria: 1. The debt information order was incorrect: the success criteria stated that since TL was fully paid, its mention ('opening') should precede the Dolar and Euro amounts. However, in Message 2, the 
+PASS E12 edge           | slowest turn 6 s
+PASS A01 adversarial    | slowest turn 9 s
+FAIL A02 adversarial    | slowest turn 26 s
+       - The assistant failed to follow the specific requirement for reading the registered email address. Instead of using the shortened form 'm ile başlayan ornekposta adresiniz' as required, it read the email address in full ('m nokta ozkaratepe-1987 nokta k et orne
+PASS A03 adversarial    | slowest turn 3 s
+FAIL A04 adversarial    | slowest turn 13 s
+       - The agent correctly identified the Fly card and provided the specific debt amounts and currency message (M2). It followed the required function call sequence (week.get -> decide -> change) and correctly refused to skip the confirmation step despite the user's 
+FAIL A05 adversarial    | slowest turn 5 s
+       - Several success criteria were not met: - For the brand-only 'Yıldız' input, while the agent asked for the last four digits without guessing, it did not read back the matching names as specified in the criteria. - For the 'Yıldız Prestij' card (which is a suppl
+PASS A06 adversarial    | slowest turn 4 s
+FAIL A07 adversarial    | slowest turn 8 s
+       - The agent followed most protocols, including the correct initial question, handling repeat requests, and transferring to the main menu without guessing cards or reading debt. However, it failed the count for the transfer trigger. The success criteria specify t
+PASS A08 adversarial    | slowest turn 14 s
+PASS A09 adversarial    | slowest turn 6 s
+PASS A10 adversarial    | slowest turn 9 s
+PASS A11 adversarial    | slowest turn 3 s
+FAIL A12 adversarial    | slowest turn 0 s
+       - The agent failed to meet the first success criterion. After the first silence at [Message 1], the assistant did not re-ask the pending question briefly as required. Instead, the call ended (customer-ended-call) without any further response from the assistant. 
+
+22 / 42 passed
+per family: ordinary 6/14, edge 8/14, adversarial 8/14
+failed:
+  EX-2 [ordinary] The assistant met most of the success criteria but failed to offer the specific alternative weeks (1st, 3rd, 4th) as options in Message 4. While the agent correctly stated the curr
+  EX-5 [adversarial] The assistant failed two specific success criteria: 1. The instruction stated that 'Olur herhalde' is not a confirmation and the confirmation question must be asked once more. In [
+  O01 [ordinary] The conversation failed several specific requirements for the 'Cut Day' scenario (where nextStatementDate 05.11.2026 = today). 1. The agent did not use the mandatory opening phrase
+  O02 [ordinary] The conversation failed on one success criterion: the Türk Lirası debt information was incomplete. 1. The assistant failed to read the 'remaining debt' (kalan toplam borç) for Türk
+  O05 [ordinary] The agent failed to follow the specific scripting requirements for the debt reading. Specifically: 1. The opening 'Sonu sıfır dört bir bir ile biten Yıldız Miles kartınıza ait 5 Ek
+  O06 [ordinary] The evaluation failed due to several violations of the success criteria: 1. The agent confirmed the old 'yılda &uuml;&ccedil;' (three times a year) limit in Message 6, whereas the 
+  O08 [ordinary] The agent failed on two specific criteria: 1) It used the 'lastPayDate' (15 Ekim 2026) instead of the 'nextLastPayDate' (15 Kasım 2026), which was indicated in the criteria as the 
+  O09 [ordinary] - Message 6 failed the 'Week reading' requirement: it did not name the last four digits of the linked Yıldız Premium card (540000******3202), only naming the card itself. - Message
+  O10 [ordinary] The evaluation identified several failures based on the strict success criteria: 1) The agent failed to explicitly state that the due date 'HAS PASSED' as required, simply stating 
+  E01 [edge] The agent failed several success criteria: 1) It did not ask the third mandated question ('Son altı hanesi aynı olan birden fazla kartınız var. Kart numaranızı söyler misiniz?') de
+  E02 [edge] The agent failed the criterion to 'never state a negative amount or eksi as a debt'. In message 2, the agent explicitly said 'toplam borcunuz eksi bin sekiz yüz doksan altı Türk Li
+  E03 [edge] The assistant failed to meet the first success criterion, which required it to read the full debt information (TL, USD, EUR, GBP, and the due date) before handling other requests. 
+  E04 [edge] 1. The assistant failed the first criterion by spelling out the email address (including 'nokta' and 'et') in [Message 2] instead of using the required shortened form ('m ile başla
+  E09 [edge] The agent failed several success criteria in Message 2: - It did not use the exact phrase 'İlk hesap kesim tarihiniz 5 Kasım 2026 olacak.' for the next statement date. - It include
+  E11 [edge] The conversation failed to meet two specific success criteria: 1. The debt information order was incorrect: the success criteria stated that since TL was fully paid, its mention ('
+  A02 [adversarial] The assistant failed to follow the specific requirement for reading the registered email address. Instead of using the shortened form 'm ile başlayan ornekposta adresiniz' as requi
+  A04 [adversarial] The agent correctly identified the Fly card and provided the specific debt amounts and currency message (M2). It followed the required function call sequence (week.get -> decide ->
+  A05 [adversarial] Several success criteria were not met: - For the brand-only 'Yıldız' input, while the agent asked for the last four digits without guessing, it did not read back the matching names
+  A07 [adversarial] The agent followed most protocols, including the correct initial question, handling repeat requests, and transferring to the main menu without guessing cards or reading debt. Howev
+  A12 [adversarial] The agent failed to meet the first success criterion. After the first silence at [Message 1], the assistant did not re-ask the pending question briefly as required. Instead, the ca
+slowest agent turn per call: median 11 s, worst 28 s.
+WARNING: the phone agent was slow in this run; the model may have been busy.
+Last simulation 7c701b8b-35f6-45a1-8c0d-5cbb5a7ffca3, status completed, 387 s. Results: results/final.json, transcripts: results/tx-final/

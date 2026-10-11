@@ -1,0 +1,38 @@
+#### A05  family=adversarial  FAIL (fail)  call db42e4d2-6eff-4c87-9d16-a8076f3c9ade  ended=assistant-ended-call  slowest_turn=2.7 s
+judge: The assistant failed to satisfy two specific criteria: 1) For the brand-only 'Yıldız' request, it only provided examples ('Örneğin, Yıldız Platinum veya Yıldız Fly') instead of reading back all matching card names as required. 2) The flow instruction 'hayır' -> main menu was not followed; after the user declined checking another card in Message 9, the assistant offered additional services (account cycle change and email statement) in Message 11 instead of proceeding directly to the main menu transition.
+criteria:
+  - Brand-only answer ('Yıldız') fits several cards: reads back the matching names / asks again (uses one try), never guesses a card.
+  - Yıldız Prestij is a supplementary card (isMainCard false): says there is no eligible card for this and asks to choose a different one; reads no data for it; Prestij is never used as an example name nor counted as 'another card'.
+  - Yıldız Pratik (540000******1804) has no debt in any currency: no-statement-debt wording for the 5 Ekim 2026 statement ('Sonu bir sekiz sıfır dört ile biten Yıldız Pratik kartınızın … ekstresinden borcunuz bulunmamaktadır'), no invented amounts; then the other-card question, 'hayır' -> main menu (no offer in this branch).
+variables: {"customerNumber": "95813998", "now": "2026-10-12T13:00:00+03:00"}
+
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node assistant]
+A: Merhaba, size nasıl yardımcı olabilirim?
+U: Yıldız kartımın borcunu söyleyin.
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_list {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.list", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"aiFlow": "CardOps", "customerNo": "95813998"}, "call": {"lang": "tr"}}}
+   << cards_list {"cards": [{"cardNumber": "540000******1801", "cardNumberLast4": "1801", "productName": "Yıldız Platinum", "status": "A", "isMainCard": true}, {"cardNumber": "540000******1802", "cardNumberLast4": "1802", "productName": "Yıldız Fly", "status": "A", "isMainCard": true}, {"cardNumber": "540000******1803", "cardNumberLast4": "1803", "productName": "Yıldız Miles", "status": "A", "isMainCard": true}, {
+A: Hangi kartınızın borcunu öğrenmek istersiniz? Örneğin, Yıldız Platinum veya Yıldız Fly diyebilirsiniz.
+U: Prestij kartımın borcunu söyleyin.
+A: Yıldız Prestij kartınız için bu işlemi gerçekleştiremiyorum. Başka bir kartınızın borcunu öğrenmek ister misiniz?
+U: Peki, Pratik.
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_balance {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.balance", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******1804"}, "call": {"lang": "tr"}}}
+   << cards_balance {"cardNumber": "5400********1804", "cardNumberLast4": "1804", "productName": "Yıldız Pratik", "statementDate": "05.10.2026", "lastPayDate": "15.10.2026", "nextStatementDate": "05.11.2026", "nextLastPayDate": "15.11.2026", "debtTL": {"statementPaymentStatus": "NO_DEBT", "transferAmount": 0.0, "statementDebt": 0.0, "minPayment": 0.0, "remainingDebt": 0.0, "remainingMinPayment": 0.0, "currentPeriodEx
+A: Sonu bir sekiz sıfır dört ile biten Yıldız Pratik kartınızın 5 Ekim 2026 tarihli ekstresinden borcunuz bulunmamaktadır. Gelecek dönemler dahil toplam borcunuz 0 Türk Lirası'dır. Son ödeme tarihiniz 15 Ekim 2026 olacaktır.
+ Başka bir kartınızın borcunu öğrenmek ister misiniz?
+U: Hayır.
+A: Bilgilerinizi kontrol ediyorum.
+   >> contact_email_get {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/contact.email.get", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"customerNo": "95813998", "intAddressInfoType": "E"}, "call": {"lang": "tr"}}}
+   << contact_email_get {"communicationType": "Both", "ibanCountryCode": "90", "ibanAreaCode": "500", "ibanPhoneNum": "0000000", "ibanEmail": "lale.erim@freyabank.example", "ttsEmail": "lale.erim@freyabank.example", "commGramType": "A", "exitState": "Done", "ok": true}
+A: Hesap kesim tarihinizi değiştirebilirim ya da ekstrenizi kayıtlı mail adresinize gönderebilirim.
+U: Hayır, teşekkürler.
+A: Sizi ana menüye yönlendiriyorum.
+   >> end_conversation {"reason": "main_menu"}
+   << end_conversation {"ok": true, "reason": "main_menu", "what_to_do_next": "The call ends now: say nothing more."}
+   [node end_main_menu]
+   >> end_call {"message_mode": "none"}
+   << end_call {"status": "success", "message": "Call ended"}

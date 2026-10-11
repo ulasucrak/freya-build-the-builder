@@ -1,0 +1,34 @@
+#### O07  family=ordinary  PASS (pass)  call 291cbac4-5605-434b-9888-d71fed833646  ended=assistant-ended-call  slowest_turn=5.0 s
+judge: The agent correctly read the debt information and proceeded directly to the email permission request in Message 4 without asking for payment first. The TL debt sentence included all four required figures (9600, 3840, 7100, 1340), and the Euro figures (315.60, 126.24) and the USD/GBP statement were correct. The email address was read back correctly, and the 'statement_pdf_send' tool was called with the exact required parameters (customerNo 97917292, cardNumber '540000******9009', etc.) only after the user provided confirmation in Message 5. The call ended with the required sent-sentence and mai
+criteria:
+  - Reads the debt first, then goes straight into the e-mail step WITHOUT the offer question (debt + e-mail in the same breath).
+  - TL 'less than minimum' sentence with all four figures: statement 9600, minimum 3840, remaining 7100, remaining minimum 1340; Euro 315.60 (min 126.24); 'Dolar ve İngiliz Sterlini borcunuz bulunmamaktadır'.
+  - Reads back 'batu.sonmez@freyabank.example' and asks permission; statement.pdf.send(customerNo 97917292, cardNumber '540000******9009', statementDate '05.10.2026', emailAddress registered) only after the evet; then the sent-sentence and the main-menu line.
+variables: {"customerNumber": "97917292", "now": "2026-10-12T08:50:00+03:00"}
+
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node assistant]
+A: Merhaba, size nasıl yardımcı olabilirim?
+U: Kart borcumu söyler misiniz, bir de ekstremi e-postama gönderin.
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_list {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.list", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"aiFlow": "CardOps", "customerNo": "97917292"}, "call": {"lang": "tr"}}}
+   << cards_list {"cards": [{"cardNumber": "540000******9009", "cardNumberLast4": "9009", "productName": "Yıldız Platinum", "status": "A", "isMainCard": true}], "validCardsCount": 1, "exitState": "1_CARD", "ok": true}
+A: Bilgilerinizi kontrol ediyorum.
+   >> contact_email_get {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/contact.email.get", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"customerNo": "97917292", "intAddressInfoType": "E"}, "call": {"lang": "tr"}}}
+   >> cards_balance {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.balance", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******9009"}, "call": {"lang": "tr"}}}
+   << contact_email_get {"communicationType": "Both", "ibanCountryCode": "90", "ibanAreaCode": "500", "ibanPhoneNum": "0000000", "ibanEmail": "batu.sonmez@freyabank.example", "ttsEmail": "batu.sonmez@freyabank.example", "commGramType": "A", "exitState": "Done", "ok": true}
+   << cards_balance {"cardNumber": "5400********9009", "cardNumberLast4": "9009", "productName": "Yıldız Platinum", "statementDate": "05.10.2026", "lastPayDate": "15.10.2026", "nextStatementDate": "05.11.2026", "nextLastPayDate": "15.11.2026", "debtTL": {"statementPaymentStatus": "HAS_DEBT", "transferAmount": 0.0, "statementDebt": 9600.0, "minPayment": 3840.0, "remainingDebt": 7100.0, "remainingMinPayment": 1340.0, "
+A: Sonu dokuz sıfır sıfır dokuz ile biten Yıldız Platinum kartınıza ait 5 Ekim 2026 tarihinde kesilen ekstre Türk Lirası borcunuz dokuz bin altı yüz TL, ödenmesi gereken minimum tutar üç bin sekiz yüz kırk TL, kalan toplam borcunuz yedi bin yüz TL, kalan minimum ödeme tutarınız bin üç yüz kırk TL'dir. Euro borcunuz üç yüz on beş virgül altmış Euro, kalan toplam borcunuz üç yüz on beş virgül altmış Euro, ödenmesi gereken minimum tutar yüz yirmi altı virgül yirmi dört Euro'dur. Dolar ve İngiliz Sterlini borcunuz bulunmamaktadır. Borçlarınız için son ödeme tarihiniz 15 Ekim 2026'dır.
+ Ekstrenizi batu nokta sonmez et freyabank nokta example adresine göndermemi ister misiniz?
+U: Evet.
+A: Bilgilerinizi kontrol ediyorum.
+   >> statement_pdf_send {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/statement.pdf.send", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******9009", "customerNo": "97917292", "currencyType": "TL", "emailAddress
+   << statement_pdf_send {"exitState": "DONE", "ok": true}
+A: Ekstreniz kayıtlı e-posta adresinize gönderildi. Sizi ana menüye yönlendiriyorum.
+   >> end_conversation {"reason": "done"}
+   << end_conversation {"ok": true, "reason": "done", "what_to_do_next": "The call ends now: say nothing more."}
+   [node end_done]
+   >> end_call {"message_mode": "none"}
+   << end_call {"status": "success", "message": "Call ended"}

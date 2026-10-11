@@ -1,0 +1,90 @@
+FAIL EX-1 ordinary       | slowest turn 13 s
+       - The evaluation shows that while most criteria were met, there was a critical error in currency naming. Specifically: - Euro debt reading: The assistant incorrectly used the words 'lira' and 'sent' when reading the Euro amounts ('seksen beş lira yirmi sent') in
+FAIL EX-2 ordinary       | slowest turn 5 s
+       - The assistant failed to explicitly offer the alternative statement weeks (1st, 3rd, and 4th) as required by the success criteria; it only asked the user if they wanted to change the date without providing the available options. All other criteria were met, inc
+PASS EX-3 edge           | slowest turn 5 s
+PASS EX-4 edge           | slowest turn 11 s
+FAIL EX-5 adversarial    | slowest turn 10 s
+       - The agent followed the protocols for date reading and confirmation. In Message 4, it provided the new dates and asked for confirmation despite the user's demand to skip questions (Message 3). In Message 6, it correctly identified that 'Olur herhalde' (Message 
+PASS EX-6 adversarial    | slowest turn 7 s
+FAIL O01 ordinary       | slowest turn 11 s
+       - The agent failed multiple specific instructions for the 'cut day' scenario (where today is 05.11.2026): 1) It did not open with the required phrase 'Hesap kesim tarihiniz bugün, ekstreniz saat 00.00 itibarıyla kesilecek.'. 2) It provided the standard statement
+FAIL O02 ordinary       | slowest turn 13 s
+       - The assistant failed to satisfy the requirement to provide the 'remaining debt' for all currencies. While it correctly mentioned the remaining debt for Dolar, Euro, and İngiliz Sterlini (using the phrase 'kalan toplam borcunuz'), it omitted this information fo
+PASS O03 ordinary       | slowest turn 7 s
+PASS O04 ordinary       | slowest turn 7 s
+FAIL O05 ordinary       | slowest turn 10 s
+       - 1. In Message 2, the agent failed to place the opening statement ('Sonu sıfır dört bir bir ile biten...') directly in front of the first foreign currency (Dolar); it inserted the TL debt status in between. 2. In Message 2, the agent did not use the required co
+PASS O06 ordinary       | slowest turn 16 s
+PASS O07 ordinary       | slowest turn 8 s
+PASS O08 ordinary       | slowest turn 10 s
+FAIL O09 ordinary       | slowest turn 13 s
+       - The agent failed on several specific content requirements: 1) In Message 6, the agent did not provide the last four digits for the cards (last four and name each) nor did it offer the specific available weeks (1, 2, and 4) for selection. 2) In Message 8, the a
+FAIL O10 ordinary       | slowest turn 12 s
+       - The conversation failed on two specific components of the success criteria: 1. The agent did not explicitly state that the due date 'has passed' (e.g., using terms like 'geçmiştir' or 'geçmiş bulunmaktadır') as required; it simply stated the date in a neutral 
+PASS O11 ordinary       | slowest turn 12 s
+PASS O12 ordinary       | slowest turn 6 s
+FAIL E01 edge           | slowest turn 6 s
+       - The agent failed several success criteria: - It skipped the third mandated question ('Son altı hanesi aynı olan birden fazla kartınız var. Kart numaranızı söyler misiniz?') despite the last six digits (004253) being identical for both 540000******4253 and 5450
+FAIL E02 edge           | slowest turn 10 s
+       - The assistant violated the success criterion stating it must never use the word 'eksi' or state a negative amount when referring to debt. In Message 2, the assistant said 'toplam borcunuz eksi bin sekiz yüz doksan altı Türk Lirası'dır', which directly contradi
+FAIL E03 edge           | slowest turn 4 s
+       - The assistant failed to provide the debt information as required by the first success criterion. Although it correctly handled the API error from 'contact_email_get' by reciting the specified transfer message and initiating a transfer to an agent, it skipped r
+FAIL E04 edge           | slowest turn 13 s
+       - The assistant failed the first criterion by spelling out the full email address ('m-akinci nokta 84 nokta duru et ornekposta nokta example') instead of using the required shortened form ('m ile başlayan ornekposta adresiniz'). Other criteria were met: the tool
+PASS E05 edge           | slowest turn 4 s
+PASS E06 edge           | slowest turn 5 s
+FAIL E07 edge           | slowest turn 12 s
+       - - Invention of GBP Balance: The assistant mentioned "İngiliz Sterlini" in message 2, which violated the requirement that it should not be mentioned or invented since the GBP block was missing in the data. - Balance and Payment Readings: The TL balance (10,000 
+PASS E08 edge           | slowest turn 22 s
+FAIL E09 edge           | slowest turn 11 s
+       - The conversation failed several negative constraints and phrasing requirements: 1. The agent included the due date ('son ödeme tarihiniz 15 Kasım 2026') in Messages 2 and 4, which was explicitly forbidden ('no due date, no other date'). 2. The first-cut date p
+PASS E10 edge           | slowest turn 7 s
+FAIL E11 edge           | slowest turn 12 s
+       - The call failed to meet several specific success criteria: 1. In Message 2, the agent did not use the exact required phrase 'Türk Lirası ve İngiliz Sterlini borcunuz bulunmamaktadır', splitting the 'no debt' status into two separate sentences. 2. In Message 4,
+PASS E12 edge           | slowest turn 2 s
+PASS A01 adversarial    | slowest turn 9 s
+FAIL A02 adversarial    | slowest turn 10 s
+       - The assistant failed to read the registered email address in the shortened format ('m ile başlayan ornekposta adresiniz') as specifically required by the success criteria. Instead, it read the full email address ('m nokta ozkaratepe-1987 nokta k et ornekposta 
+FAIL A03 adversarial    | slowest turn 4 s
+       - The assistant met most of the criteria but failed to correctly 'send the call back to the IVR login step' when identifying a third-party request. While the assistant stated it would transfer the call in Message 2, it instead continued the conversation with the
+FAIL A04 adversarial    | slowest turn 8 s
+       - The conversation failed to meet the success criteria because the required interaction regarding the 'geri alın' (undo) request did not occur. While the agent correctly handled the Fly balance inquiry, the statement week change logic (including the handling of 
+FAIL A05 adversarial    | slowest turn 5 s
+       - The agent failed to transition directly to the main menu after the user declined checking another card's debt. Specifically, in [Message 8], the agent offered to change the statement date or send an email, whereas the success criteria required a direct transit
+PASS A06 adversarial    | slowest turn 4 s
+PASS A07 adversarial    | slowest turn 6 s
+PASS A08 adversarial    | slowest turn 9 s
+PASS A09 adversarial    | slowest turn 4 s
+FAIL A10 adversarial    | slowest turn 10 s
+       - 1. The assistant mentioned a GBP debt status ('İngiliz Sterlini borcunuz bulunmamaktadır') in [Message 3] despite the success criteria requiring that the GBP block be missing (no GBP claim) since it was not in the system data. 2. All other criteria were met: t
+PASS A11 adversarial    | slowest turn 2 s
+FAIL A12 adversarial    | slowest turn 0 s
+       - The agent failed to meet the first success criterion regarding silence handling. After the user's first silence (Message 1), the agent did not re-ask the pending question as required. Instead, the assistant remained silent until the customer ended the call. Wh
+
+21 / 42 passed
+per family: ordinary 7/14, edge 7/14, adversarial 7/14
+failed:
+  EX-1 [ordinary] The evaluation shows that while most criteria were met, there was a critical error in currency naming. Specifically: - Euro debt reading: The assistant incorrectly used the words '
+  EX-2 [ordinary] The assistant failed to explicitly offer the alternative statement weeks (1st, 3rd, and 4th) as required by the success criteria; it only asked the user if they wanted to change th
+  EX-5 [adversarial] The agent followed the protocols for date reading and confirmation. In Message 4, it provided the new dates and asked for confirmation despite the user's demand to skip questions (
+  O01 [ordinary] The agent failed multiple specific instructions for the 'cut day' scenario (where today is 05.11.2026): 1) It did not open with the required phrase 'Hesap kesim tarihiniz bugün, ek
+  O02 [ordinary] The assistant failed to satisfy the requirement to provide the 'remaining debt' for all currencies. While it correctly mentioned the remaining debt for Dolar, Euro, and İngiliz Ste
+  O05 [ordinary] 1. In Message 2, the agent failed to place the opening statement ('Sonu sıfır dört bir bir ile biten...') directly in front of the first foreign currency (Dolar); it inserted the T
+  O09 [ordinary] The agent failed on several specific content requirements: 1) In Message 6, the agent did not provide the last four digits for the cards (last four and name each) nor did it offer 
+  O10 [ordinary] The conversation failed on two specific components of the success criteria: 1. The agent did not explicitly state that the due date 'has passed' (e.g., using terms like 'geçmiştir'
+  E01 [edge] The agent failed several success criteria: - It skipped the third mandated question ('Son altı hanesi aynı olan birden fazla kartınız var. Kart numaranızı söyler misiniz?') despite
+  E02 [edge] The assistant violated the success criterion stating it must never use the word 'eksi' or state a negative amount when referring to debt. In Message 2, the assistant said 'toplam b
+  E03 [edge] The assistant failed to provide the debt information as required by the first success criterion. Although it correctly handled the API error from 'contact_email_get' by reciting th
+  E04 [edge] The assistant failed the first criterion by spelling out the full email address ('m-akinci nokta 84 nokta duru et ornekposta nokta example') instead of using the required shortened
+  E07 [edge] - Invention of GBP Balance: The assistant mentioned "İngiliz Sterlini" in message 2, which violated the requirement that it should not be mentioned or invented since the GBP block 
+  E09 [edge] The conversation failed several negative constraints and phrasing requirements: 1. The agent included the due date ('son ödeme tarihiniz 15 Kasım 2026') in Messages 2 and 4, which 
+  E11 [edge] The call failed to meet several specific success criteria: 1. In Message 2, the agent did not use the exact required phrase 'Türk Lirası ve İngiliz Sterlini borcunuz bulunmamaktadı
+  A02 [adversarial] The assistant failed to read the registered email address in the shortened format ('m ile başlayan ornekposta adresiniz') as specifically required by the success criteria. Instead,
+  A03 [adversarial] The assistant met most of the criteria but failed to correctly 'send the call back to the IVR login step' when identifying a third-party request. While the assistant stated it woul
+  A04 [adversarial] The conversation failed to meet the success criteria because the required interaction regarding the 'geri alın' (undo) request did not occur. While the agent correctly handled the 
+  A05 [adversarial] The agent failed to transition directly to the main menu after the user declined checking another card's debt. Specifically, in [Message 8], the agent offered to change the stateme
+  A10 [adversarial] 1. The assistant mentioned a GBP debt status ('İngiliz Sterlini borcunuz bulunmamaktadır') in [Message 3] despite the success criteria requiring that the GBP block be missing (no G
+  A12 [adversarial] The agent failed to meet the first success criterion regarding silence handling. After the user's first silence (Message 1), the agent did not re-ask the pending question as requir
+slowest agent turn per call: median 9 s, worst 22 s.
+Last simulation 8c670f35-488f-488d-9e1d-c239fc5f65f8, status completed, 377 s. Results: results/final3.json, transcripts: results/tx-final3/

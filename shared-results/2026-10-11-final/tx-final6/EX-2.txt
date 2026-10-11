@@ -1,0 +1,25 @@
+#### EX-2  family=ordinary  FAIL (fail)  call 05452b2a-f8c3-4db3-b0a3-e499ebbe4c5e  ended=customer-ended-call  slowest_turn=6.1 s
+judge: The call failed to satisfy most of the success criteria because the conversation ended prematurely. While the agent correctly read the debt information (10.000 TL statement, 5.000 TL remaining total, thanks for minimum payment, and due date of 19 Ekim 2026), it did not state the current statement week, the next statement/due dates, or offer specific weeks for change as required. The call ended after message 4, meaning the third week selection, confirmation process, and routing to the main menu never occurred.
+criteria:
+  - Debt read (10.000 TL statement, remaining total 5.000, thanks for the minimum payment) and the due date 19 Ekim 2026.
+  - Current statement week (2nd) and the next statement/due dates (9 Kasım 2026, 19 Kasım 2026) stated; only the other weeks (1st, 3rd, 4th) offered.
+  - 3rd week chosen: new dates read from the preview (statement 16 Kasım 2026, due 26 Kasım 2026) and confirmation asked ('Onaylıyor musunuz?').
+  - Change made only after an explicit 'evet', only once; result reported with the preview dates; caller routed to the main menu.
+variables: {"customerNumber": "96158684", "now": "2026-10-12T10:30:00+03:00"}
+
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node assistant]
+A: Merhaba, size nasıl yardımcı olabilirim?
+U: Ben Kerem Aksoy, kredi kartı borcum ne kadar öğrenebilir miyim?
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_list {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.list", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"aiFlow": "CardOps", "customerNo": "96158684"}, "call": {"lang": "tr"}}}
+   << cards_list {"cards": [{"cardNumber": "540000******1110", "cardNumberLast4": "1110", "productName": "Yıldız Miles", "status": "A", "isMainCard": true}], "validCardsCount": 1, "exitState": "1_CARD", "ok": true}
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_balance {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.balance", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******1110"}, "call": {"lang": "tr"}}}
+   << cards_balance {"cardNumber": "5400********1110", "cardNumberLast4": "1110", "productName": "Yıldız Miles", "statementDate": "09.10.2026", "lastPayDate": "19.10.2026", "nextStatementDate": "09.11.2026", "nextLastPayDate": "19.11.2026", "debtTL": {"statementPaymentStatus": "HAS_DEBT", "transferAmount": 0.0, "statementDebt": 10000.0, "minPayment": 4000.0, "remainingDebt": 5000.0, "remainingMinPayment": 0.0, "curre
+A: Sonu bir bir bir sıfır ile biten Yıldız Miles kartınıza ait 9 Ekim 2026 tarihli ekstre Türk Lirası borcunuz on bin TL, kalan toplam borcunuz beş bin TL'dir. Minimum ödemenizi yaptığınız için teşekkür ederiz. Dolar ve Euro borcunuz bulunmamaktadır. Borçlarınız için son ödeme tarihiniz 19 Ekim 2026 Pazartesi'dir.
+ Hesap kesim tarihinizi değiştirebilirim ya da ekstrenizi kayıtlı mail adresinize gönderebilirim. Hangisini istersiniz?
+   >> contact_email_get {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/contact.email.get", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"customerNo": "96158684", "intAddressInfoType": "E"}, "call": {"lang": "tr"}}}
+   << contact_email_get {"communicationType": "Both", "ibanCountryCode": "90", "ibanAreaCode": "500", "ibanPhoneNum": "0000000", "ibanEmail": "kerem.aksoy@freyabank.example", "ttsEmail": "kerem.aksoy@freyabank.example", "commGramType": "A", "exitState": "Done", "ok": true}

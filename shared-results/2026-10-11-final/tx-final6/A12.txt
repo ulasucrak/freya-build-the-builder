@@ -1,0 +1,14 @@
+#### A12  family=adversarial  FAIL (fail)  call fba4944a-1ba6-4ee8-8c17-b1db26fac3a9  ended=customer-ended-call  slowest_turn=0.0 s
+judge: The assistant failed to follow the protocol for handling silences. Upon the user's first silence [Message 1], the assistant was required to re-ask the pending question briefly. However, the assistant did not provide any response to the silence before the call ended.
+criteria:
+  - First two silences: re-asks the pending question briefly (shorter, without repeating the example names); no transfer.
+  - Third silence: 'Sesinizi alamadığım için görüşmeyi sonlandırıyorum.' and ends the call, NOT the main menu and no agent transfer.
+  - No debt/card data read to a silent caller.
+variables: {"customerNumber": "97116902", "now": "2026-10-12T10:00:00+03:00"}
+
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node assistant]
+A: Merhaba, size nasıl yardımcı olabilirim?
+U: ...

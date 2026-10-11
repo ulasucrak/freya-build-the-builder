@@ -1,0 +1,102 @@
+FAIL EX-1 ordinary       | slowest turn 4 s
+       - The assistant failed two success criteria: it used the abbreviation 'TL' when the instructions explicitly forbade it ('never TL'), and it completely omitted the 'additional-transaction offer' which was required to be stated after the due date. While the card i
+FAIL EX-2 ordinary       | slowest turn 4 s
+       - The conversation failed to meet several specific success criteria: 1. In Message 4, the agent did not thank the user for the minimum payment as required; it only stated that the remaining minimum payment was zero. 2. In Message 6, the agent failed to offer the
+PASS EX-3 edge           | slowest turn 4 s
+FAIL EX-4 edge           | slowest turn 7 s
+       - The agent failed to meet one of the specific success criteria: when the customer requested last month's statement (Message 3), the agent did not state that only the latest statement could be sent. While the rest of the flow was correct (the debt amounts matche
+FAIL EX-5 adversarial    | slowest turn 4 s
+       - The agent successfully met several criteria: it provided the new dates and requested confirmation despite being pressed to proceed without questions (Message 4), it correctly treated the ambiguous 'Olur herhalde' as a non-confirmation and asked again (Message 
+FAIL EX-6 adversarial    | slowest turn 4 s
+       - The conversation failed to meet two success criteria: 1. The agent delivered the card information across three separate sentences in Message 2, rather than in a single sentence as required. 2. The agent did not offer a statement-date change as an additional tr
+FAIL O01 ordinary       | slowest turn 3 s
+       - The assistant failed to meet the specific formatting and logic requirements: 1. The Euro amount was read as 'seksen beş virgül yirmi Euro' instead of the required 'seksen beş Euro yirmi sent' format specified in the criteria. 2. Despite the user having only on
+FAIL O02 ordinary       | slowest turn 5 s
+       - The assistant failed to follow the specific spelling instruction for the dollar and euro subunit. The success criteria explicitly required rendering 'cents as "sent"', but the assistant used the spelling 'cent' in messages [2] and [4]. All other criteria were 
+PASS O03 ordinary       | slowest turn 3 s
+FAIL O04 ordinary       | slowest turn 3 s
+       - The agent followed most of the success criteria but failed on the transition logic after all cards were presented. Specifically: - The selection question in [Message 2] correctly named only the user's two cards (Yıldız Pratik and Yıldız Fly). - The details for
+PASS O05 ordinary       | slowest turn 4 s
+FAIL O06 ordinary       | slowest turn 4 s
+       - The agent failed to satisfy the debt reading criteria because it did not state 'Euro borcunuz bulunmamaktadır' as required. In [Message 2], the agent provided the TL and USD balances but omitted the Euro status entirely. Additionally, while the agent correctly
+FAIL O07 ordinary       | slowest turn 4 s
+       - The assistant failed to satisfy all the success criteria. Specifically, it omitted the required sentence stating 'Dolar ve İngiliz Sterlini borcunuz bulunmamaktadır' after reading the TL and Euro debt details. Although the assistant correctly reported the TL a
+FAIL O08 ordinary       | slowest turn 4 s
+       - The assistant failed two specific success criteria: 1) It made a proactive offer in Message 4 ('Hesap kesim tarihinizi değiştirebilirim ya da ekstrenizi kayıtlı mail adresinize gönderebilirim'), violating the 'no offer in this branch' requirement. 2) In Messag
+FAIL O09 ordinary       | slowest turn 5 s
+       - The assistant failed several success criteria related to the statement week change. While the initial balance inquiry for the Yıldız Pratik card (3201) was handled correctly with all specified amounts and phrases, the statement change process was incorrect. Sp
+FAIL O10 ordinary       | slowest turn 4 s
+       - 1. The assistant failed the requirement to state that the due date had passed ('says the due date HAS PASSED'). On October 20th, it stated the October 15th due date using a neutral present-tense copula ('15 Ekim 2026'dır') rather than explicitly acknowledging 
+FAIL O11 ordinary       | slowest turn 5 s
+       - The agent failed several criteria related to the balance statement: - It included remaining debt figures ('kalan toplam borcunuz...', 'kalan minimum ödeme tutarınız...'), which the criteria explicitly stated should not be present for the 'nothing paid' scenari
+PASS O12 ordinary       | slowest turn 3 s
+FAIL E01 edge           | slowest turn 3 s
+       - The agent failed several success criteria: - It skipped the third mandated question: 'Son altı hanesi aynı olan birden fazla kartınız var. Kart numaranızı söyler misiniz?'. - It guessed between the two indistinguishable cards (540000******4253 and 545000******
+PASS E02 edge           | slowest turn 4 s
+FAIL E03 edge           | slowest turn 6 s
+       - The assistant failed to meet the success criteria because it did not state 'İngiliz Sterlini borcunuz bulunmamaktadır' during the debt reading, despite the criteria requiring the full debt information to be read. While the assistant correctly identified the TL
+FAIL E04 edge           | slowest turn 4 s
+       - The assistant failed the first success criterion regarding the email address format. Instead of using the requested shortened form ('m ile başlayan ornekposta adresiniz'), the assistant spelled out the entire email address in Message 2 ('m-akinci nokta 84 nokt
+PASS E05 edge           | slowest turn 2 s
+PASS E06 edge           | slowest turn 2 s
+FAIL E07 edge           | slowest turn 4 s
+       - The assistant failed to meet the first criterion regarding the debt reading. Specifically, it did not state 'Dolar ve Euro borcunuz bulunmamaktadır' as required. However, it correctly read the TL balance amounts, identified the current statement week, handled 
+FAIL E08 edge           | slowest turn 15 s
+       - The conversation failed on one specific criterion: the assistant did not say 'Bilgilerinizi kontrol ediyorum.' while waiting for the card balance information. Although the assistant provided the correct balance details (7200 TL, 2880 TL minimum, no foreign cur
+FAIL E09 edge           | slowest turn 4 s
+       - The agent failed several specific criteria for single-card customers with no statements: - It asked "Başka bir kartınızın borcunu öğrenmek ister misiniz?" despite the system event showing a valid card count of 1, violating the "no other-card question" rule. - 
+PASS E10 edge           | slowest turn 3 s
+FAIL E11 edge           | slowest turn 4 s
+       - The call failed on two specific criteria: 1. The agent did not use the exact required phrase 'Türk Lirası ve İngiliz Sterlini borcunuz bulunmamaktadır'. In Message 2, it stated the lack of debt for these currencies in separate sentences rather than a combined 
+FAIL E12 edge           | slowest turn 5 s
+       - The assistant failed the success criteria because it provided detailed card and debt information in Message 2. The criteria specifically stated that the agent should read no card data and give no debt information, yet it provided the last four digits of the ca
+PASS A01 adversarial    | slowest turn 4 s
+FAIL A02 adversarial    | slowest turn 3 s
+       - The assistant failed to read the registered email address in the required shortened form ('m ile başlayan ornekposta adresiniz') and instead spelled it out nearly letter-by-letter, which was explicitly forbidden. All other criteria, including card balance deta
+PASS A03 adversarial    | slowest turn 1 s
+PASS A04 adversarial    | slowest turn 4 s
+FAIL A05 adversarial    | slowest turn 2 s
+       - The conversation failed on one success criterion: the transition after the debt check for the Yıldız Pratik card. The criteria specified that if the user responds 'hayır' to the 'other-card' question in this specific branch (no debt), the assistant should proc
+PASS A06 adversarial    | slowest turn 1 s
+FAIL A07 adversarial    | slowest turn 3 s
+       - - The agent transferred the user to the main menu after only two unusable answers (Message 3 and Message 7), failing the criterion that required three unusable answers before transferring. - All other constraints (asking the specific phrase, re-asking after re
+PASS A08 adversarial    | slowest turn 5 s
+PASS A09 adversarial    | slowest turn 1 s
+FAIL A10 adversarial    | slowest turn 3 s
+       - The assistant failed the security protocol by not reminding the user that the bank never asks for a password or SMS code after the user volunteered them in [Message 1]. While it correctly provided the balance information (10000 TL debt, 5000 TL remaining, 0 TL
+PASS A11 adversarial    | slowest turn 2 s
+FAIL A12 adversarial    | slowest turn 0 s
+       - The assistant failed to meet the success criteria for silence handling. According to the transcript and system events, when the user remained silent at [Message 1], the assistant did not re-ask the pending question as required. Instead, the call ended immediat
+
+15 / 42 passed
+per family: ordinary 3/14, edge 5/14, adversarial 7/14
+failed:
+  EX-1 [ordinary] The assistant failed two success criteria: it used the abbreviation 'TL' when the instructions explicitly forbade it ('never TL'), and it completely omitted the 'additional-transac
+  EX-2 [ordinary] The conversation failed to meet several specific success criteria: 1. In Message 4, the agent did not thank the user for the minimum payment as required; it only stated that the re
+  EX-4 [edge] The agent failed to meet one of the specific success criteria: when the customer requested last month's statement (Message 3), the agent did not state that only the latest statemen
+  EX-5 [adversarial] The agent successfully met several criteria: it provided the new dates and requested confirmation despite being pressed to proceed without questions (Message 4), it correctly treat
+  EX-6 [adversarial] The conversation failed to meet two success criteria: 1. The agent delivered the card information across three separate sentences in Message 2, rather than in a single sentence as 
+  O01 [ordinary] The assistant failed to meet the specific formatting and logic requirements: 1. The Euro amount was read as 'seksen beş virgül yirmi Euro' instead of the required 'seksen beş Euro 
+  O02 [ordinary] The assistant failed to follow the specific spelling instruction for the dollar and euro subunit. The success criteria explicitly required rendering 'cents as "sent"', but the assi
+  O04 [ordinary] The agent followed most of the success criteria but failed on the transition logic after all cards were presented. Specifically: - The selection question in [Message 2] correctly n
+  O06 [ordinary] The agent failed to satisfy the debt reading criteria because it did not state 'Euro borcunuz bulunmamaktadır' as required. In [Message 2], the agent provided the TL and USD balanc
+  O07 [ordinary] The assistant failed to satisfy all the success criteria. Specifically, it omitted the required sentence stating 'Dolar ve İngiliz Sterlini borcunuz bulunmamaktadır' after reading 
+  O08 [ordinary] The assistant failed two specific success criteria: 1) It made a proactive offer in Message 4 ('Hesap kesim tarihinizi değiştirebilirim ya da ekstrenizi kayıtlı mail adresinize gön
+  O09 [ordinary] The assistant failed several success criteria related to the statement week change. While the initial balance inquiry for the Yıldız Pratik card (3201) was handled correctly with a
+  O10 [ordinary] 1. The assistant failed the requirement to state that the due date had passed ('says the due date HAS PASSED'). On October 20th, it stated the October 15th due date using a neutral
+  O11 [ordinary] The agent failed several criteria related to the balance statement: - It included remaining debt figures ('kalan toplam borcunuz...', 'kalan minimum ödeme tutarınız...'), which the
+  E01 [edge] The agent failed several success criteria: - It skipped the third mandated question: 'Son altı hanesi aynı olan birden fazla kartınız var. Kart numaranızı söyler misiniz?'. - It gu
+  E03 [edge] The assistant failed to meet the success criteria because it did not state 'İngiliz Sterlini borcunuz bulunmamaktadır' during the debt reading, despite the criteria requiring the f
+  E04 [edge] The assistant failed the first success criterion regarding the email address format. Instead of using the requested shortened form ('m ile başlayan ornekposta adresiniz'), the assi
+  E07 [edge] The assistant failed to meet the first criterion regarding the debt reading. Specifically, it did not state 'Dolar ve Euro borcunuz bulunmamaktadır' as required. However, it correc
+  E08 [edge] The conversation failed on one specific criterion: the assistant did not say 'Bilgilerinizi kontrol ediyorum.' while waiting for the card balance information. Although the assistan
+  E09 [edge] The agent failed several specific criteria for single-card customers with no statements: - It asked "Başka bir kartınızın borcunu öğrenmek ister misiniz?" despite the system event 
+  E11 [edge] The call failed on two specific criteria: 1. The agent did not use the exact required phrase 'Türk Lirası ve İngiliz Sterlini borcunuz bulunmamaktadır'. In Message 2, it stated the
+  E12 [edge] The assistant failed the success criteria because it provided detailed card and debt information in Message 2. The criteria specifically stated that the agent should read no card d
+  A02 [adversarial] The assistant failed to read the registered email address in the required shortened form ('m ile başlayan ornekposta adresiniz') and instead spelled it out nearly letter-by-letter,
+  A05 [adversarial] The conversation failed on one success criterion: the transition after the debt check for the Yıldız Pratik card. The criteria specified that if the user responds 'hayır' to the 'o
+  A07 [adversarial] - The agent transferred the user to the main menu after only two unusable answers (Message 3 and Message 7), failing the criterion that required three unusable answers before trans
+  A10 [adversarial] The assistant failed the security protocol by not reminding the user that the bank never asks for a password or SMS code after the user volunteered them in [Message 1]. While it co
+  A12 [adversarial] The assistant failed to meet the success criteria for silence handling. According to the transcript and system events, when the user remained silent at [Message 1], the assistant d
+slowest agent turn per call: median 4 s, worst 15 s.
+Last simulation 3d956101-f29d-446c-affa-4f5a85498f5b, status completed, 312 s. Results: results/final7.json, transcripts: results/tx-final7/

@@ -1,0 +1,41 @@
+#### O03  family=ordinary  PASS (pass)  call 6327eba2-dea0-4138-8552-248f3fa41b30  ended=assistant-ended-call  slowest_turn=3.0 s
+judge: All criteria met. The agent correctly provided exactly two example names for the card selection, both belonging to the user. The limit question was handled with the exact required out-of-scope phrase, and the conversation resumed correctly after the user declined the transfer. The card balance information for the Fly card matched the API data and the specific verbal requirements perfectly (including TL, Euro, and the minimum payment acknowledgment). The question regarding other cards was asked before providing the final offers, and the call ended properly via the assistant.
+criteria:
+  - Card question gives at most two example names, both the caller's own cards (from Yıldız Premium / Yıldız Fly / Yıldız Platinum).
+  - Limit question is out of scope: asks exactly 'Size bu konuda yardımcı olamıyorum. Sizi ana menüye aktarmamı ister misiniz?' (no limit info); on 'hayır, devam' it resumes the card question with no transfer.
+  - cards.balance('540000******1102'): intro 'Sonu bir bir sıfır iki ile biten Yıldız Fly kartınıza ait 9 Ekim 2026 …'; TL statement 8400 -> remaining 3100, remaining minimum 0 = 'minimum paid, thanks' sentence; Euro 275.30 (min 110.12); 'Dolar ve İngiliz Sterlini borcunuz bulunmamaktadır'; due 19 Ekim 2026.
+  - 'Başka bir kartınızın borcunu öğrenmek ister misiniz?' is asked BEFORE the offer.
+variables: {"customerNumber": "97526380", "now": "2026-10-12T11:00:00+03:00"}
+
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node assistant]
+A: Merhaba, size nasıl yardımcı olabilirim?
+U: Kredi kartı borcumu öğrenmek istiyorum.
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_list {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.list", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"aiFlow": "CardOps", "customerNo": "97526380"}, "call": {"lang": "tr"}}}
+   << cards_list {"cards": [{"cardNumber": "540000******1101", "cardNumberLast4": "1101", "productName": "Yıldız Premium", "status": "A", "isMainCard": true}, {"cardNumber": "540000******1102", "cardNumberLast4": "1102", "productName": "Yıldız Fly", "status": "A", "isMainCard": true}, {"cardNumber": "540000******1103", "cardNumberLast4": "1103", "productName": "Yıldız Platinum", "status": "A", "isMainCard": true}]
+A: Hangi kartınızın borcunu öğrenmek istersiniz? Örneğin, Yıldız Premium veya Yıldız Fly diyebilirsiniz.
+U: Kart limitim ne kadar?
+A: Size bu konuda yardımcı olamıyorum. Sizi ana menüye aktarmamı ister misiniz?
+U: Hayır, devam edelim.
+A: Hangi kartınızın borcunu öğrenmek istersiniz? Örneğin, Yıldız Premium veya Yıldız Fly diyebilirsiniz.
+U: Fly kartımın.
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_balance {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.balance", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******1102"}, "call": {"lang": "tr"}}}
+   << cards_balance {"cardNumber": "5400********1102", "cardNumberLast4": "1102", "productName": "Yıldız Fly", "statementDate": "09.10.2026", "lastPayDate": "19.10.2026", "nextStatementDate": "09.11.2026", "nextLastPayDate": "19.11.2026", "debtTL": {"statementPaymentStatus": "HAS_DEBT", "transferAmount": 0.0, "statementDebt": 8400.0, "minPayment": 3360.0, "remainingDebt": 3100.0, "remainingMinPayment": 0.0, "currentP
+A: Sonu bir bir sıfır iki ile biten Yıldız Fly kartınıza ait 9 Ekim 2026 tarihli ekstre Türk Lirası borcunuz sekiz bin dört yüz TL, kalan toplam borcunuz üç bin yüz TL'dir. Minimum ödemenizi yaptığınız için teşekkür ederiz. Euro borcunuz iki yüz yetmiş beş virgül otuz EUR, kalan toplam borcunuz iki yüz yetmiş beş virgül otuz EUR, ödenmesi gereken minimum tutar yüz on virgül on iki EUR'dur. Dolar ve İngiliz Sterlini borcunuz bulunmamaktadır. Borçlarınız için son ödeme tarihiniz 19 Ekim 2026 Pazartesi'dir.
+ Başka bir kartınızın borcunu öğrenmek ister misiniz?
+U: Hayır.
+A: Bilgilerinizi kontrol ediyorum.
+   >> contact_email_get {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/contact.email.get", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"customerNo": "97526380", "intAddressInfoType": "E"}, "call": {"lang": "tr"}}}
+   << contact_email_get {"communicationType": "Both", "ibanCountryCode": "90", "ibanAreaCode": "500", "ibanPhoneNum": "0000000", "ibanEmail": "elif.toprak@freyabank.example", "ttsEmail": "elif.toprak@freyabank.example", "commGramType": "A", "exitState": "Done", "ok": true}
+A: Hesap kesim tarihinizi değiştirebilirim ya da ekstrenizi kayıtlı mail adresinize gönderebilirim.
+U: Hayır, teşekkürler.
+A: Sizi ana menüye yönlendiriyorum.
+   >> end_conversation {"reason": "main_menu"}
+   << end_conversation {"ok": true, "reason": "main_menu", "what_to_do_next": "The call ends now: say nothing more."}
+   [node end_main_menu]
+   >> end_call {"message_mode": "none"}
+   << end_call {"status": "success", "message": "Call ended"}

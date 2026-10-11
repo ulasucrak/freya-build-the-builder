@@ -1,0 +1,29 @@
+#### O10  family=ordinary  FAIL (fail)  call b547d32b-3cc0-4407-a259-e13409f487af  ended=assistant-ended-call  slowest_turn=4.4 s
+judge: The agent failed to meet two specific requirements: 1. It did not explicitly state that the due date has passed (e.g., using the word 'geçmiş'); it only stated the date neutrally. 2. It used currency abbreviations (TL, USD, EUR) instead of providing the currency names in full as requested by the success criteria. The agent did correctly end the call with the main-menu line and used the correct amounts.
+criteria:
+  - Call is after the due date (lastPayDate 15.10.2026, now 20 Ekim): says the due date HAS PASSED (not 'bugün', not a future tense) and then gives the total debt from cards.balance (TL 18500, Dolar 650, Euro 380 as totals).
+  - No interest/late-fee statement, no payment-channel advice, no invented dates; amounts exactly as returned, currency names in full.
+  - Ends with the offer or the main-menu line per rules (never an agent transfer).
+variables: {"customerNumber": "92460108", "now": "2026-10-20T10:00:00+03:00"}
+
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node assistant]
+A: Merhaba, size nasıl yardımcı olabilirim?
+U: Kart borcum ne kadar?
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_list {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.list", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"aiFlow": "CardOps", "customerNo": "92460108"}, "call": {"lang": "tr"}}}
+   << cards_list {"cards": [{"cardNumber": "540000******8500", "cardNumberLast4": "8500", "productName": "Yıldız Pratik", "status": "A", "isMainCard": true}], "validCardsCount": 1, "exitState": "1_CARD", "ok": true}
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_balance {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.balance", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******8500"}, "call": {"lang": "tr"}}}
+   << cards_balance {"cardNumber": "5400********8500", "cardNumberLast4": "8500", "productName": "Yıldız Pratik", "statementDate": "05.10.2026", "lastPayDate": "15.10.2026", "nextStatementDate": "05.11.2026", "nextLastPayDate": "15.11.2026", "debtTL": {"statementPaymentStatus": "HAS_DEBT", "transferAmount": 0.0, "statementDebt": 18500.0, "minPayment": 7400.0, "remainingDebt": 18500.0, "remainingMinPayment": 7400.0, "
+A: Sonu 8 5 0 0 ile biten Yıldız Pratik kartınıza ait 5 Ekim 2026 tarihinde kesilen ekstre Türk Lirası borcunuz 18500 TL, ödenmesi gereken minimum tutar 7400 TL'dir. Dolar borcunuz 650 USD, kalan toplam borcunuz 650 USD, ödenmesi gereken minimum tutar 260 USD'dir. Euro borcunuz 380 EUR, kalan toplam borcunuz 380 EUR, ödenmesi gereken minimum tutar 152 EUR'dur. İngiliz Sterlini borcunuz bulunmamaktadır. Borçlarınız için son ödeme tarihiniz 15 Ekim 2026'dır.
+ Hesap kesim tarihinizi değiştirebilirim ya da ekstrenizi kayıtlı mail adresinize gönderebilirim. Hangisini istersiniz?
+U: Anladım, teşekkürler.
+A: Sizi ana menüye yönlendiriyorum.
+   >> end_conversation {"reason": "main_menu"}
+   << end_conversation {"ok": true, "reason": "main_menu", "what_to_do_next": "The call ends now: say nothing more."}
+   [node end_main_menu]
+   >> end_call {"message_mode": "none"}
+   << end_call {"status": "success", "message": "Call ended"}

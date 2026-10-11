@@ -1,0 +1,35 @@
+#### E01  family=edge  FAIL (fail)  call b3f1fb8c-e4a2-4ade-85cb-8c8016ca25d7  ended=assistant-ended-call  slowest_turn=3.4 s
+judge: The conversation failed several success criteria: 1. The assistant skipped the third mandated question ('Son altı hanesi aynı olan birden fazla kartınız var. Kart numaranızı söyler misiniz?') despite the last six digits provided by the user being shared by two cards. 2. It called 'cards_balance' with '540000******4253' instead of the required list value '545000******4253'. 3. It reported incorrect balance amounts (9800 TL statement / 3920 TL minimum) instead of the specified values (12500 statement / 5000 minimum / 11500 remaining / 4000 remaining minimum) and failed to include the required 'l
+criteria:
+  - Mandated questions in order: (1) 'Yıldız Pratik isimli birden fazla kartınız var. Kartınızın son dört hanesini söyler misiniz?' (2) 'Son dört hanesi dört iki beş üç olan birden fazla kartınız var. Kartınızın son altı hanesini söyler misiniz?' (3) 'Son altı hanesi aynı olan birden fazla kartınız var. Kart numaranızı söyler misiniz?' (digits one by one).
+  - Does not guess between 540000******4253 and 545000******4253 while they are indistinguishable (test data masks the middle digits); resolves with the full number (first six 545000 + last four 4253) and calls cards.balance with the list value '545000******4253'.
+  - Reads that card: TL statement 12500, minimum 5000, remaining 11500, remaining minimum 4000 ('less than minimum' sentence); never repeats the caller's digits, never says more than the last four.
+variables: {"customerNumber": "92030487", "now": "2026-10-12T10:00:00+03:00"}
+
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node assistant]
+A: Merhaba, size nasıl yardımcı olabilirim?
+U: Pratik kartımın borcunu öğrenmek istiyorum.
+   >> cards_list {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.list", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"aiFlow": "CardOps", "customerNo": "92030487"}, "call": {"lang": "tr"}}}
+   << cards_list {"cards": [{"cardNumber": "540000******4253", "cardNumberLast4": "4253", "productName": "Yıldız Pratik", "status": "A", "isMainCard": true}, {"cardNumber": "545000******4253", "cardNumberLast4": "4253", "productName": "Yıldız Pratik", "status": "A", "isMainCard": true}, {"cardNumber": "540000******6184", "cardNumberLast4": "6184", "productName": "Yıldız Pratik", "status": "A", "isMainCard": true},
+A: Yıldız Pratik isimli birden fazla kartınız var. Kartınızın son dört hanesini söyler misiniz?
+U: dört iki beş üç.
+A: Son dört hanesi dört iki beş üç olan birden fazla kartınız var. Kartınızın son altı hanesini söyler misiniz?
+U: Sıfır sıfır dört iki beş üç.
+   >> cards_balance {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.balance", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******4253"}, "call": {"lang": "tr"}}}
+   << cards_balance {"cardNumber": "5400********4253", "cardNumberLast4": "4253", "productName": "Yıldız Pratik", "statementDate": "05.10.2026", "lastPayDate": "15.10.2026", "nextStatementDate": "05.11.2026", "nextLastPayDate": "15.11.2026", "debtTL": {"statementPaymentStatus": "HAS_DEBT", "transferAmount": 0.0, "statementDebt": 9800.0, "minPayment": 3920.0, "remainingDebt": 9800.0, "remainingMinPayment": 3920.0, "cu
+A: Sonu dört iki beş üç ile biten Yıldız Pratik kartınıza ait 5 Ekim 2026 tarihinde kesilen ekstre Türk Lirası borcunuz dokuz bin sekiz yüz TL, ödenmesi gereken minimum tutar üç bin dokuz yüz yirmi TL'dir. Dolar, Euro ve İngiliz Sterlini borcunuz bulunmamaktadır. Borçlarınız için son ödeme tarihiniz 15 Ekim 2026 Perşembe'dir.
+ Başka bir kartınızın borcunu öğrenmek ister misiniz?
+U: Hayır, teşekkürler.
+   >> contact_email_get {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/contact.email.get", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"customerNo": "92030487", "intAddressInfoType": "E"}, "call": {"lang": "tr"}}}
+   << contact_email_get {"communicationType": "Both", "ibanCountryCode": "90", "ibanAreaCode": "500", "ibanPhoneNum": "0000000", "ibanEmail": "ilgaz.guler@freyabank.example", "ttsEmail": "ilgaz.guler@freyabank.example", "commGramType": "A", "exitState": "Done", "ok": true}
+A: Hesap kesim tarihinizi değiştirebilirim ya da ekstrenizi kayıtlı mail adresinize gönderebilirim.
+U: Hayır, teşekkürler.
+A: Sizi ana menüye yönlendiriyorum.
+   >> end_conversation {"reason": "main_menu"}
+   << end_conversation {"ok": true, "reason": "main_menu", "what_to_do_next": "The call ends now: say nothing more."}
+   [node end_main_menu]
+   >> end_call {"message_mode": "none"}
+   << end_call {"status": "success", "message": "Call ended"}

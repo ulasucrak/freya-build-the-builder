@@ -1,0 +1,30 @@
+#### EX-1  family=ordinary  FAIL (fail)  call 596ca3dd-f551-49de-a271-6c11033a64a8  ended=assistant-ended-call  slowest_turn=5.1 s
+judge: The conversation failed because the assistant used the word 'TL' when reading the Turkish Lira debt (Message 4: 'on iki bin TL'), violating the specific instruction to never use 'TL' and only use 'Türk Lirası'. All other criteria were met: the single card was identified correctly without asking, the statement date (5 Ekim 2026) and due date (15 Ekim 2026) were accurate, the currency amounts for TL and Euro were correct, the USD and GBP status were combined into one sentence, and the agent correctly routed the user to the main menu without repeating the offer after the user said thanks. The cal
+criteria:
+  - Single card: the card is not asked about; reading starts with the last four digits (2000), the name Yıldız Premium and the statement date 5 Ekim 2026.
+  - Turkish Lira read with the four service amounts: statement debt 12.000, minimum 4.800, remaining total debt 9.500, remaining minimum 2.000 (the 'less than minimum' sentence); spoken as Türk Lirası, never 'TL'.
+  - Euro debt read (85,20 Euro, minimum 34,10 Euro); Dolar and İngiliz Sterlini (no debt) stated in ONE sentence; due date 15 Ekim 2026, then the additional-transaction offer.
+  - When the customer says thanks the offer is not repeated and the caller is routed to the main menu.
+variables: {"customerNumber": "95004361", "now": "2026-10-12T10:30:00+03:00"}
+
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node assistant]
+A: Merhaba, size nasıl yardımcı olabilirim?
+U: Merhaba, kredi kartı ekstre borcumu öğrenmek istiyorum.
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_list {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.list", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"aiFlow": "CardOps", "customerNo": "95004361"}, "call": {"lang": "tr"}}}
+   << cards_list {"cards": [{"cardNumber": "540000******2000", "cardNumberLast4": "2000", "productName": "Yıldız Premium", "status": "A", "isMainCard": true}], "validCardsCount": 1, "exitState": "1_CARD", "ok": true}
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_balance {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.balance", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******2000"}, "call": {"lang": "tr"}}}
+   << cards_balance {"cardNumber": "5400********2000", "cardNumberLast4": "2000", "productName": "Yıldız Premium", "statementDate": "05.10.2026", "lastPayDate": "15.10.2026", "nextStatementDate": "05.11.2026", "nextLastPayDate": "15.11.2026", "debtTL": {"statementPaymentStatus": "HAS_DEBT", "transferAmount": 0.0, "statementDebt": 12000.0, "minPayment": 4800.0, "remainingDebt": 9500.0, "remainingMinPayment": 2000.0, "
+A: Sonu iki sıfır sıfır sıfır ile biten Yıldız Premium kartınıza ait 5 Ekim 2026 tarihinde kesilen ekstre Türk Lirası borcunuz on iki bin TL, ödenmesi gereken minimum tutar dört bin sekiz yüz TL, kalan toplam borcunuz dokuz bin beş yüz TL, kalan minimum ödeme tutarınız iki bin TL'dir. Euro borcunuz seksen beş virgül yirmi Euro, kalan toplam borcunuz seksen beş virgül yirmi Euro, ödenmesi gereken minimum tutar otuz dört virgül on Euro'dur. Dolar ve İngiliz Sterlini borcunuz bulunmamaktadır. Borçlarınız için son ödeme tarihiniz 15 Ekim 2026'dır.
+ Hesap kesim tarihinizi değiştirebilirim ya da ekstrenizi kayıtlı mail adresinize gönderebilirim. Hangisini istersiniz?
+U: Teşekkür ederim, başka bir işlem istemiyorum.
+A: Sizi ana menüye yönlendiriyorum.
+   >> end_conversation {"reason": "main_menu"}
+   << end_conversation {"ok": true, "reason": "main_menu", "what_to_do_next": "The call ends now: say nothing more."}
+   [node end_main_menu]
+   >> end_call {"message_mode": "none"}
+   << end_call {"status": "success", "message": "Call ended"}

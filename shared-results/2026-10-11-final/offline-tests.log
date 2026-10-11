@@ -1,0 +1,54 @@
+........................................................./home/user/freya-build-the-builder/build-the-builder-v3/build-the-builder/builder/policy_schema.py:645: DeprecationWarning: 'maxsplit' is passed as positional argument
+  tail = re.split(r"other than|except|besides|apart from", w, 1)
+......[extract] round 1 done in 0s
+[extract] replicates agree on calendar, bands, identity, callback, outcomes, triggers, closing
+[extract] extraction done in 0s
+..[extract] round 1 done in 0s
+[extract] replicates disagree on: calendar -> resolve call
+[extract] extraction done in 0s
+...........ss..........................[extract] ('p1', 1) failed: timed out after 1.06s
+[extract] round 1 done in 2s
+[extract] extraction done in 2s
+.[extract] round 1 done in 1s
+[extract] replicates disagree on: calendar -> resolve call
+[extract] extraction done in 3s
+....s[extract] round 1 done in 0s
+[extract] replicates agree on calendar, bands, identity, callback, outcomes, triggers, closing
+[extract] ('rules', 1) failed: timed out
+[extract] extraction done in 0s
+...[extract] round 1 done in 0s
+[extract] replicates agree on calendar, bands, identity, callback, outcomes, triggers, closing
+[extract] extraction done in 0s
+...........[extract] round 1 done in 0s
+[extract] replicates agree on calendar, bands, identity, callback, outcomes, triggers, closing
+[extract] extraction done in 0s
+...................................................................................................................................................s.............................................................................................................................................................................................................................................................................................................time         label/slot         bank  source     style  reps  pass  all-reps  %    med s  failed
+-----------  -----------------  ----  ---------  -----  ----  ----  --------  ---  -----  ------
+10-10 10:00  baseline/0178a85a  A     public     -      1     9/10  -         90%  -      PUB-06
+10-10 11:00  ours/s1            A     synthetic  x      3     6/10  -         60%  -      C1
+10-10 12:00  ours/s1            A     synthetic  x      3     8/10  -         80%  2.5
+             ?                  -     public     -      -     -     -         -    -
+
+Summary (trend vs previous same slot+bank+style)
+bank  ours best  ours latest  base best  base latest
+----  ---------  -----------  ---------  -----------
+-     -          -            -          -
+A     80%        80% ^        90%        90% new
+wrote /tmp/tmp341yhkub/SCOREBOARD.md
+wrote /tmp/tmp341yhkub/scoreboard.html
+/home/user/freya-build-the-builder/build-the-builder-v3/build-the-builder/tests/test_scoreboard.py:44: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/tmp341yhkub/scoreboard.html' mode='r' encoding='utf-8'>
+  self.assertIn("refresh", open(os.path.join(self.d, "scoreboard.html")).read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/user/freya-build-the-builder/build-the-builder-v3/build-the-builder/tests/test_scoreboard.py:45: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/tmp341yhkub/SCOREBOARD.md' mode='r' encoding='utf-8'>
+  self.assertIn("| bank |", open(os.path.join(self.d, "SCOREBOARD.md")).read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+..
+  brief-b: largest fake snippet 18823 B, state after 30 calls 2485 B, worst snippet+fake vars 26141 B
+
+  brief-a: largest fake snippet 18839 B, state after 30 calls 3125 B, worst snippet+fake vars 26680 B
+...........................
+----------------------------------------------------------------------
+Ran 602 tests in 339.903s
+
+OK (skipped=4)
+exit=0

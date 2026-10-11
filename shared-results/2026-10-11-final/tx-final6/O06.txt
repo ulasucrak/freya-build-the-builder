@@ -1,0 +1,44 @@
+#### O06  family=ordinary  FAIL (fail)  call cc9be27d-4f09-4144-8634-83a56969faff  ended=assistant-ended-call  slowest_turn=4.9 s
+judge: The assistant failed to meet several success criteria: 1) In [Message 7], it did not offer the required weeks (2, 3, 4) as choices to the user. 2) In [Message 9], it ignored the user's specific question about the change limit ('Yılda üç kez...') and failed to clarify the correct limit ('once per calendar year'). 3) The conversation did not reach a successful conclusion (the user never said 'evet'), so the 'final sentence' criterion repeating the dates could not be fulfilled in its intended context, although the agent did repeat the dates in its repeated confirmation attempts [Message 12, 14]. 
+criteria:
+  - statement.week.get first; current week 1 read (next statement 5 Kasım 2026, due 15 Kasım 2026); offered weeks are only 2., 3., 4. (current week excluded).
+  - statement.week.decide(cardNumber '540000******8008', newStatementWeek 3, statementDay 5) BEFORE the confirmation; confirm sentence uses 16 Kasım 2026 / 26 Kasım 2026 and ends 'Onaylıyor musunuz?'; statement.week.change only after the clear evet; final sentence repeats the preview dates.
+  - Does not confirm the old 'yılda üç / ayda bir' limits (if it mentions a limit: once per calendar year) and does not speculate that 15 Kasım (a Sunday) moves to Monday: dates exactly as the service gave.
+  - Debt reading: TL 10000 nothing paid (min 4000), Dolar 420 (min 168), 'Euro borcunuz bulunmamaktadır'; the GBP block is missing: nothing about İngiliz Sterlini is invented or mentioned.
+variables: {"customerNumber": "98390128", "now": "2026-10-12T10:05:00+03:00"}
+
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node assistant]
+A: Merhaba, size nasıl yardımcı olabilirim?
+U: Merhaba, güncel borcumu
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_list {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.list", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"aiFlow": "CardOps", "customerNo": "98390128"}, "call": {"lang": "tr"}}}
+   << cards_list {"cards": [{"cardNumber": "540000******8008", "cardNumberLast4": "8008", "productName": "Yıldız Premium", "status": "A", "isMainCard": true}], "validCardsCount": 1, "exitState": "1_CARD", "ok": true}
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_balance {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.balance", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******8008"}, "call": {"lang": "tr"}}}
+   << cards_balance {"cardNumber": "5400********8008", "cardNumberLast4": "8008", "productName": "Yıldız Premium", "statementDate": "05.10.2026", "lastPayDate": "15.10.2026", "nextStatementDate": "05.11.2026", "nextLastPayDate": "15.11.2026", "debtTL": {"statementPaymentStatus": "HAS_DEBT", "transferAmount": 0.0, "statementDebt": 10000.0, "minPayment": 4000.0, "remainingDebt": 10000.0, "remainingMinPayment": 4000.0, 
+A: Sonu sekiz sıfır sıfır sekiz ile biten Yıldız Premium kartınıza ait 5 Ekim 2026 tarihinde kesilen ekstre Türk Lirası borcunuz on bin TL, ödenmesi gereken minimum tutar dört bin TL'dir. Dolar borcunuz dört yüz yirmi USD, kalan toplam borcunuz dört yüz yirmi USD, ödenmesi gereken minimum tutar yüz altmış sekiz USD'dir. Euro borcunuz bulunmamaktadır. Borçlarınız için son ödeme tarihiniz 15 Ekim 2026 Perşembe'dir.
+ Hesap kesim tarihinizi değiştirebilirim ya da ekstrenizi kayıtlı mail adresinize gönderebilirim. Hangisini tercih edersiniz?
+U: Hesap kesim tarihimi değiştirmek istiyorum.
+A: Bilgilerinizi kontrol ediyorum.
+   >> statement_week_get {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/statement.week.get", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******8008"}, "call": {"lang": "tr"}}}
+   << statement_week_get {"cardNumber": "540000******8008", "cardNumberLast4": "8008", "productName": "Yıldız Premium", "statementWeek": 1, "statementDay": 5, "statementDate": "05.10.2026", "lastPayDate": "15.10.2026", "nextStatementDate": "05.11.2026", "nextLastPayDate": "15.11.2026", "relationType": "", "relatedCardNumber": "", "relatedCardProductName": "", "statementDate_spoken": "5 Ekim 2026 Pazartesi", "lastPayDate_s
+A: Yıldız Premium kartınızın hesap kesim tarihi her ayın birinci haftası olarak tanımlı. Bir sonraki hesap kesim tarihiniz 5 Kasım 2026 Perşembe, son ödeme tarihiniz 15 Kasım 2026 Pazar. Hesap kesim tarihinizi değiştirmek ister misiniz?
+U: Yılda üç kez değiştirebiliyordum değil mi? 3. hafta olsun.
+A: Hesap kesim tarihinizi ayın 3. haftasına alabilirim. Bilgilerinizi kontrol ediyorum.
+   >> statement_week_decide {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/statement.week.decide", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******8008", "statementDay": 5, "newStatementWeek": 3}, "call": {"lang"
+   << statement_week_decide {"statementDate": "16.11.2026", "statementDueDate": "26.11.2026", "statementDay": 16, "responseCode": 0, "responseMessage": "Success", "statementDate_spoken": "16 Kasım 2026 Pazartesi", "statementDueDate_spoken": "26 Kasım 2026 Perşembe", "ok": true, "what_to_do_next": "To say a date or an amount, use the words of its _spoken field (Turkish); it has no currency name, add the one the rules use."}
+A: Yeni hesap kesim haftanız her ayın 3. haftası olacak. Yeni hesap kesim tarihiniz 16 Kasım 2026 Pazartesi, son ödeme tarihiniz 26 Kasım 2026 Perşembe olacak. Onaylıyor musunuz?
+U: Bir sonraki son ödeme 15 Kasım Pazar
+A: Söylediğiniz tarih mevcut hesap kesim tarihinizle ilgiliydi. Yeni hesap kesim haftanız her ayın 3. haftası olduğunda, yeni hesap kesim tarihiniz 16 Kasım 2026 Pazartesi, son ödeme tarihiniz ise 26 Kasım 2026 Perşembe olacak. Onaylıyor musunuz?
+U: Bir sonraki son ödeme 15 Kasım P
+A: Söylediğiniz tarih mevcut hesap kesim tarihinizle ilgilidir. Yeni hesap kesim haftanız her ayın 3. haftası olduğunda, yeni hesap kesim tarihiniz 16 Kasım 2026 Pazartesi, son ödeme tarihiniz ise 26 Kasım 2026 Perşembe olacaktır. Onaylıyor musunuz?
+U: Bir sonraki son ödeme 15 Kasım Pazar
+A: Size şu anda yardımcı olamıyorum. Sizi ana menüye aktarıyorum.
+   >> end_conversation {"reason": "main_menu"}
+   << end_conversation {"ok": true, "reason": "main_menu", "what_to_do_next": "The call ends now: say nothing more."}
+   [node end_main_menu]
+   >> end_call {"message_mode": "none"}
+   << end_call {"status": "success", "message": "Call ended"}

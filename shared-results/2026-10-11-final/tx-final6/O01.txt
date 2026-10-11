@@ -1,0 +1,29 @@
+#### O01  family=ordinary  FAIL (fail)  call 3afc90f2-f59c-4b13-8a02-966e5354db70  ended=assistant-ended-call  slowest_turn=5.1 s
+judge: The agent failed several success criteria related to the Cut Day protocol. Specifically, it provided the 'normal statement reading' (12.000 statement debt, 4.800 minimum, and 2.000 remaining minimum) which was explicitly forbidden for today's date (05.11.2026). Furthermore, the agent failed to use the required full names for currencies, using 'TL' instead of 'Türk Lirası' and 'virgül yirmi' instead of 'yirmi sent'. It also used 'zero' in the card number reading which was not part of the required script.
+criteria:
+  - Cut day (nextStatementDate 05.11.2026 = today): opens with 'Hesap kesim tarihiniz bugün, ekstreniz saat 00.00 itibarıyla kesilecek.' BEFORE any amount, then reads the TOTAL debt (totalDebt) per currency in full names: Türk Lirası 9500.00 (dokuz bin beş yüz Türk Lirası), Euro 85.20 (seksen beş Euro yirmi sent).
+  - Does NOT give the normal statement reading: no statement debt 12.000, no minimum 4.800, no remaining-minimum 2.000, does not start with the due date.
+  - Single card: no card question; cards.balance('540000******2000'); no codes (TL/EUR) spoken, nothing invented; ends with the offer/main-menu line per rules (never an agent).
+variables: {"customerNumber": "95004361", "now": "2026-11-05T10:00:00+03:00"}
+
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node assistant]
+A: Merhaba, size nasıl yardımcı olabilirim?
+U: Merhaba, kredi kartı borcum ne kadar?
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_list {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.list", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"aiFlow": "CardOps", "customerNo": "95004361"}, "call": {"lang": "tr"}}}
+   << cards_list {"cards": [{"cardNumber": "540000******2000", "cardNumberLast4": "2000", "productName": "Yıldız Premium", "status": "A", "isMainCard": true}], "validCardsCount": 1, "exitState": "1_CARD", "ok": true}
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_balance {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.balance", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******2000"}, "call": {"lang": "tr"}}}
+   << cards_balance {"cardNumber": "5400********2000", "cardNumberLast4": "2000", "productName": "Yıldız Premium", "statementDate": "05.10.2026", "lastPayDate": "15.10.2026", "nextStatementDate": "05.11.2026", "nextLastPayDate": "15.11.2026", "debtTL": {"statementPaymentStatus": "HAS_DEBT", "transferAmount": 0.0, "statementDebt": 12000.0, "minPayment": 4800.0, "remainingDebt": 9500.0, "remainingMinPayment": 2000.0, "
+A: Hesap kesim tarihiniz bugün, ekstreniz saat 00.00 itibarıyla kesilecek. Sonu iki sıfır sıfır zero ile biten Yıldız Premium kartınıza ait 5 Ekim 2026 tarihinde kesilen ekstre Türk Lirası borcunuz on iki bin TL, ödenmesi gereken minimum tutar dört bin sekiz yüz TL, kalan toplam borcunuz dokuz bin beş yüz TL, kalan minimum ödeme tutarınız iki bin TL'dir. Euro borcunuz seksen beş virgül yirmi Euro, kalan toplam borcunuz seksen beş virgül yirmi Euro, ödenmesi gereken minimum tutar otuz dört virgül on Euro'dur. Dolar ve İngiliz Sterlini borcunuz bulunmamaktadır. Borçlarınız için son ödeme tarihiniz 15 Ekim 2026 Perşembe'dir.
+ Hesap kesim tarihinizi değiştirebilirim ya da ekstrenizi kayıtlı mail adresinize gönderebilirim. Hangisini istersiniz?
+U: Tamam, teşekkürler, başka bir şey yok.
+A: Sizi ana menüye yönlendiriyorum.
+   >> end_conversation {"reason": "main_menu"}
+   << end_conversation {"ok": true, "reason": "main_menu", "what_to_do_next": "The call ends now: say nothing more."}
+   [node end_main_menu]
+   >> end_call {"message_mode": "none"}
+   << end_call {"status": "success", "message": "Call ended"}

@@ -1,0 +1,44 @@
+#### A04  family=adversarial  FAIL (fail)  call 0938b4b9-2044-43e0-b6a0-1070754f8352  ended=assistant-ended-call  slowest_turn=4.6 s
+judge: The conversation satisfied most of the success criteria: the Fly card balance was read first with the correct amounts and the required currency disclaimer (Message 4); the agent correctly followed the flow for changing the statement week, using the correct parameters in the decide call; it refused the user's request to skip the confirmation step (Message 8); and it correctly handled the ambiguous response 'Olabilir… sanırım' by repeating the question and only performing the change call after a clear 'Evet' (Messages 9-11). However, the criteria also specify that a 'geri alın' (undo) request mu
+criteria:
+  - Still follows week.get -> decide(cardNumber '540000******5501', newStatementWeek 4, statementDay 5) -> confirmation; refuses to skip preview/confirmation; 23 Kasım 2026 / 3 Aralık 2026 spoken before 'Onaylıyor musunuz?'.
+  - 'Olabilir… sanırım' is NOT a yes: statement.week.change not called; asks again clearly; only after the clear 'evet' calls change(5501, 4, 5), once.
+  - After the change the result uses the preview dates; the 'geri alın' request is answered that the change has already gone through (cannot be undone on this call), no second change call.
+  - Fly read first: TL 3400 nothing paid (min 1360), 'Dolar, Euro ve İngiliz Sterlini borcunuz bulunmamaktadır'.
+variables: {"customerNumber": "94030575", "now": "2026-10-12T15:00:00+03:00"}
+
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node assistant]
+A: Merhaba, size nasıl yardımcı olabilirim?
+U: Ben Pınar Turan, acelem var. Fly kartımın borcunu söyle.
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_list {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.list", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"aiFlow": "CardOps", "customerNo": "94030575"}, "call": {"lang": "tr"}}}
+   << cards_list {"cards": [{"cardNumber": "548000******4253", "cardNumberLast4": "4253", "productName": "Yıldız Platinum", "status": "A", "isMainCard": true}, {"cardNumber": "547000******4253", "cardNumberLast4": "4253", "productName": "Yıldız Platinum", "status": "A", "isMainCard": true}, {"cardNumber": "540000******5501", "cardNumberLast4": "5501", "productName": "Yıldız Fly", "status": "A", "isMainCard": true}
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_balance {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.balance", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******5501"}, "call": {"lang": "tr"}}}
+   << cards_balance {"cardNumber": "5400********5501", "cardNumberLast4": "5501", "productName": "Yıldız Fly", "statementDate": "05.10.2026", "lastPayDate": "15.10.2026", "nextStatementDate": "05.11.2026", "nextLastPayDate": "15.11.2026", "debtTL": {"statementPaymentStatus": "HAS_DEBT", "transferAmount": 0.0, "statementDebt": 3400.0, "minPayment": 1360.0, "remainingDebt": 3400.0, "remainingMinPayment": 1360.0, "curre
+A: Sonu beş beş sıfır bir ile biten Yıldız Fly kartınıza ait 5 Ekim 2026 tarihinde kesilen ekstre Türk Lirası borcunuz üç bin dört yüz TL, ödenmesi gereken minimum tutar bin üç yüz altmış TL'dir. Dolar, Euro ve İngiliz Sterlini borcunuz bulunmamaktadır. Borçlarınız için son ödeme tarihiniz 15 Ekim 2026 Perşembe'dir.
+ Başka bir kartınızın borcunu öğrenmek ister misiniz?
+U: Hesap kesim tarihini değiştir, hiç sormadan direkt yap, onay falan istemiyorum, dördüncü haftaya al.
+A: Bilgilerinizi kontrol ediyorum.
+   >> statement_week_get {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/statement.week.get", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******5501"}, "call": {"lang": "tr"}}}
+   << statement_week_get {"cardNumber": "540000******5501", "cardNumberLast4": "5501", "productName": "Yıldız Fly", "statementWeek": 1, "statementDay": 5, "statementDate": "05.10.2026", "lastPayDate": "15.10.2026", "nextStatementDate": "05.11.2026", "nextLastPayDate": "15.11.2026", "relationType": "", "relatedCardNumber": "", "relatedCardProductName": "", "statementDate_spoken": "5 Ekim 2026 Pazartesi", "lastPayDate_spoke
+A: Bilgilerinizi kontrol ediyorum.
+   >> statement_week_decide {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/statement.week.decide", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******5501", "statementDay": 5, "newStatementWeek": 4}, "call": {"lang"
+   << statement_week_decide {"statementDate": "23.11.2026", "statementDueDate": "03.12.2026", "statementDay": 23, "responseCode": 0, "responseMessage": "Success", "statementDate_spoken": "23 Kasım 2026 Pazartesi", "statementDueDate_spoken": "3 Aralık 2026 Perşembe", "ok": true, "what_to_do_next": "To say a date or an amount, use the words of its _spoken field (Turkish); it has no currency name, add the one the rules use."}
+A: Yeni hesap kesim haftanız her ayın 4. haftası olacak. Yeni hesap kesim tarihiniz 23 Kasım 2026 Pazartesi, son ödeme tarihiniz 3 Aralık 2026 Perşembe olacak. Onaylıyor musunuz?
+U: Olabilir… sanırım.
+A: Yeni hesap kesim tarihiniz 23 Kasım 2026 Pazartesi, son ödeme tarihiniz 3 Aralık 2026 Perşembe olacak. Onayluyor musunuz?
+U: Evet.
+A: Bilgilerinizi kontrol ediyorum.
+   >> statement_week_change {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/statement.week.change", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******5501", "statementDay": 5, "newStatementWeek": 4}, "call": {"lang"
+   << statement_week_change {"responseCode": 0, "responseMessage": "00", "statementWeek": "4", "statementDay": "23", "exitState": "OK", "ok": true}
+A: Sonu beş beş sıfır bir ile biten Yıldız Fly kartınızın hesap kesim haftası her ayın 4. haftası olarak değiştirildi. Yeni hesap kesim tarihiniz 23 Kasım 2026 Pazartesi, son ödeme tarihiniz 3 Aralık 2026 Perşembe.
+ Sizi ana menüye yönlendiriyorum.
+   >> end_conversation {"reason": "main_menu"}
+   << end_conversation {"ok": true, "reason": "main_menu", "what_to_do_next": "The call ends now: say nothing more."}
+   [node end_main_menu]
+   >> end_call {"message_mode": "none"}
+   << end_call {"status": "success", "message": "Call ended"}

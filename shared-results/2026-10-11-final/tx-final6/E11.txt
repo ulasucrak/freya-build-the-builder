@@ -1,0 +1,49 @@
+#### E11  family=edge  FAIL (fail)  call fff83759-4263-4b3c-aa19-f154e8843220  ended=assistant-ended-call  slowest_turn=5.6 s
+judge: The agent failed on two specific requirements: first, it did not state 'Türk Lirası ve İngiliz Sterlini borcunuz bulunmamaktadır' in the balance report (only TL was mentioned as having no debt); second, it did not explicitly offer weeks 1, 2, and 4 during the week reading process before the user requested the first week.
+criteria:
+  - Premium (540000******3102) is the LINKED card (relationType C): TL fully paid so the opening precedes Dolar 375.00 (min 150.00) and Euro 551.85 (min 220.75); 'Türk Lirası ve İngiliz Sterlini borcunuz bulunmamaktadır'; due 26 Ekim 2026.
+  - Week reading names both the Premium card and the main card Yıldız Pratik (last four + name, week 3, next dates); weeks offered 1., 2., 4.
+  - Before 'Onaylıyor musunuz?' it says 'Bu değişiklik kartınızın bağlı olduğu Yıldız Pratik kartınızı da etkileyecek.'; decide(3102, 1, statementDay 16) -> 5 Kasım 2026 / 15 Kasım 2026; change only after the clear evet.
+variables: {"customerNumber": "95960044", "now": "2026-10-20T11:30:00+03:00"}
+
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node assistant]
+A: Merhaba, size nasıl yardımcı olabilirim?
+U: Premium kartımın borcu ne kadar?
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_list {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.list", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"aiFlow": "CardOps", "customerNo": "95960044"}, "call": {"lang": "tr"}}}
+   << cards_list {"cards": [{"cardNumber": "540000******3101", "cardNumberLast4": "3101", "productName": "Yıldız Pratik", "status": "A", "isMainCard": true}, {"cardNumber": "540000******3102", "cardNumberLast4": "3102", "productName": "Yıldız Premium", "status": "A", "isMainCard": true}], "validCardsCount": 2, "exitState": "MULTI_CARD", "ok": true}
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_balance {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.balance", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******3102"}, "call": {"lang": "tr"}}}
+   << cards_balance {"cardNumber": "5400********3102", "cardNumberLast4": "3102", "productName": "Yıldız Premium", "statementDate": "16.10.2026", "lastPayDate": "26.10.2026", "nextStatementDate": "16.11.2026", "nextLastPayDate": "26.11.2026", "debtTL": {"statementPaymentStatus": "NO_DEBT", "transferAmount": 0.0, "statementDebt": 5200.0, "minPayment": 2080.0, "remainingDebt": 0.0, "remainingMinPayment": 0.0, "currentP
+A: Sonu üç bir sıfır iki ile biten Yıldız Premium kartınızın 16 Ekim 2026 tarihli ekstresinden Türk Lirası borcunuz bulunmamaktadır. Gelecek dönemler dahil toplam borcunuz 0 TL'dir. Son ödeme tarihiniz 26 Ekim 2026 olacaktır.
+ Dolar borcunuz 375 USD, kalan toplam borcunuz 375 USD, ödenmesi gereken minimum tutar 150 USD'dir. Euro borcunuz 551.85 EUR, kalan toplam borcunuz 551.85 EUR, ödenmesi gereken minimum tutar 220.75 EUR'dur.
+ Borçlarınız için son ödeme tarihiniz 26 Ekim 2026 Pazartesi'dir.
+ Başka bir kartınızın borcunu öğrenmek ister misiniz?
+U: Hayır, hesap kesim tarihimi değiştireyim.
+A: Bilgilerinizi kontrol ediyorum.
+   >> contact_email_get {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/contact.email.get", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"customerNo": "95960044", "intAddressInfoType": "E"}, "call": {"lang": "tr"}}}
+   >> statement_week_get {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/statement.week.get", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******3102"}, "call": {"lang": "tr"}}}
+   << contact_email_get {"communicationType": "Both", "ibanCountryCode": "90", "ibanAreaCode": "500", "ibanPhoneNum": "0000000", "ibanEmail": "tarik.yildirim@freyabank.example", "ttsEmail": "tarik.yildirim@freyabank.example", "commGramType": "A", "exitState": "Done", "ok": true}
+   << statement_week_get {"cardNumber": "540000******3102", "cardNumberLast4": "3102", "productName": "Yıldız Premium", "statementWeek": 3, "statementDay": 16, "statementDate": "16.10.2026", "lastPayDate": "26.10.2026", "nextStatementDate": "16.11.2026", "nextLastPayDate": "26.11.2026", "relationType": "C", "relatedCardNumber": "540000******3101", "relatedCardProductName": "Yıldız Pratik", "statementDate_spoken": "16 Ekim
+A: Yıldız Premium kartınızın hesap kesim tarihi her ayın üçüncü haftası olarak tanımlı. Bir sonraki hesap kesim tarihiniz 16 Kasım 2026, son ödeme tarihiniz 26 Kasım 2026. Bu kartınız, sonu üç bir sıfır bir ile biten Yıldız Pratik kartınızla ortak hesap kesim tarihine sahiptir.
+ Hesap kesim tarihinizi değiştirmek ister misiniz?
+U: 1. hafta.
+A: Bilgilerinizi kontrol ediyorum.
+   >> statement_week_decide {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/statement.week.decide", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******3102", "statementDay": 16, "newStatementWeek": 1}, "call": {"lang
+   << statement_week_decide {"statementDate": "05.11.2026", "statementDueDate": "15.11.2026", "statementDay": 5, "responseCode": 0, "responseMessage": "Success", "statementDate_spoken": "5 Kasım 2026 Perşembe", "statementDueDate_spoken": "15 Kasım 2026 Pazar", "ok": true, "what_to_do_next": "To say a date or an amount, use the words of its _spoken field (Turkish); it has no currency name, add the one the rules use."}
+A: Bu değişiklik kartınızın bağlı olduğu Yıldız Pratik kartınızı da etkileyecek.
+ Yeni hesap kesim haftanız her ayın birinci haftası olacak. Yeni hesap kesim tarihiniz 5 Kasım 2026, son ödeme tarihiniz 15 Kasım 2026 olacak. Onaylıyor musunuz?
+U: Evet.
+A: Bilgilerinizi kontrol ediyorum.
+   >> statement_week_change {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/statement.week.change", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******3102", "statementDay": 16, "newStatementWeek": 1}, "call": {"lang
+   << statement_week_change {"responseCode": 0, "responseMessage": "00", "statementWeek": "1", "statementDay": "5", "exitState": "OK", "ok": true}
+A: Sonu üç bir sıfır iki ile biten Yıldız Premium kartınızın hesap kesim haftası her ayın birinci haftası olarak değiştirildi. Yeni hesap kesim tarihiniz 5 Kasım 2026, son ödeme tarihiniz 15 Kasım 2026.
+ Sizi ana menüye yönlendiriyorum.
+   >> end_conversation {"reason": "main_menu"}
+   << end_conversation {"ok": true, "reason": "main_menu", "what_to_do_next": "The call ends now: say nothing more."}
+   [node end_main_menu]
+   >> end_call {"message_mode": "none"}
+   << end_call {"status": "success", "message": "Call ended"}

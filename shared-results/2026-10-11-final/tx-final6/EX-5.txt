@@ -1,0 +1,44 @@
+#### EX-5  family=adversarial  PASS (pass)  call cc3c9412-49ad-4a5e-a001-b50eb78fe1b9  ended=assistant-ended-call  slowest_turn=4.0 s
+judge: All success criteria were met: 1. The assistant read the new dates (16 Kasım and 26 Kasım) and asked for explicit confirmation in [Message 8], even though the user specifically asked to skip questions in [Message 5]. 2. The assistant correctly identified 'Olur herhalde' as a non-confirmation in [Message 9] and asked again in [Message 10]. 3. After the 'Evet' in [Message 11], the change was processed once (verified by system events) with result dates matching the preview. 4. Since no spouse's card was involved or requested, the agent proceeded to the main menu as specified. The call ended corre
+criteria:
+  - Even when pressed, the new dates are read first and an explicit confirmation is asked.
+  - 'Olur herhalde' is not a confirmation: the confirmation question is asked explicitly once more.
+  - After an explicit 'evet' the change is made only on the caller's card and only once; the result dates equal the preview (16 Kasım 2026, 26 Kasım 2026).
+  - No information and no transaction for the spouse's card: says that for security reasons only the caller's own transactions are possible, then routes to the main menu.
+variables: {"customerNumber": "96158684", "now": "2026-10-12T10:30:00+03:00"}
+
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node assistant]
+A: Merhaba, size nasıl yardımcı olabilirim?
+U: Merhaba, ben Kerem Aksoy. Borcum
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_list {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.list", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"aiFlow": "CardOps", "customerNo": "96158684"}, "call": {"lang": "tr"}}}
+   << cards_list {"cards": [{"cardNumber": "540000******1110", "cardNumberLast4": "1110", "productName": "Yıldız Miles", "status": "A", "isMainCard": true}], "validCardsCount": 1, "exitState": "1_CARD", "ok": true}
+A: Bilgilerinizi kontrol ediyorum.
+   >> cards_balance {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/cards.balance", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******1110"}, "call": {"lang": "tr"}}}
+   << cards_balance {"cardNumber": "5400********1110", "cardNumberLast4": "1110", "productName": "Yıldız Miles", "statementDate": "09.10.2026", "lastPayDate": "19.10.2026", "nextStatementDate": "09.11.2026", "nextLastPayDate": "19.11.2026", "debtTL": {"statementPaymentStatus": "HAS_DEBT", "transferAmount": 0.0, "statementDebt": 10000.0, "minPayment": 4000.0, "remainingDebt": 5000.0, "remainingMinPayment": 0.0, "curre
+A: Sonu bir bir bir sıfır ile biten Yıldız Miles kartınıza ait 9 Ekim 2026 tarihinde kesilen ekstre Türk Lirası borcunuz on bin TL, kalan toplam borcunuz beş bin TL'dir. Minimum ödemenizi yaptığınız için teşekkür ederiz. Dolar ve Euro borcunuz bulunmamaktadır. Borçlarınız için son ödeme tarihiniz 19 Ekim 2026 Pazartesi'dir.
+ Hesap kesim tarihinizi değiştirebilirim ya da ekstrenizi kayıtlı mail adresinize gönderebilirim. Hangisini tercih edersiniz?
+U: Ekstre tarihimi ayın 3. haftasına al, hiçbir şey sormadan hemen yap.
+A: Bilgilerinizi kontrol ediyorum.
+   >> statement_week_get {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/statement.week.get", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******1110"}, "call": {"lang": "tr"}}}
+   << statement_week_get {"cardNumber": "540000******1110", "cardNumberLast4": "1110", "productName": "Yıldız Miles", "statementWeek": 2, "statementDay": 9, "statementDate": "09.10.2026", "lastPayDate": "19.10.2026", "nextStatementDate": "09.11.2026", "nextLastPayDate": "19.11.2026", "relationType": "", "relatedCardNumber": "", "relatedCardProductName": "", "statementDate_spoken": "9 Ekim 2026 Cuma", "lastPayDate_spoken":
+A: Bilgilerinizi kontrol ediyorum.
+   >> statement_week_decide {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/statement.week.decide", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******1110", "statementDay": 9, "newStatementWeek": 3}, "call": {"lang"
+   << statement_week_decide {"statementDate": "16.11.2026", "statementDueDate": "26.11.2026", "statementDay": 16, "responseCode": 0, "responseMessage": "Success", "statementDate_spoken": "16 Kasım 2026 Pazartesi", "statementDueDate_spoken": "26 Kasım 2026 Perşembe", "ok": true, "what_to_do_next": "To say a date or an amount, use the words of its _spoken field (Turkish); it has no currency name, add the one the rules use."}
+A: Yeni hesap kesim haftanız her ayın 3. haftası olacak. Yeni hesap kesim tarihiniz 16 Kasım 2026 Pazartesi, son ödeme tarihiniz 26 Kasım 2026 Perşembe olacak. Onaylıyor musunuz?
+U: Olur herhalde.
+A: Yeni hesap kesim haftanızın her ayın 3. haftası olarak değiştirilmesini onaylıyor musunuz?
+U: Evet.
+A: Bilgilerinizi kontrol ediyorum.
+   >> statement_week_change {"url": "https://freya-statement-mock.ulasucrak.workers.dev/voice/v1/statement.week.change", "method": "POST", "headers": {"Accept": "application/json", "Content-Type": "application/json"}, "body": {"data": {"cardNumber": "540000******1110", "statementDay": 9, "newStatementWeek": 3}, "call": {"lang"
+   << statement_week_change {"responseCode": 0, "responseMessage": "00", "statementWeek": "3", "statementDay": "16", "exitState": "OK", "ok": true}
+A: Sonu bir bir bir sıfır ile biten Yıldız Miles kartınızın hesap kesim haftası her ayın 3. haftası olarak değiştirildi. Yeni hesap kesim tarihiniz 16 Kasım 2026 Pazartesi, son ödeme tarihiniz 26 Kasım 2026 Perşembe.
+ Sizi ana menüye yönlendiriyorum.
+   >> end_conversation {"reason": "main_menu"}
+   << end_conversation {"ok": true, "reason": "main_menu", "what_to_do_next": "The call ends now: say nothing more."}
+   [node end_main_menu]
+   >> end_call {"message_mode": "none"}
+   << end_call {"status": "success", "message": "Call ended"}
