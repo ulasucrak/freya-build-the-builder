@@ -25,9 +25,12 @@ if nm("guard", "on") == "on":
                    next="Do not ask for another time. Close the call as the rules say.")
     else:
         chk = check_callback(dd, tt, today, now_time, RT, cal, nm("next_weekday", ""))
+        # FX11: a time or day that cannot be read is no rule violation and uses up no try (twice in a row, then it does)
+        if unclear(vs, "cb", ("date" if dd is None else "time") if chk.get("code") == "unreadable" else ""):
+            chk = dict(ok=False, code="unclear", message="Day or time unclear.", next=UNC)
 if chk.get("ok"):
     request_sent(vs)
-elif chk.get("code") == "no-callback":
+elif chk.get("code") in ("no-callback", "unclear"):
     block_request(config, vs, "w_cb_block", chk, "schedule_callback")
 else:
     bad += 1

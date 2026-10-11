@@ -16,6 +16,7 @@ for x in qs:
 # fields already answered correctly, from one mark per field (parallel calls of one message each write their own)
 rest = [str(x.get("tool_field")) for x in qs if str(vget(vs, key_of("w_id_ok_", x.get("tool_field")))) != "yes"]
 info = None
+g = ""
 if id_state_of(vs) == "failed":
     info = dict(code="check-over", message="The identity check is already over (no attempts left).",
                 next="Do not ask again. Follow the rule for a failed identity check and close the call.")
@@ -24,7 +25,7 @@ elif q is not None and qs and not rest:
     vset(vs, "w_id_state", "verified")
     info = dict(code="already-correct", message="Every security answer was already checked and is correct.",
                 next="Do not ask again. The customer is verified.")
-elif q is not None and af in body:
+elif q is not None and str(body.get(af) or "").strip():
     ans = str(body.get(af) or "").strip()
     pkey = key_of("w_id_part_", field)
     part = str(vget(vs, pkey, "") or "")
@@ -55,6 +56,7 @@ elif q is not None and af in body:
                         next="This is not a wrong answer. Ask only for the missing part, then call verify_identity again with just that part; the pieces are joined automatically.")
         else:
             body[af] = norm
+            g = "answer"
     elif n_digits > 0:
         digits = re.sub(r"\D", "", part + spoken_digits(ans))
         if 0 < len(digits) < n_digits:
@@ -67,9 +69,15 @@ elif q is not None and af in body:
             ok = [x for x in (digits, re.sub(r"\D", "", spoken_digits(ans)), re.sub(r"\D", "", spoken_digits(said_parts(ans)[-1])))
                   if len(x) == n_digits]
             body[af] = ok[0] if ok else normalise_answer(ans, q.get("normalise"), q.get("answer_format"))
+            g = "" if ok else "answer"
             vset(vs, pkey, "")
     else:
         body[af] = normalise_answer(ans, q.get("normalise"), q.get("answer_format"))
+elif qs:
+    g = "answer"        # an unknown field or no answer
+# FX11: garbled, empty or for an unknown field: neither a match nor a clear mismatch (twice in a row, then sent)
+if unclear(vs, "vq" + field, "" if info else g):
+    info = dict(code="unclear", message="Answer or field unclear; nothing counted.", next=UNC)
 if info is not None and nm("guard", "on") == "on":
     block_request(config, vs, "w_verify_block", info, "verify_identity")
 else:
