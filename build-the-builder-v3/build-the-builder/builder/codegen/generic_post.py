@@ -177,13 +177,22 @@ def gp_walk(node, cur, depth, tr):
                 c = vc or kc or here
                 # a zero amount gets no spoken form: nothing to verbalise, and it keeps the answer short
                 if x is not None and x == x and 0.005 <= abs(x) < 10 ** 15 and (c or [p for p in ps if p.startswith(MONEY_PARTS)]):
-                    s = gp_amount(x, tr)
+                    if x < 0:
+                        # a negative balance is money in the customer's favour (overpaid), not a debt: no spoken form,
+                        # a flag the model reads instead
+                        add[sk + "_is_credit_not_debt"] = True
+                        GP_FLAGS["credit"] = GP_FLAGS.get("credit", 0) + 1
+                    else:
+                        s = gp_amount(x, tr)
             if s:
                 add[sk + "_spoken"] = s
         except Exception:
             pass
     node.update(add)
     return n + len(add)
+
+
+GP_FLAGS = dict()
 
 
 def gp_success_code(c):
@@ -252,6 +261,10 @@ if isinstance(result, dict):
         if spoken and "what_to_do_next" not in out:
             out["what_to_do_next"] = ("To say a date or an amount, use the words of its _spoken field"
                                       + (" (Turkish)" if TR else "") + "; it has no currency name, add the one the rules use.")
+            if GP_FLAGS.get("credit"):
+                out["what_to_do_next"] += (" A negative amount (marked _is_credit_not_debt) is money in the customer's"
+                                           " favour, not a debt: never say it as a debt, never say a minus; follow the"
+                                           " rules for that case.")
         result["data"] = out
     else:
         code = rc if rc is not None and not gp_success_code(rc) else ""

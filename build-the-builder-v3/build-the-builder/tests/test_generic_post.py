@@ -197,7 +197,8 @@ class Spoken(unittest.TestCase):
                          "bir milyon iki yüz otuz dört bin beş yüz altmış yedi virgül seksen dokuz")
         self.assertEqual(usd["statementDebt_spoken"], "bin iki yüz otuz dört virgül elli")
         self.assertEqual(usd["minPayment_spoken"], "sıfır virgül elli")
-        self.assertEqual(usd["totalDebt_spoken"], "eksi on iki")
+        self.assertNotIn("totalDebt_spoken", usd)                                  # negative: a credit, not a debt
+        self.assertTrue(usd["totalDebt_is_credit_not_debt"])
         self.assertEqual(eur, {"statementPaymentStatus": "NO_DEBT", "statementDebt": 0.0, "minPayment": None})
         self.assertNotIn("minPayment_spoken", eur)                                  # null: nothing invented
         self.assertNotIn("debtGBP", d)                                              # missing block stays missing
@@ -248,7 +249,8 @@ class Spoken(unittest.TestCase):
         self.assertEqual(d["now_spoken"], "Monday 12 October 2026 at 10:30")
         self.assertEqual(d["debtUSD"]["statementDebt_spoken"], "one thousand two hundred thirty-four point fifty")
         self.assertEqual(d["debtUSD"]["minPayment_spoken"], "zero point fifty")
-        self.assertEqual(d["debtUSD"]["totalDebt_spoken"], "minus twelve")
+        self.assertNotIn("totalDebt_spoken", d["debtUSD"])
+        self.assertIn("never say a minus", d["what_to_do_next"])
         self.assertEqual(d["debtTL"]["statementDebt_spoken"], "five thousand point thirteen")
         self.assertNotIn("statementDebt_spoken", d["debtEUR"])
         d = run(ok_env({"debtGBP": {"a": 1.01, "b": 2.02}, "amount": 7.05}), lang="en")["data"]
