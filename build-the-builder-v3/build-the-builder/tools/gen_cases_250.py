@@ -249,7 +249,7 @@ def a_rows(b, t):
         E("no_promise", "refused"), ["the agent says it does not have that information", band_text(p), "no proposal is repeated"])
     if bl:
         add("Refusal", "refuses-floor", "digits", f"Says {{he}} can only find {money(bl[-1])} today. Turns down the amount the agent proposes instead and every proposal after it.",
-            E("no_promise", "refused"), [f"{money(bl[-1])} is not recorded", f"the agent offers the floor, {money(fl)}, once", "no proposal is repeated"])
+            E("no_promise", "refused"), [f"{money(bl[-1])} is not recorded", f"the agent offers the floor, {money(fl)}, as its next proposal (in the late band as attempt 2, on the deadline), and nothing below it", "no proposal is repeated"])
 
     # --- persuasion (rule 30)
     if a1 <= dl:
@@ -857,7 +857,7 @@ def build_case(r):
     fam = r["family"]
     c.update({"id": None, "base_id": r["base"], "brief": "B" if len(c["products"]) > 1 else "A", "family": fam, "level": "gen250",
               "title": f"{fam}: {r['sub']}" + (f" {'+'.join(r['actions'])}" if r["sub"] == "per-product" else "") + f" [{r['phr']}] ({WD[t.weekday()][:3]} {r['day']})",
-              "script": r["script"], "checks": [f"the call is on {WD[t.weekday()]} {t.day} {MONTHS[t.month - 1]} {t.year}"] + r["checks"],
+              "script": r["script"], "checks": [x for x in r["checks"] if r["style"] is None or x != "the agent asks once for the exact day"],
               "style": r["style"], "third_party": fam in ("Callback", "Third party"), "expected": copy.deepcopy(r["expected"])})
     if r["base"] in FAILS_FIRST: assert not any("exactly once" in x for x in c["checks"])
     return c
