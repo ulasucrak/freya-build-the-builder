@@ -347,7 +347,7 @@ class ChunkedRulesPass(unittest.TestCase):
         self.assertEqual(extract.rules_groups(small), [[0, 1]])
         big = [("d%d.md" % i, "z" * n) for i, n in enumerate([30000, 5000, 40000, 20000, 30000, 25000])]
         groups = extract.rules_groups(big)
-        self.assertEqual(len(groups), 3)
+        self.assertEqual(len(groups), 5)                           # 150K chars in 25K parts, whole documents
         self.assertEqual(sum(groups, []), list(range(6)))          # every document once, in order
         self.assertTrue(all(g for g in groups))
         self.assertEqual(len(extract.rules_groups([("one.md", "z" * 500000)])), 1)

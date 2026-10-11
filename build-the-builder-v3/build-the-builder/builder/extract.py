@@ -78,8 +78,9 @@ TOTAL_BUDGET_S = int(os.environ.get("EXTRACT_BUDGET_S", "225"))   # whole extrac
 ROUND1_SHARE = 0.62        # share of the budget for the parallel extraction round (incl. JSON repairs)
 MIN_RESOLVE_S = 30         # skip the resolve call when less time than this is left
 END_MARGIN_S = 5           # finish this long before the budget ends
-RULES_CHUNK_CHARS = 60000  # bigger inputs: the verbatim rules list is asked in parallel parts (by document)
-MAX_RULES_PARTS = 3
+RULES_CHUNK_CHARS = 25000  # bigger inputs: the verbatim rules list is asked in parallel parts (by document); smaller
+#                            parts keep each long verbatim answer well inside the extraction budget
+MAX_RULES_PARTS = 8
 
 
 class ExtractError(RuntimeError):
