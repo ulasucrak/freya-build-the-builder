@@ -1757,17 +1757,15 @@ def _mutating(name, method):
 
 
 def _generic_post_source(lang):
-    """codegen/<GENERIC_POST>.py when it exists (a LANG_PLACEHOLDER token it declares is replaced by the call language,
-    outside its own declaration), else the minimal inline unwrap."""
+    """codegen/<GENERIC_POST>.py when it exists, with the token its LANG_PLACEHOLDER declares (e.g.
+    LANG_PLACEHOLDER = "CALL_LANGUAGE_HERE") replaced by the call language everywhere; else the minimal inline unwrap.
+    The language also reaches the hook as RT["language"] and the call variable w_lang (set by the setup node)."""
     f = CODEGEN / (GENERIC_POST + ".py")
     if not f.exists():
         return GENERIC_POST_INLINE
     src = f.read_text()
-    m = re.search(r"^LANG_PLACEHOLDER\s*=\s*(['\"])(.+?)\1[^\n]*$", src, re.M)
-    if m:
-        lines = src.split("\n")
-        src = "\n".join(ln if ln == m.group(0) else ln.replace(m.group(2), lang) for ln in lines)
-    return src
+    m = re.search(r"^LANG_PLACEHOLDER\s*=\s*(['\"])(\w+)\1", src, re.M)
+    return src.replace(m.group(2), re.sub(r"[^\w -]", "", lang) or "English") if m else src
 
 
 def generic_tool(p, op, name, description, call_keys, post_src, rt_post, opts):

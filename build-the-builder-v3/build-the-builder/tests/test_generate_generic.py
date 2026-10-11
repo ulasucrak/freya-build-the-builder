@@ -136,6 +136,7 @@ class GenericWorkflowTest(unittest.TestCase):
         pre = self.tools["orders_slot_change"]["pre_process_code"]
         cfg = run_hook(pre, "config", {"body": json.dumps({"orderRef": 123, "newSlot": "3", "mode": "A", "lang": "{{lang}}"})})
         self.assertEqual(cfg["body"], {"data": {"orderRef": "123", "newSlot": 3, "mode": "A"}})
+        self.assertNotIn("{{", pre + self.tools["orders_list"]["post_process_code"])
 
     def test_post_hook_unwraps_and_explains_errors(self):
         post = self.tools["orders_list"]["post_process_code"]
@@ -233,6 +234,19 @@ class GenericFallbacksTest(unittest.TestCase):
         self.assertEqual(set(tools), {"orders_list", "end_conversation"})
         cfg = run_hook(tools["orders_list"]["pre_process_code"], "config", {"body": {"clientNo": "7", "flow": "Orders"}})
         self.assertEqual(cfg["body"], {"data": {"clientNo": "7", "flow": "Orders"}})
+
+    def test_list_fields_and_duplicate_leaf_names(self):
+        oa = copy.deepcopy(OPENAPI)
+        oa["paths"] = {"/x": op("x.set", "Set tags.", {"type": "object", "required": ["data", "meta"], "properties": {
+            "data": {"type": "object", "required": ["tags", "lang"], "properties": {
+                "tags": {"type": "array", "items": {"type": "string"}}, "lang": {"type": "string"}}},
+            "meta": {"type": "object", "required": ["lang"], "properties": {"lang": {"type": "string"}}}}})}
+        wf = G.generate_workflow(copy.deepcopy(POLICY), None, oa)
+        t = wf["nodes"]["assistant"]["tools"][0]
+        self.assertEqual(set(body_props(t)), {"tags", "data_lang", "meta_lang"})
+        self.assertEqual(t["config"]["maxRetries"], 0)
+        cfg = run_hook(t["pre_process_code"], "config", {"body": {"tags": "a, b", "data_lang": "x", "meta_lang": "y"}})
+        self.assertEqual(cfg["body"], {"data": {"tags": ["a", "b"], "lang": "x"}, "meta": {"lang": "y"}})
 
     def test_no_tools_at_all(self):
         p = {"rules": [{"id": "1", "text": "Answer questions about opening hours."}], "variables": []}

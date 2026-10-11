@@ -25,6 +25,11 @@ def coerce(v, typ):
             return str(int(v)) if float(v) == int(v) else str(v)
         if typ == "boolean" and isinstance(v, str) and v.strip().lower() in ("true", "false"):
             return v.strip().lower() == "true"
+        if typ in ("array", "object") and isinstance(v, str) and v.strip():
+            try:
+                return json.loads(v)
+            except Exception:
+                return [x.strip() for x in v.split(",") if x.strip()] if typ == "array" else v
     except Exception:
         pass
     return v
