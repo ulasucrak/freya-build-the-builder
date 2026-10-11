@@ -385,3 +385,23 @@ def match_product(prods, said):
         elif s == score and s > 0:
             tie = True
     return None if tie or score == 0 else best
+
+
+# FX11: free judgment where no fixed rule applies. A hook that cannot classify its input (ambiguous or garbled, not
+# a definite rule violation) answers code 'unclear' with UNC; after two unclear results in a row for the same field
+# it takes its strict path again, so the model cannot loop on clarifying questions.
+UNC = "Not covered by a fixed rule: use your judgment within the brief rules; ask ONE short clarifying question if needed; never invent amounts or dates."
+
+
+def unclear(vs, key, fld):
+    """Count `fld` (a field name; '' = a clear result, which resets) in w_uc_<key>: True while it is the first or
+    second unclear result in a row for that field, False from the third on (the caller then takes its strict path)."""
+    k = key_of("w_uc_", key)
+    n = [x for x in csv_list(vget(vs, k)) if x == fld] + [fld] if fld else []
+    vset(vs, k, ",".join(n))
+    return 0 < len(n) < 3
+
+
+def two_values(text, read):
+    """Two different values given as alternatives ('200 or 300', 'Friday or Monday'): the customer has not decided."""
+    return len(set(str(read(x)) for x in re.split(r"\bor\b", said_parts(text)[-1])) - set(["None"])) > 1

@@ -42,7 +42,10 @@ elif g and prods:
         chk = dict(ok=False, code="disputed", message="This product is disputed: no promise may be recorded for it.")
     if chk.get("ok") and tries > retry:
         chk = dict(ok=False, code="no-more-retries", message="create_promise failed for this product as often as the rules allow.")
-if not chk.get("ok"):
+    # FX11: a missing or unreadable product, amount or date is no rule violation (twice in a row, then the strict text)
+    if unclear(vs, "cp" + pid, dict(unknown_product="product", bad_date="date", bad_amount="amount" if amt is None else "").get(chk.get("code"), "")):
+        chk = dict(ok=False, code="unclear", message="Product, amount or date unclear.", next=UNC)
+if not chk.get("ok") and chk.get("code") != "unclear":
     c = chk.get("code")
     nxt = "Do not say it was recorded."
     if chk.get("suggest_date"):
@@ -61,6 +64,7 @@ if not chk.get("ok"):
     else:
         nxt += " Explain it in one sentence, follow the rules for this case, and call create_promise again only after a new read-back and a clear yes."
     chk["next"] = nxt
+if not chk.get("ok"):
     block_request(config, vs, "w_cp_block", chk, "create_promise")
 if chk.get("ok"):
     tries += 1

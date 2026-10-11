@@ -23,6 +23,9 @@ bad = d is None or not isinstance(result, dict) or str(result.get("status") or "
 dead = not ver and not allv and (bad or (okf in dd and not truthy(dd.get(okf)))) and (
     n_left is not None and n_left <= 0 or re.search(r"lock|too many|no (more )?(attempts|tries)|\b0 (attempts|tries)|exhaust|blocked", err) is not None)
 fields = [str(q.get("tool_field")) for q in qs]
+# FX11: an answer the service could not read is neither a match nor a mismatch (twice in a row, then the strict text)
+rd = not dead and not bad and not allv and not hint and okf in dd and not truthy(dd.get(okf)) and not alr
+uc = unclear(vs, "vr" + field, "answer" if rd else "")
 ask_why = " If the customer asks why instead of answering, that is not a wrong answer: explain once, as the rules say, and ask again."
 if dead:
     vset(vs, "w_id_state", "failed")
@@ -42,8 +45,8 @@ else:
                  + (" ".join(rules) if rules else "Ask the customer to give the answer again in a clearer form.")
                  + " Then call verify_identity again with the new answer.")
         ev, act = "Answer not counted (hint '" + str(hint) + "')", "ask for the answer again as the rules say and call verify_identity again"
-    elif okf in d and not truthy(d.get(okf)) and not alr:
-        set_next(result, "The answer could not be read (" + api_error(result) + "). This does not count as a wrong answer. "
+    elif rd:
+        set_next(result, "The answer could not be read (not counted). " + UNC if uc else "The answer could not be read (" + api_error(result) + "). This does not count as a wrong answer. "
                  "Ask the customer to say it again, then call verify_identity again.")
         ev, act = "Answer could not be read (not counted)", "ask for it again and call verify_identity again"
     elif ver:
