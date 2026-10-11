@@ -89,6 +89,9 @@ DEFAULT_OPTIONS = {
     "static_entry": True,          # negotiate's first message (one sentence per product + the first payment question)
                                    # is built by prepare_account and spoken as a fixed line (tts), when the policy fixes
                                    # its content (static_entry); the slowest regular turn (median 3.4 s, p90 10.7 s)
+    "static_greeting": False,      # an opening the brief describes ('say you are X and that the call is recorded') is built
+                                   # as a fixed line (tts, no model call: 250new, 96 calls ended before the first model
+                                   # sentence). Off until a live run and the T06 opening test agree (test_static_opening)
     "reasoning_off": False,        # reasoning_override "disabled" on the conversation nodes. Untested live: off
 }
 
@@ -547,7 +550,7 @@ def _quoted_in_rules(p, text, phases=None):
     return bool(t) and any(re.search(r"[\"“]" + re.escape(t) + r"[\"”]", re.sub(r"\s+", " ", x)) for x in srcs)
 
 
-def static_opening(p):
+def static_opening(p, described=False):
     """The first words of the call when the brief fixes them completely: the opening sentence quoted word for word and
     the quoted question that asks for the customer, built only from call variables. '' when anything is left to the
     model (e.g. an opening given as content to convey), then the model speaks the opening."""
@@ -556,8 +559,12 @@ def static_opening(p):
     if line and set(re.findall(r"\{+(\w+)\}+", line)) <= names:
         return line                         # extracted: quoted word for word in the brief
     opening = (p["opening"].get("text") or "").strip()
-    if not opening or not _quoted_in_rules(p, opening):
+    if not opening:
         return ""
+    if not _quoted_in_rules(p, opening):
+        opening = _described_opening(p) if described else ""
+        if not opening:
+            return ""
     for v in p["phrases"].values():
         if not isinstance(v, str) or not v.strip().endswith("?"):
             continue
@@ -565,6 +572,33 @@ def static_opening(p):
         if used and set(used) <= names and _quoted_in_rules(p, v, ("greet", "all")):
             return opening + " " + v.strip()
     return ""
+
+
+# "say (that) you are <who>(,) and that the call is/may be recorded <...>": the content of the first sentence, given as
+# what to convey (250new: 96 calls ended before the agent's first, model-written, sentence; a fixed line needs no model)
+_DESCRIBED_RX = re.compile(r"\bsay (?:that )?(?:you are|you're) ([^.;:\"]+?),? and (?:that )?(?:the|this) call (is|is being|may be|will be)"
+                           r" (recorded[^.;:\"]*?)\.?\s*$", re.I)
+
+
+def _described_opening(p):
+    """The opening sentence built from a description of its content ('say you are X and that the call is recorded'):
+    'Hello, I am X, and this call is recorded.' English only, nothing else in the description, no word the brief
+    forbids before verification. '' otherwise (the model speaks the opening)."""
+    if not str(p.get("language") or "English").strip().lower().startswith("english"):
+        return ""
+    text = re.sub(r"^\s*(?:first sentence|opening)[^:]{0,30}:\s*", "", (p["opening"].get("text") or "").strip(), flags=re.I)
+    m = _DESCRIBED_RX.fullmatch(text) or _DESCRIBED_RX.match(text)
+    if not m or m.start() != 0:
+        return ""
+    who = m.group(1).strip()
+    if re.search(r"\b(?:you|your)\b|\{", who):
+        return ""
+    line = "Hello, I am %s, and this call %s %s." % (who, m.group(2).lower(), m.group(3).strip())
+    for w in p["opening"].get("forbidden_before_verification") or []:
+        w = str(w).strip().lower()
+        if w and re.search(r"(?<!\w)" + re.escape(w) + r"(?!\w)", line.lower()):
+            return ""
+    return line
 
 
 _COND_OVER = ("all_products_sum", "any_product", "each_product", "all_products")
@@ -659,6 +693,11 @@ def _post_outcomes(p):
 _TWICE_RX = re.compile(r"\s*\b(twice|two times|a second time|the second time|three times|a third time|the third time)\b", re.I)
 
 
+# 250new N092: "I'm not going into this, full stop." was taken as a refusal of the offer, not as the first 'does not want
+# to talk', so the call ran two more offers; ways of saying it that name no talk
+NO_TALK_WORDS = "'I'm not going into this', 'full stop', 'leave me alone', 'stop calling me'"
+
+
 def _count_trigger(p):
     """(trigger, count) for the post-verification trigger that acts when the customer says something N times
     ('says twice that they do not want to talk'), else (None, 0)."""
@@ -740,7 +779,7 @@ def signal_schema(p, ef):
         "refusal": "says no to, ignores or does not answer the agent's request or offer to pay, and names no day, no period"
                    " and no amount of their own (a plain no, 'I can't', 'not then')",
         "too_much": "says the amount itself is too much or more than they can pay, naming no amount",
-        "no_talk": _TWICE_RX.sub("", (talk or {}).get("detect") or "").strip().rstrip("."),
+        "no_talk": _TWICE_RX.sub("", (talk or {}).get("detect") or "").strip().rstrip(".") + ", in any words (" + NO_TALK_WORDS + ")",
         "dispute": ((disp or {}).get("detect") or "").strip().rstrip("."),
     }
     desc = ("What the customer's LAST message does, judged against the agent's message just before it. "
@@ -817,13 +856,17 @@ def _trigger_lines(p, cl, verified, ef=None):
         elif t["outcome"]:
             pr_ = t["outcome"] + (" / " + t["reason"] if t["reason"] else "")
             line += (" Close: " + pr_ + ".") if act != "continue" else (" When it ends the call, the outcome is " + pr_ + ".")
-            if twice and verified and ef and ef.get("talk_count"):
+        # a count trigger ('says twice ...'): also when its action is a note (multi-product: the note, then the close)
+        talk_t = t is _count_trigger(p)[0]
+        if twice and not (act == "transfer" and t["queue"]) and (t["outcome"] if act != "note" else talk_t):
+            if verified and ef and ef.get("talk_count"):
                 line += " Counted by the system, which closes the call the last time; before that, acknowledge it and make the next offer."
-            elif twice:
+            else:
                 line += (" The first time: do not mention security; acknowledge it and make the current product's next offer." if verified else
                          " The first time: explain once, as the rules say, why the security questions are asked, and ask again.")
                 line += ((" Count it in any words, amid other talk too." if verified else "")
-                         + " The second time: close at once (thank, goodbye and close_call in that message).")
+                         + " The second time: close at once (thank, goodbye and close_call in that message)."
+                         + ((" Also said as " + NO_TALK_WORDS + ".") if verified and talk_t else ""))
         if not p["rules"]:
             for n in t.get("notes") or []:
                 if isinstance(n, str) and n.strip():
@@ -990,12 +1033,38 @@ def _hidden_by_override(p, r, marks, new_marks):
     """A replaced rule is hidden. Policies with '[changes]' marks: every '[overrides]' is a full replacement and every
     '[changes]' keeps the old rule. Older policies (one kind of mark): the old rule stays when it still says what to say
     or not to do, unless the later rule contradicts it on the same tool."""
+    if any(_restated(r["text"], x["text"]) for _k, x in marks):
+        return True
     full = [x for k, x in marks if k not in _PARTIAL_KINDS]
     if not full:
         return False
     if new_marks:
         return True
     return not _keeps_content(r["text"]) or any(_contradicts_on_tool(p, r["text"], x["text"]) for x in full)
+
+
+_STOP = {"the", "a", "an", "and", "or", "of", "to", "for", "this", "that", "with", "is", "are", "be", "can", "you",
+         "your", "it", "in", "on", "at", "if", "not", "do", "they", "them", "their", "whether", "customer"}
+
+
+def _words(t):
+    return re.findall(r"[a-z]+", _rule_text(t).lower())
+
+
+def _restated(old, new):
+    """The later rule says the same instruction again, its own way (250new, Brief B: '[28] First ask: "Can you make this
+    payment today?"' next to '[b.4] (changes 28) First ask whether the customer can pay all of them today ... Do not ask
+    about today again for each product': the model followed [28] in 1 call of 3). A short one-sentence rule, with no
+    tool, code or table in it, whose opening words open the later rule too, or whose content words the later rule
+    mostly repeats, is not shown: the later rule carries it. Longer rules stay (they hold more than the change)."""
+    body = _rule_text(old)
+    if len(body) > 140 or "`" in body or "\n" in body or _cells(old) or len(re.findall(r"[.!?](?:\s|$)", body.rstrip('"”'))) > 1:
+        return False
+    a, b = _words(old), _words(new)
+    if len(a) >= 2 and a[:2] == b[:2]:
+        return True
+    content = {w for w in a if len(w) > 3 and w not in _STOP}
+    return len(content) >= 3 and len(content & set(b)) >= 0.75 * len(content)
 
 
 def _is_void(t):
@@ -1166,8 +1235,10 @@ def _phase_rules(p, phase, tagged=()):
 # the window list) and schedule_callback was never called, so the hooks' window check and max_asks count never ran.
 # When the hooks enforce it (options guard + enforce_callback), the step prompt says this instead of the window list,
 # and the rule on a time outside the window is marked as the tool's job (the rule text stays: every rule is shown).
-CALLBACK_LINE = ("To arrange a callback, call schedule_callback with the time the person gives; the tool checks the window"
-                 " and tells you what to say.")
+# 250new N149: a third party named a time ("only free today at noon") and the model asked "Would today at 12:00 work?"
+# before any schedule_callback call
+CALLBACK_LINE = ("To arrange a callback, call schedule_callback with the time the person gives, at once (never ask 'would that"
+                 " work?' first); it checks the window and tells you what to say.")
 CB_TAG = "(schedule_callback checks this: call it with each time) "
 
 _CB_JUDGE_RX = re.compile(r"\boutside\b|\bnot allowed\b|\bask (?:once|one more time|again)\b|\banother (?:day|time|one)\b", re.I)
@@ -1229,7 +1300,12 @@ def default_system_prompt(p):
     rules = _phase_rules(p, "all")
     # a phrase quoted word for word in a rule is already in the prompt of every step where that rule applies
     kept = " ".join(r["text"] for ph_ in ("all", "greet", "negotiate") for r in shown_rules(p, ph_))
-    phrases = _bul(["%s: \"%s\"" % (k, v) for k, v in p["phrases"].items() if isinstance(v, str) and v.strip() not in kept])
+    # a phrase quoted only in a rule that a later rule replaced is not to be said any more (e.g. the one-product 'today'
+    # question once the multi-product rule asks about all of them)
+    roles = rule_roles(p)
+    gone = " ".join(r["text"] for r in p["rules"] if roles.get(r["id"]) in ("over", "void"))
+    phrases = _bul(["%s: \"%s\"" % (k, v) for k, v in p["phrases"].items()
+                    if isinstance(v, str) and v.strip() not in kept and not (v.strip() and v.strip() in gone)])
     return "\n".join(x for x in [
         "You are a bank's phone agent on a live call. Speak %s: " % p["language"] + SHORT_LINE,
         "Use only facts from this prompt, the call variables and tool results; never invent amounts, dates, reasons or offers.",
@@ -1255,9 +1331,9 @@ STATUS_LINE = "Status of your last tool request: {{w_last_event}}"
 NEXT_ACTION = "{{w_next_action}}"
 # the rules on dates, deadlines, bands, floors, the offer ladder and the outcome table are computed by the hooks
 # (prepare_account, check_offer, close_check, note_pre) and are not repeated in the step prompt (rule_roles 'hook')
-HOOK_POINTER = ("The facts above and tool results give business days, deadlines, floors, offers and the outcome: use them as given"
-                " (weekdays and years only from the calendar facts). A promise: an amount from the floor to the full amount, a business day"
-                " from today to the product's deadline. A date or an amount the customer names is never a refusal.")
+HOOK_POINTER = ("Use the facts and tool results as given for business days, deadlines, floors, offers and the outcome"
+                " (weekdays and years only from the calendar facts). A promise: floor to full amount, a business day from today to"
+                " the product's deadline. A date or an amount the customer names is never a refusal.")
 
 
 def _codes_in(outcome, reason, text):
@@ -1269,6 +1345,12 @@ def _codes_in(outcome, reason, text):
 
 NEGOTIATE_ENTER = ("Identity is verified. State the debt as the rules require, using the account facts (every late product, one"
                    " sentence each), then ask the first payment question the rules require. Do not call a tool in this turn.")
+
+
+# 250new N173/N221/N222: after the goodbye the customer heard "One moment, please." before every note call. A message
+# with a tool call and no text is a complete turn (only a turn with neither fails: "no speakable content")
+WRAP_SILENT = ("The customer already heard your goodbye: do not say it again, add no words (no 'one moment'), do not describe"
+               " what you record; send each tool call with no text.")
 
 
 def default_greet_task(p, cl, ef=None, cb_tool=False):
@@ -1297,7 +1379,8 @@ def default_greet_task(p, cl, ef=None, cb_tool=False):
             line += " say \"" + c["say"] + "\";"
         if c["action"] == "callback":
             line += (" ask when the customer can be reached, then call schedule_callback (date YYYY-MM-DD, time HH:MM 24 h) with each day and"
-                     " time offered, before you reply, even one outside the window (never judge it yourself): the result says what to do next;")
+                     " time offered, at once (never ask 'would that work?' first), before you reply, even one outside the window (never"
+                     " judge it yourself): the result says what to do next;")
         elif again:
             asked = True
             n = max(1, int(p["callback"].get("max_asks") or 2) - 1)
@@ -1353,6 +1436,24 @@ def _ladder_line(p, ef=None):
             " ('not on <day>' with no new day too; not 'too much') uses the next; after the last, close. One sympathy sentence, once.")
 
 
+# 250new N019: "once my tax refund comes in" went to the offer ladder with no check_offer (the rules: ask once for the
+# exact day); N186: "can I just pay the minimum today?" became the agent's own offer with "Do you agree?", and the
+# customer's non-answers after it were counted as refusals. check_offer reads 'the minimum' / 'the full amount'.
+CHECK_LINE = ("A day, period or condition ('end of the month', 'after the weekend', 'when I get paid') or an amount the customer"
+              " names ('the minimum' too): check_offer with their words first, never an offer instead. Valid: read it back at once,"
+              " never 'do you agree?'; a non-answer then is no refusal. A yes to your offer: read-back.")
+# 250new Brief B: a per-product "Can you pay X today?" (21 of 58 calls) and a second all-products 'today' question after
+# a dispute; shown when the rules say the 'today' question is not asked again
+TODAY_ONCE = ("The 'today' question is asked once in the call, for all products, in the first message; never again (not per"
+              " product, not after a no, a dispute or a paid claim): each next product starts at its attempt 1.")
+_AGAIN_RX = re.compile(r"(?:do not|don't|never)[^.]*today[^.]*again|(?:do not|don't|never)[^.]*again[^.]*today", re.I)
+
+
+def _today_once(p):
+    """A shown rule says the 'today' question is not asked again."""
+    return any(_AGAIN_RX.search(_rule_text(r["text"])) for ph_ in ("all", "negotiate") for r in shown_rules(p, ph_))
+
+
 ENTRY_SAID = "Your first message in this step was already spoken (do not repeat it): \"{{w_entry_line}}\""
 
 
@@ -1374,8 +1475,9 @@ def default_negotiate_task(p, cl, check=False, ef=None, entry=False):
         "Read-back: " + pm["readback"] if verbatim else "",
     ]
     if check:
-        lines.append("A date, a period ('end of the month') or an amount the customer names: call check_offer before you answer."
-                     " Not for the full amount today, an offer from the facts or a value already accepted: go to the read-back.")
+        lines.append(CHECK_LINE)
+    if multi and _today_once(p):
+        lines.append(TODAY_ONCE)
     lines.append("After a clear yes to the read-back: create_promise once per product, one per message, after each result. "
                  "If it fails, call it again with the same values, at most %d more time(s); then: %s."
                  % (pm["retry_on_failure"], pm["failure_say"] or "say it could not be recorded"))
@@ -1501,7 +1603,7 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
     nodes = {}
     nodes["setup"] = _code_node("setup", "setup", rt, "greet_verify", source=_setup_source())
 
-    opening_line = P.get("opening_line", static_opening(p))
+    opening_line = P.get("opening_line", static_opening(p, opts["static_greeting"]))
     greet_on_enter = {"type": "tts", "text": _brace_vars(opening_line, p)} if opening_line else {
         "type": "llm", "prompt": P.get("greet_verify.on_enter", "\n".join(
             ["This is the first sentence of the call. Say the opening exactly as the bank requires and then ask whether you are speaking with the customer, as the rules below say. Nothing else. Do not call a tool in this turn.",
@@ -1583,10 +1685,10 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
     wrap_text = ("\nRules for the notes and the outcome:\n" + wr) if wr else ""
     nodes["wrap_up"] = {
         "name": "wrap_up", "node_type": "conversation",
-        "on_enter": {"type": "llm", "prompt": P.get("wrap_up.on_enter",
-                                                   "Before the call can be closed: {{w_wrap_todo}} Do it now with the tools, one tool call per message. The customer already heard your goodbye: do not say it again or describe what you record; if you must speak, say only 'One moment, please.'")},
+        "on_enter": {"type": "llm", "prompt": P.get("wrap_up.on_enter", "Before the call can be closed: {{w_wrap_todo}} Do it now with the tools, one"
+                                                   " tool call per message. " + WRAP_SILENT)},
         "task_message": P.get("wrap_up.task", "Before the close: {{w_wrap_todo}}\n"
-                              "Use the tools, one call per message, after each result. The customer heard your goodbye: do not say it again or describe what you record; if you must speak, say only 'One moment, please.' "
+                              "Use the tools, one call per message, after each result. " + WRAP_SILENT + " "
                               "Then call close_call again.\n" + STATUS_LINE + wrap_text),
         "tools": wrap_tools,
         "max_node_turns": 4, "max_turn_transition": "finish",
