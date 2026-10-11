@@ -1246,7 +1246,7 @@ def replacement_days_text(today, deadline, cal):
     return "; ".join(out)
 
 
-def account_facts_text(products, cal, today=None):
+def account_facts_text(products, cal, today=None, offers_inline=True):
     """Multi-line block of per-product facts for the prompts."""
     try:
         if not products:
@@ -1263,9 +1263,9 @@ def account_facts_text(products, cal, today=None):
                 lines.append("   Band: " + p.get("band") + ". Persuasion attempts allowed: " + str(p.get("attempts")) + ".")
             if p.get("deadline"):
                 lines.append("   Deadline (latest promise date): " + date_label(to_date(p.get("deadline"))) + ".")
-            for o in p.get("offers") or []:
+            for o in (p.get("offers") or []) if offers_inline else []:
                 lines.append("   " + offer_text(o))
-            if p.get("offers"):
+            if p.get("offers") and offers_inline:
                 lines.append("   After attempt " + str(len(p.get("offers"))) + " is refused, make no other offer for this product: no other amount"
                              + " (not the floor either), no other day.")
             if p.get("deadline"):

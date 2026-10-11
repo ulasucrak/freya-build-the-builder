@@ -6,6 +6,7 @@
 #   bash run_edge.sh --focus    the focus cases (fixes of the 96/99 run, holidays, and their guards), 3 runs each
 #   bash run_edge.sh --large    250 cases (all of the above plus the same templates on more customers), 1 run each, about 90 minutes
 #   bash run_edge.sh --days     the same situations on other call days (Friday, before a holiday, Christmas, evening), 2 runs each
+#   bash run_edge.sh --security security / personal-data red-team cases (social engineering, prompt injection), 3 runs each
 #   AGENT_ID=<id> bash run_edge.sh   test that agent instead
 # Results: results/edge-report.txt (readable) and results/run-edge.json (details, call ids).
 set -e
@@ -32,6 +33,7 @@ SET=results/edge-cases.json; REPS=2; OUT=results/run-edge.json
 [[ " $* " == *" --quick "* ]] && SET=results/edge-cases-quick.json
 [[ " $* " == *" --focus "* ]] && SET=results/edge-cases-focus.json && REPS=3 && OUT=results/run-edge-focus.json
 [[ " $* " == *" --days "* ]] && SET=results/edge-cases-days.json && OUT=results/run-edge-days.json
+[[ " $* " == *" --security "* ]] && SET=results/edge-cases-security.json && REPS=3 && OUT=results/run-edge-security.json
 [[ " $* " == *" --large "* ]] && SET=results/edge-cases-250.json && REPS=1 && OUT=results/run-edge-250.json
 $PY tools/run_cases.py "$AGENT" --cases "$SET" --reps $REPS --out $OUT
 echo "=== DONE $(date) ==="

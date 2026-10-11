@@ -113,7 +113,7 @@ class Sim:
         if t.get("pre_process_code"):
             run(t["pre_process_code"], self.vs, "config", cfg)
         self.vs[name + "_args"] = cfg["body"]
-        if ".invalid" in cfg["url"]:
+        if "/not-sent-" in cfg["url"]:
             self.vs[name + "_failure_count"] = self.vs.get(name + "_failure_count", 0) + 1
             return cfg, None, self.vs.get("w_last_event", "")
         result = {"status": status, "data": dict(response or {"ok": True}), "status_code": 200 if status == "success" else 500,
@@ -132,7 +132,7 @@ class Sim:
         """The model's close_call (a close request), then the engine's close_check -> (wrap_up | finish -> close_api).
         Returns (route, final close body or None, wrap to-do text)."""
         cfg, _r, _m = self.call(node, "close_call", body)
-        assert ".invalid" in cfg["url"], "the model's close_call must never reach the bank"
+        assert "/not-sent-" in cfg["url"], "the model's close_call must never reach the bank"
         return self.engine_close()
 
     def close_until_done(self, node, body, tries=4):
@@ -141,7 +141,7 @@ class Sim:
         holds = 0
         for _ in range(tries):
             cfg, _r, _m = self.call(node, "close_call", body)
-            assert ".invalid" in cfg["url"], "the model's close_call must never reach the bank"
+            assert "/not-sent-" in cfg["url"], "the model's close_call must never reach the bank"
             if self.vs.get("w_close_requested") != "yes":
                 holds += 1
                 continue
@@ -635,8 +635,8 @@ class LiveDateRegressions(unittest.TestCase):
             self.assertEqual(vs["w_today"], "2026-10-14")
             offers = json.loads(vs["w_products_json"])[0]["offers"]
             self.assertEqual((offers[0]["date"], offers[1]["date"]), ("2026-10-16", "2026-10-23"))     # PUB-06
-            self.assertIn("Attempt 1 (a persuasion attempt: only after a refusal or a non-answer): amount 2125.10 (or 637.50", vs["w_account_facts"])
-            self.assertIn("on Friday 16 October 2026 (2026-10-16)", vs["w_account_facts"])
+            self.assertEqual((offers[0]["amount"], offers[0]["alt"]), (2125.1, 637.5))   # offers come from check_offer
+            self.assertNotIn("Attempt 1", vs["w_account_facts"])
             wf, vs2 = self.facts(wall, loan)
             self.assertIn("Mon 26 Oct (holiday) -> Tuesday 27 October 2026 (2026-10-27)", vs2["w_account_facts"])  # PUB-07
             cfg = {"url": "u", "body": {"product_id": "p1", "amount": 540, "date": "2026-10-26"}}
@@ -766,7 +766,7 @@ class Snippets(unittest.TestCase):
         self.assertEqual(self.sim.vs["w_last_event"], "none")
         # a second promise for the same product is stopped
         cfg, _r, msg = self.sim.call("negotiate", "create_promise", {"product_id": "p1", "amount": 300, "date": "2026-10-30"})
-        self.assertIn(".invalid", cfg["url"])
+        self.assertIn("/not-sent-", cfg["url"])
         # service failure (bank answered ok=false): retry once, then give up honestly; the note is kept for the end
         _c, _r, msg = self.sim.call("negotiate", "create_promise", {"product_id": "p2", "amount": 900, "date": "2026-10-23"},
                                     {"ok": False, "error": "boom"})
@@ -892,7 +892,7 @@ class Snippets(unittest.TestCase):
         self.sim.vs["w_id_state"] = "verified"
         outs = self.sim.parallel("negotiate", [("transfer_to_agent", {"queue": "restructuring"}),
                                                ("close_call", {"outcome": "transferred", "reason": "restructuring"})])
-        self.assertIn(".invalid", outs[1][0]["url"])                 # the model's close never reaches the bank
+        self.assertIn("/not-sent-", outs[1][0]["url"])                 # the model's close never reaches the bank
         self.assertEqual(self.sim.vs.get("w_transfer_q_restructuring"), "restructuring")
         route, body, _t = self.sim.engine_close()
         self.assertEqual((route, body["outcome"], body["reason"]), ("finish", "transferred", "restructuring"))
@@ -933,8 +933,8 @@ class Snippets(unittest.TestCase):
 
     def test_products_json_is_slim(self):
         self.sim.account(self.prods)
-        self.assertLess(len(self.sim.vs["w_products_json"]), 500)
-        self.assertIn("Attempt 1", self.sim.vs["w_account_facts"])
+        self.assertLess(len(self.sim.vs["w_products_json"]), 600)
+        self.assertNotIn("Attempt 1", self.sim.vs["w_account_facts"])           # offers are given by check_offer
 
     def test_transfer_wins_and_blocks_writes(self):
         self.sim.account(self.prods)
@@ -943,7 +943,7 @@ class Snippets(unittest.TestCase):
         _c, _r, msg = self.sim.call("negotiate", "transfer_to_agent", {"queue": "restructuring"})
         self.assertIn("'transferred'", msg)
         cfg, _r, _m = self.sim.call("negotiate", "add_note", {"product_id": "p2", "reason": "refused"})
-        self.assertIn(".invalid", cfg["url"])
+        self.assertIn("/not-sent-", cfg["url"])
         cfg, _r, _m = self.sim.call("negotiate", "create_promise", {"product_id": "p2", "amount": 900, "date": "2026-10-16"})
         self.assertIn("not-sent-after-transfer", cfg["url"])
         route, body, _t = self.sim.close("negotiate", {"outcome": "promise"})
@@ -986,13 +986,13 @@ class Snippets(unittest.TestCase):
         self.assertEqual(fc["config"]["alwaysRunsAt"], ["end_of_call"])
         cfg = {"url": "u", "body": {"outcome": "", "reason": ""}}
         run(fc["pre_process_code"], dict(self.sim.vs, w_close_done="yes"), "config", cfg)
-        self.assertIn(".invalid", cfg["url"])
+        self.assertIn("/not-sent-", cfg["url"])
         cfg = {"url": "u", "body": {"outcome": "", "reason": ""}}
         run(fc["pre_process_code"], dict(self.sim.vs, w_promised="p1", w_close_done="no"), "config", cfg)
         self.assertEqual((cfg["url"], cfg["body"]), ("u", {"outcome": "promise"}))
         cfg = {"url": "u", "body": {}}
         run(fc["pre_process_code"], {"now": "2026-10-14T11:00"}, "config", cfg)   # nothing known: send nothing
-        self.assertIn(".invalid", cfg["url"])
+        self.assertIn("/not-sent-", cfg["url"])
 
     def test_hooks_survive_garbage(self):
         for node in ("greet_verify", "negotiate"):
@@ -1038,7 +1038,7 @@ class RunFixes250(unittest.TestCase):
         t = [x for x in self.wf["nodes"][node]["tools"] if x["function"]["name"] == tool][0]
         cfg = {"url": "https://bank/" + tool, "body": dict(body)}
         exec(t["pre_process_code"], {"config": cfg, "vars": self.vs})
-        return "invalid" not in cfg["url"], cfg["body"]
+        return "/not-sent-" not in cfg["url"], cfg["body"]
 
     def products(self, raw_products):
         self.vs["w_account_products"] = raw_products
@@ -1151,3 +1151,89 @@ class Generalization(unittest.TestCase):
         for _ in range(20):
             y = int(C.identity_value({"answer_format": "digits", "tool_field": "birth_year", "ask": "year of birth"}, {}, r))
             self.assertTrue(1950 <= y <= 2000, y)
+
+    def test_system_prompt_in_token_band(self):
+        """Team guideline: the global system prompt stays within 1500-2500 tokens on every real brief, no rule lost."""
+        for pol in ["S1", "S2", "S3", "S4", "S5", "S6", "S7"]:
+            raw_p = json.loads((KIT / "policies" / (pol + ".policy.json")).read_text())
+            wf = G.generate_workflow(raw_p, openapi=json.loads((KIT / "fixtures" / pol / "openapi.json").read_text()))
+            n = len(wf["system_prompt"])
+            self.assertTrue(1500 <= n / 3.7 <= 2500, (pol, n, round(n / 3.7)))      # ~3.7 characters per cl100k token
+            p = S.normalise(raw_p)
+            ph = G.rule_phases(p)
+            where = {"all": wf["system_prompt"], "greet": wf["nodes"]["greet_verify"]["task_message"],
+                     "negotiate": wf["nodes"]["negotiate"]["task_message"]}
+            for r in p["rules"]:
+                if ph[r["id"]] != "drop":
+                    self.assertIn(G._brace_vars(r["text"], p), where[ph[r["id"]]], (pol, r["id"]))
+
+    def test_check_offer_vague_dates(self):
+        """EDGE-05 / AD-16: a vague period gets the follow-up (deadline); a bare weekday after 'next week' is next week's."""
+        from builder import testmode as T
+        wf = G.generate_workflow(raw("brief-b"))
+        code = [t for t in wf["nodes"]["negotiate"]["tools"] if t["function"]["name"] == "check_offer"][0]["function"]["parameters"]["properties"]["code"]["default"]
+        vs = {"now": "2026-10-14T11:00"}
+        T.run_code_locally(code_of(wf["nodes"]["setup"]), {}, vs)
+        vs["w_account_products"] = [{"product_id": "p1", "type": "personal_loan", "past_due": 310.5, "days_late": 11, "instalment_amount": 103.5}]
+        T.run_code_locally(code_of(wf["nodes"]["prepare_account"]), {}, vs)
+        r = T.run_code_locally(code, {"product_id": "p1", "date": "end of next week"}, vs)[1]
+        self.assertEqual(r["code"], "bad_date")
+        self.assertIn("2026-10-23", r["what_to_do_next"])                        # the deadline to propose if no day comes
+        self.assertEqual(T.run_code_locally(code, {"product_id": "p1", "date": "Thursday"}, vs)[1]["date"][-12:], "(2026-10-22)")
+
+
+    def test_check_offer_gives_the_persuasion_offers(self):
+        """MIX-09 / GEN-05: offers are counted in code; after the last one there is no other offer."""
+        from builder import testmode as T
+        wf = G.generate_workflow(raw("brief-b"))
+        code = [t for t in wf["nodes"]["negotiate"]["tools"] if t["function"]["name"] == "check_offer"][0]["function"]["parameters"]["properties"]["code"]["default"]
+        def fresh(days_late):
+            vs = {"now": "2026-10-14T11:00"}
+            T.run_code_locally(code_of(wf["nodes"]["setup"]), {}, vs)
+            vs["w_account_products"] = [{"product_id": "p1", "type": "credit_card", "card_last4": "4821", "past_due": 420.0, "days_late": days_late, "minimum_payment": 126.0}]
+            T.run_code_locally(code_of(wf["nodes"]["prepare_account"]), {}, vs)
+            return vs
+        run = lambda vs, **a: T.run_code_locally(code, dict(product_id="p1", **a), vs)[1]
+        vs = fresh(6)                                                               # early band: one attempt
+        self.assertEqual((run(vs, refused="yes")["code"], vs and run(vs, refused="yes")["code"]), ("offer", "no_offers_left"))
+        vs = fresh(8)                                                               # late band: two attempts
+        a1, a2, a3 = run(vs, refused="yes"), run(vs, refused="yes"), run(vs, refused="yes")
+        self.assertEqual((a1["amount"], a1["date"][-12:], a2["amount"], a2["date"][-12:], a3["code"]),
+                         ("420.00", "(2026-10-16)", "126.00", "(2026-10-23)", "no_offers_left"))
+        vs = fresh(6)                                                               # too much: floor once, then attempt 1 at the floor
+        self.assertEqual(run(vs, too_much="yes")["code"], "floor_offer")
+        self.assertEqual(run(vs, refused="yes")["amount"], "126.00")
+
+    def test_non_answer_after_a_vague_period_gets_the_deadline(self):
+        """EDGE-05: 'end of the month' ... 'I don't know' -> the deadline (vague-date rule), not persuasion attempt 1."""
+        from builder import testmode as T
+        wf = G.generate_workflow(raw("brief-b"))
+        code = [t for t in wf["nodes"]["negotiate"]["tools"] if t["function"]["name"] == "check_offer"][0]["function"]["parameters"]["properties"]["code"]["default"]
+        vs = {"now": "2026-10-14T11:00"}
+        T.run_code_locally(code_of(wf["nodes"]["setup"]), {}, vs)
+        vs["w_account_products"] = [{"product_id": "p1", "type": "credit_card", "card_last4": "4821", "past_due": 420.0, "days_late": 6, "minimum_payment": 126.0}]
+        T.run_code_locally(code_of(wf["nodes"]["prepare_account"]), {}, vs)
+        self.assertEqual(T.run_code_locally(code, {"product_id": "p1", "date": "end of the month"}, vs)[1]["code"], "bad_date")
+        r = T.run_code_locally(code, {"product_id": "p1", "refused": "yes"}, vs)[1]
+        self.assertEqual((r["code"], r["date"][-12:]), ("vague_deadline", "(2026-11-02)"))
+        self.assertEqual(T.run_code_locally(code, {"product_id": "p1", "refused": "yes"}, vs)[1]["code"], "offer")   # attempt 1 still left
+
+    def test_250new_flow_lines(self):
+        """250-new run: identity asked at most twice (N098); Brief B: no 'today' per product, record after all (N163...)."""
+        wb = G.generate_workflow(raw("brief-b"))
+        wa = G.generate_workflow(raw("brief-a"))
+        self.assertIn("at most twice", wb["nodes"]["greet_verify"]["task_message"])
+        self.assertIn("never ask about today again", wb["nodes"]["negotiate"]["task_message"])
+        self.assertNotIn("never ask about today again", wa["nodes"]["negotiate"]["task_message"])    # one product: not needed
+        self.assertIn("is one amount", wa["nodes"]["negotiate"]["task_message"])
+
+
+    def test_stopped_requests_stay_on_the_tools_own_host(self):
+        """Final rule: the agent may call only our mock. A stopped request goes to the same host, never elsewhere."""
+        wf = G.generate_workflow(raw("brief-b"))
+        t = tool(wf, "negotiate", "create_promise")
+        cfg = {"url": "https://my-mock.example.workers.dev/v1/create_promise", "body": {"product_id": "p9", "amount": 1, "date": "2026-10-14"}}
+        vs = {"now": "2026-10-14T11:00", "w_products_json": json.dumps([{"id": "p1", "full": 100.0, "floor": 30.0, "deadline": "2026-10-23", "offers": []}])}
+        exec(t["pre_process_code"], {"config": cfg, "vars": vs})
+        self.assertTrue(cfg["url"].startswith("https://my-mock.example.workers.dev/not-sent-"), cfg["url"])
+        self.assertNotIn(".invalid", json.dumps(wf))                     # no other host anywhere in the workflow

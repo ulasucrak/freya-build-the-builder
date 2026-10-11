@@ -178,8 +178,9 @@ class Fakes:
                 f.clock.advance(300)
                 f.tests_run.append((label, [c["id"] for c in cases], wf, timeout_s))
                 failing = f.test_results.pop(0) if f.test_results else set()
+                # a call that ran made tool calls; 'NOTOOLS:<id>' marks a platform failure before the first tool call
                 rows = [{"id": c["id"], "pass": c["id"] not in failing, "failed": ["x"] if c["id"] in failing else [],
-                         "tools": []} for c in cases]
+                         "tools": [] if "NOTOOLS:" + c["id"] in failing else ["verify_identity"]} for c in cases]
                 return {"ok": True, "passed": sum(r["pass"] for r in rows), "total": len(rows), "rows": rows,
                         "duration_s": 300, "simulation_id": "sim"}
         return Tester
@@ -293,6 +294,17 @@ class PipelineTests(unittest.TestCase):
         self.assertIn("selftest_score=10/10 (estimated)", txt)
         self.assertIn("repair round 1 from 2 failing", txt)
         self.assertLessEqual(self.clock.t, 28 * 60)
+
+    def test_platform_failures_are_retested_without_repair(self):
+        # v1: two calls stopped before any tool call (Freya code-step hiccup) -> same version retested, no LLM repair
+        f = Fakes(self.clock, test_results=[{"SELF-02", "SELF-05", "NOTOOLS:SELF-02", "NOTOOLS:SELF-05"}, set()])
+        b, res = self.build(f)
+        self.assertEqual(res["status"], "ok")
+        self.assertEqual(len(f.tests_run), 2)
+        self.assertIn("rerun, no change", f.tests_run[1][0])
+        self.assertIs(f.tests_run[1][2], f.tests_run[0][2])               # the very same workflow
+        self.assertEqual(len(f.saved), 1)                                 # nothing repaired, nothing re-saved
+        self.assertIn("retesting the same version (no repair)", pathlib.Path(res["trace"]).read_text())
 
     def test_repair_discarded_when_not_better(self):
         f = Fakes(self.clock, test_results=[{"SELF-03"}, {"SELF-03"}, {"SELF-03"}])
