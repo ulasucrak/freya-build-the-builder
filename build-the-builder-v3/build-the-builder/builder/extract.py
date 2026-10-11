@@ -50,6 +50,7 @@ import re
 import sys
 import time
 import zipfile
+import zlib
 
 try:  # package import (python -m builder.extract) or direct
     from . import llm
@@ -166,10 +167,8 @@ def _read_bytes(data, name):
             return _read_eml(data)
         if low.endswith(".docx"):
             return _read_docx(data)
-        if low.endswith(".pdf"):
-            # stdlib cannot read PDF text reliably; keep the printable strings
-            strings = re.findall(rb"[\x20-\x7e]{4,}", data)
-            return "(PDF, printable strings only)\n" + "\n".join(s.decode("ascii") for s in strings[:5000])
+        if low.endswith(".pdf") or data[:5] == b"%PDF-":
+            return _read_pdf(data)
         text = _decode(data)
         if low.endswith((".html", ".htm")):
             return _strip_html(text)
@@ -185,6 +184,419 @@ def _read_bytes(data, name):
         return "(could not parse %s: %s)\n%s" % (name, e, _decode(data))
 
 
+# ---------------------------------------------------------------- PDF text (stdlib only)
+
+_PDF_OBJ = re.compile(rb"(?<![0-9])(\d{1,10})[ \t\r\n]+(\d{1,5})[ \t\r\n]+obj\b")
+_PDF_TOKEN = re.compile(r"\s+|%[^\r\n]*|/[^\s/<>\[\]{}()%]*|<<|>>|<[0-9A-Fa-f\s]*>|\[|\]"
+                        r"|[+-]?(?:\d+\.?\d*|\.\d+)(?![^\s/<>\[\]{}()%])|[^\s/<>\[\]{}()%]+")
+_PDF_ESC = {"n": "\n", "r": "\r", "t": "\t", "b": "\b", "f": "\f"}
+
+
+def _pdf_inflate(head, raw):
+    """Decoded stream bytes: FlateDecode or unfiltered; None for other filters (images, LZW...)."""
+    if re.search(rb"/(FlateDecode|Fl)\b", head):
+        try:
+            return zlib.decompress(raw)
+        except zlib.error:
+            try:
+                return zlib.decompressobj().decompress(raw)
+            except zlib.error:
+                return None
+    return None if b"/Filter" in head else raw
+
+
+def _pdf_objects(data):
+    """{object number: (dictionary bytes, decoded stream bytes or None)}, incl. objects in object streams."""
+    starts = [(m.start(), m.end(), int(m.group(1))) for m in _PDF_OBJ.finditer(data)]
+    raw = {}
+    for i, (_s, e, num) in enumerate(starts):
+        raw[num] = data[e:starts[i + 1][0] if i + 1 < len(starts) else len(data)]
+
+    def length(head):
+        m = re.search(rb"/Length[ \t\r\n]+(\d+)(?:[ \t\r\n]+\d+[ \t\r\n]+R)?", head)
+        if not m:
+            return None
+        if m.group(0).endswith(b"R"):
+            ref = re.match(rb"\s*(\d+)", raw.get(int(m.group(1)), b""))
+            return int(ref.group(1)) if ref else None
+        return int(m.group(1))
+
+    objs = {}
+    for num, body in raw.items():
+        m = re.search(rb"\bstream\r?\n", body)
+        if not m:
+            objs[num] = (body.split(b"endobj")[0], None)
+            continue
+        head, n, stream = body[:m.start()], length(body[:m.start()]), None
+        if n is not None and b"endstream" in body[m.end() + n:m.end() + n + 30]:
+            stream = body[m.end():m.end() + n]
+        if stream is None:
+            k = body.rfind(b"endstream")
+            stream = body[m.end():k if k > 0 else len(body)].rstrip(b"\r\n")
+        objs[num] = (head, _pdf_inflate(head, stream))
+    for num, (head, stream) in list(objs.items()):
+        first = re.search(rb"/First[ \t\r\n]+(\d+)", head)
+        if stream and first and re.search(rb"/Type\s*/ObjStm", head):
+            first = int(first.group(1))
+            nums = [int(x) for x in re.findall(rb"\d+", stream[:first])]
+            pairs = list(zip(nums[0::2], nums[1::2]))
+            for j, (onum, off) in enumerate(pairs):
+                stop = pairs[j + 1][1] if j + 1 < len(pairs) else len(stream) - first
+                objs.setdefault(onum, (stream[first + off:first + stop], None))
+    return objs
+
+
+def _pdf_balanced(b):
+    """The << ... >> dictionary at the start of b."""
+    depth, i = 0, 0
+    while i < len(b):
+        if b.startswith(b"<<", i):
+            depth, i = depth + 1, i + 2
+        elif b.startswith(b">>", i):
+            depth, i = depth - 1, i + 2
+            if depth <= 0:
+                return b[:i]
+        else:
+            i += 1
+    return b
+
+
+def _pdf_get(objs, body, key):
+    """Value of /key in a dictionary: nested << >> or [ ] as bytes, or the body of the object it refers to."""
+    m = re.search(rb"/" + key + rb"(?![A-Za-z0-9])\s*", body or b"")
+    if not m:
+        return None
+    rest = body[m.end():]
+    ref = re.match(rb"(\d+)\s+\d+\s+R\b", rest)
+    if ref:
+        return objs.get(int(ref.group(1)), (b"", None))[0]
+    if rest.startswith(b"<<"):
+        return _pdf_balanced(rest)
+    if rest.startswith(b"["):
+        return rest[:rest.find(b"]") + 1]
+    return None
+
+
+def _pdf_cmap(stream):
+    """ToUnicode CMap -> ({code: text}, code width in bytes or None)."""
+    text = stream.decode("latin-1")
+    m = re.search(r"begincodespacerange\s*<([0-9A-Fa-f]+)>", text)
+    width = max(1, len(m.group(1)) // 2) if m else None
+
+    def uni(h):
+        h = h if len(h) % 4 == 0 else h.rjust(len(h) + (-len(h)) % 4, "0")
+        try:
+            return bytes.fromhex(h).decode("utf-16-be", errors="ignore")
+        except ValueError:
+            return ""
+    cmap = {}
+    for block in re.findall(r"beginbfchar(.*?)endbfchar", text, re.S):
+        for src, dst in re.findall(r"<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]*)>", block):
+            cmap[int(src, 16)] = uni(dst)
+    for block in re.findall(r"beginbfrange(.*?)endbfrange", text, re.S):
+        for lo, hi, dst in re.findall(r"<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>\s*(<[0-9A-Fa-f]*>|\[[^\]]*\])", block):
+            lo, hi = int(lo, 16), int(hi, 16)
+            if not 0 <= hi - lo <= 65535:
+                continue
+            if dst.startswith("["):
+                for k, d in enumerate(re.findall(r"<([0-9A-Fa-f]*)>", dst)):
+                    cmap[lo + k] = uni(d)
+            elif len(dst) > 2:
+                base, w = int(dst[1:-1], 16), len(dst) - 2
+                for k in range(hi - lo + 1):
+                    cmap[lo + k] = uni("%0*X" % (w, base + k))
+    return cmap, width
+
+
+def _pdf_font(objs, num):
+    head = objs.get(num, (b"", None))[0]
+    font = {"width": 2 if re.search(rb"/Subtype\s*/Type0", head) else 1, "cmap": {},
+            "glyphs": bool(re.search(rb"/Subtype\s*/Type3", head))}
+    m = re.search(rb"/ToUnicode\s+(\d+)\s+\d+\s+R", head)
+    stream = objs.get(int(m.group(1)), (b"", None))[1] if m else None
+    if stream:
+        font["cmap"], width = _pdf_cmap(stream)
+        font["width"] = width or font["width"]
+        font["glyphs"] = False
+    return font
+
+
+def _pdf_show(raw, font):
+    """Text of a shown string under the current font."""
+    if not font:
+        return raw.decode("cp1252", errors="replace")
+    if font["glyphs"]:  # drawing-only font (Type3 without ToUnicode): a separator, not text
+        return " "
+    w, cmap, out = font["width"], font["cmap"], []
+    for i in range(0, len(raw) - w + 1, w):
+        code = int.from_bytes(raw[i:i + w], "big")
+        if code in cmap:
+            out.append(cmap[code])
+        elif w == 1:
+            out.append(bytes([code]).decode("cp1252", errors="replace"))
+    return "".join(out)
+
+
+def _pdf_literal(s, i):
+    """(bytes, end index) of the literal string starting at s[i] == '('."""
+    out, depth, i, n = [], 0, i + 1, len(s)
+    while i < n:
+        c = s[i]
+        if c == "\\":
+            nx = s[i + 1:i + 2]
+            if nx in _PDF_ESC:
+                out.append(_PDF_ESC[nx])
+                i += 2
+            elif nx and nx in "01234567":
+                m = re.match(r"[0-7]{1,3}", s[i + 1:i + 4])
+                out.append(chr(int(m.group(0), 8) & 0xFF))
+                i += 1 + len(m.group(0))
+            elif nx in ("\r", "\n"):
+                i += 3 if s[i + 1:i + 3] == "\r\n" else 2
+            else:
+                out.append(nx)
+                i += 2
+            continue
+        if c == "(":
+            depth += 1
+        elif c == ")":
+            if depth == 0:
+                return "".join(out).encode("latin-1", errors="replace"), i + 1
+            depth -= 1
+        out.append(c)
+        i += 1
+    return "".join(out).encode("latin-1", errors="replace"), i
+
+
+def _pdf_content_text(content, fonts):
+    """Text shown by a content stream (BT/ET, Tf, Tj, TJ, ', ")."""
+    s = content.decode("latin-1")
+    out, stack, font, i, n = [], [], None, 0, len(s)
+
+    def newline():
+        if out and not out[-1].endswith("\n"):
+            out.append("\n")
+    while i < n:
+        if s[i] == "(":
+            raw, i = _pdf_literal(s, i)
+            stack.append(raw)
+            continue
+        m = _PDF_TOKEN.match(s, i)
+        if not m:
+            i += 1
+            continue
+        tok, i = m.group(0), m.end()
+        if tok[0].isspace() or tok[0] == "%" or tok in ("<<", ">>"):
+            continue
+        if tok[0] == "<":
+            h = re.sub(r"\s", "", tok[1:-1])
+            stack.append(bytes.fromhex(h + "0" * (len(h) % 2)))
+        elif tok == "[":
+            stack.append("[")
+        elif tok == "]":
+            arr = []
+            while stack and not (isinstance(stack[-1], str) and stack[-1] == "["):
+                arr.append(stack.pop())
+            if stack:
+                stack.pop()
+            stack.append(arr[::-1])
+        elif tok[0] == "/":
+            stack.append(tok)
+        elif re.match(r"[+-]?(\d|\.\d)", tok):
+            try:
+                stack.append(float(tok))
+            except ValueError:
+                pass
+        else:  # operator
+            if tok == "BT":
+                newline()
+            elif tok == "Tf" and len(stack) >= 2 and isinstance(stack[-2], str):
+                font = fonts.get(stack[-2][1:])
+            elif tok in ("Tj", "'", '"') and stack and isinstance(stack[-1], bytes):
+                if tok != "Tj":
+                    newline()
+                out.append(_pdf_show(stack[-1], font))
+            elif tok == "TJ" and stack and isinstance(stack[-1], list):
+                for el in stack[-1]:
+                    if isinstance(el, bytes):
+                        out.append(_pdf_show(el, font))
+                    elif isinstance(el, float) and el < -200:  # a wide gap is a word space
+                        out.append(" ")
+            elif tok in ("Td", "TD") and len(stack) >= 2 and isinstance(stack[-1], float):
+                if abs(stack[-1]) > 0.01:
+                    newline()
+                else:
+                    out.append(" ")
+            elif tok == "T*":
+                newline()
+            elif tok == "ID":  # inline image data: skip to EI
+                k = re.search(r"\sEI(?=\s|$)", s[i:])
+                i = i + k.end() if k else n
+            stack = []
+    return "".join(out)
+
+
+def _pdf_pages(objs):
+    """Page object numbers in document order (page tree walk; all page objects when there is no tree)."""
+    pages, seen = [], set()
+
+    def walk(num, depth):
+        if num in seen or depth > 30:
+            return
+        seen.add(num)
+        head = objs.get(num, (b"", None))[0]
+        if re.search(rb"/Type\s*/Pages\b", head):
+            for r in re.findall(rb"(\d+)\s+\d+\s+R\b", _pdf_get(objs, head, b"Kids") or b""):
+                walk(int(r), depth + 1)
+        elif re.search(rb"/Type\s*/Page\b", head):
+            pages.append(num)
+    for num, (head, _st) in sorted(objs.items()):
+        if re.search(rb"/Type\s*/Pages\b", head) and not re.search(rb"/Parent\s", head):
+            walk(num, 0)
+    return pages or [num for num, (head, _st) in sorted(objs.items()) if re.search(rb"/Type\s*/Page\b", head)]
+
+
+def _pdf_text(data):
+    """Text of a PDF: FlateDecode content streams, fonts mapped through their ToUnicode CMaps."""
+    objs = _pdf_objects(data)
+    font_cache = {}
+
+    def fonts_of(head, depth=0):
+        res = _pdf_get(objs, head, b"Resources")
+        parent = re.search(rb"/Parent\s+(\d+)\s+\d+\s+R", head)
+        if res is None and parent and depth < 30:
+            return fonts_of(objs.get(int(parent.group(1)), (b"", None))[0], depth + 1)
+        fonts = {}
+        for name, ref in re.findall(rb"/([^\s/<>\[\]()]+)\s+(\d+)\s+\d+\s+R\b", _pdf_get(objs, res, b"Font") or b""):
+            if int(ref) not in font_cache:
+                font_cache[int(ref)] = _pdf_font(objs, int(ref))
+            fonts[name.decode("latin-1")] = font_cache[int(ref)]
+        return fonts
+
+    parts = []
+    for page in _pdf_pages(objs):
+        head = objs[page][0]
+        m = re.search(rb"/Contents\s*(\[[^\]]*\]|\d+\s+\d+\s+R\b)", head)
+        refs = [int(r) for r in re.findall(rb"(\d+)\s+\d+\s+R\b", m.group(1))] if m else []
+        if len(refs) == 1 and objs.get(refs[0], (b"", None))[1] is None:  # indirect array of streams
+            refs = [int(r) for r in re.findall(rb"(\d+)\s+\d+\s+R\b", objs.get(refs[0], (b"", None))[0])]
+        content = b"\n".join(objs.get(r, (b"", None))[1] or b"" for r in refs)
+        parts.append(_pdf_content_text(content, fonts_of(head)))
+    if len(re.findall(r"\w", "".join(parts))) < 20:  # no page tree found: every text stream, fonts by name
+        fonts = {}
+        for head, _st in objs.values():
+            fonts.update(fonts_of(head))
+        parts = [_pdf_content_text(st, fonts) for head, st in objs.values()
+                 if st and b"BT" in st and not re.search(rb"/(Type\s*/ObjStm|Length1|Subtype\s*/Image)", head)]
+    text = "\n".join(parts)
+    text = "".join(c if c.isprintable() or c == "\n" else " " for c in text)
+    lines = [re.sub(r"\s+", " ", ln).strip() for ln in text.split("\n")]
+    return "\n".join(ln for ln in lines if ln)
+
+
+def _read_pdf(data):
+    """PDF text from its content streams; the printable strings of the raw file only when that finds no text."""
+    try:
+        text = _pdf_text(data)
+    except Exception:  # never crash on a file
+        text = ""
+    if len(re.findall(r"[^\W\d_]", text)) >= 20:
+        return "(PDF text; the page layout is not kept)\n" + text
+    strings = re.findall(rb"[\x20-\x7e]{4,}", data)
+    return "(PDF, printable strings only)\n" + "\n".join(s.decode("ascii") for s in strings[:5000])
+
+
+# ---------------------------------------------------------------- big data files, size cap
+
+DATA_SUMMARY_BYTES = 32 * 1024   # json/csv data files bigger than this are summarised, never sent whole
+MAX_DOC_CHARS = 40000            # per-file cap on the text sent to the model; the rest is cut ("[cut]")
+DATA_EXT = (".json", ".jsonl", ".ndjson", ".csv", ".tsv")
+
+
+def _cap(text, limit=MAX_DOC_CHARS):
+    if len(text) <= limit:
+        return text
+    cut = text.rfind("\n", 0, limit)
+    cut = cut if cut > limit * 0.8 else limit
+    return text[:cut] + "\n[cut: %d more characters of this file not shown]" % (len(text) - cut)
+
+
+def _records(value, depth=0):
+    """(path, list) of the largest list in a JSON value (the value itself when it is a list)."""
+    if isinstance(value, list):
+        return "", value
+    best = ("", None)
+    if isinstance(value, dict) and depth < 4:
+        for k, v in value.items():
+            path, lst = _records(v, depth + 1)
+            if lst is not None and (best[1] is None or len(lst) > len(best[1])):
+                best = (str(k) + ("." + path if path else ""), lst)
+    return best
+
+
+def _outline(value, depth=0):
+    """Compact structure of a JSON value: keys and value types, list lengths."""
+    if isinstance(value, dict):
+        if depth >= 3:
+            return "{%d keys}" % len(value)
+        items = ["%s: %s" % (json.dumps(k, ensure_ascii=False), _outline(v, depth + 1))
+                 for k, v in list(value.items())[:40]]
+        return "{" + ", ".join(items) + (", ..." if len(value) > 40 else "") + "}"
+    if isinstance(value, list):
+        return "[%d x %s]" % (len(value), _outline(value[0], depth + 1) if value else "nothing")
+    return {bool: "bool", int: "number", float: "number", str: "text"}.get(type(value), "null")
+
+
+def _data_summary(data, name):
+    """Short description of a big data file (structure, record count, first record), or None."""
+    low, text = name.lower(), _decode(data)
+    if low.endswith((".csv", ".tsv")):
+        try:
+            dialect = csv.Sniffer().sniff(text[:4096], delimiters=",;\t|")
+            rows = [r for r in csv.reader(io.StringIO(text), dialect) if any(c.strip() for c in r)]
+        except Exception:
+            return None
+        if len(rows) < 3:
+            return None
+        head = rows[0]
+        first = {h.strip(): v.strip() for h, v in zip(head, rows[1])}
+        return ("(data file, %d records, not shown: summary only)\nColumns: %s\nFirst record:\n%s"
+                % (len(rows) - 1, " | ".join(c.strip() for c in head),
+                   _cap(json.dumps(first, indent=1, ensure_ascii=False), 4000)))
+    try:
+        if low.endswith((".jsonl", ".ndjson")):
+            value = [json.loads(ln) for ln in text.splitlines() if ln.strip()]
+        else:
+            value = json.loads(text)
+    except ValueError:
+        return None
+    path, recs = _records(value)
+    if not recs or len(recs) < 2:
+        return None
+    keys = []
+    for r in recs[:50]:
+        for k in (r if isinstance(r, dict) else {}):
+            if k not in keys:
+                keys.append(k)
+    return ("(data file, %d records, not shown: summary only)\nStructure: %s\nRecords: %d at %s\n%s"
+            "First record:\n%s"
+            % (len(recs), _cap(_outline(value), 4000), len(recs), path or "top level",
+               ("Record fields: %s\n" % ", ".join(map(str, keys[:80]))) if keys else "",
+               _cap(json.dumps(recs[0], indent=1, ensure_ascii=False), 4000)))
+
+
+def _read_doc(data, name):
+    """Text of one input file for the model: big data files summarised, every file capped."""
+    if len(data) > DATA_SUMMARY_BYTES and name.lower().endswith(DATA_EXT):
+        try:
+            summary = _data_summary(data, name)
+        except Exception:  # never crash on a file
+            summary = None
+        if summary:
+            return summary
+    return _cap(_read_bytes(data, name))
+
+
 class DocList(list):
     """[(name, text)] plus `dates` {name: ISO datetime or None} and `order_known` (False when a folder's
     files could not be put in a reliable order)."""
@@ -195,8 +607,21 @@ class DocList(list):
         self.dates = {}
 
 
-def _doc_date(data, text):
-    """Date of a document from its Date header (mail or a 'Date:' line near the top); naive UTC or None."""
+def _doc_date(data, text, name=""):
+    """Date of a document from its Date header (mail or a 'Date:' line near the top), else from a leading
+    YYYY-MM-DD in its file name; naive UTC or None."""
+    d = _header_date(data, text)
+    if d is None:
+        m = re.match(r"(\d{4})-(\d{2})-(\d{2})(?!\d)", pathlib.Path(name or "").name)
+        if m:
+            try:
+                d = _dt.datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+            except ValueError:
+                d = None
+    return d
+
+
+def _header_date(data, text):
     raw = None
     m = re.search(rb"(?im)^date:[ \t]*(.+)$", data[:4000])
     if m:
@@ -228,7 +653,8 @@ def _hidden(path, root):
 
 def read_documents(paths):
     """DocList of (name, text). Files keep the order they were given in. A folder expands to its files
-    (dotfiles / hidden folders skipped), sorted by Date header when every file has one, else by name
+    (dotfiles / hidden folders skipped), sorted by date (Date header, else a leading YYYY-MM-DD in the file
+    name) when every file has one, else by name
     (then order_known is False)."""
     docs = DocList()
     for p in paths:
@@ -238,8 +664,8 @@ def read_documents(paths):
             entries = []
             for f in files:
                 data = f.read_bytes()
-                text = _read_bytes(data, f.name)
-                entries.append((f, text, _doc_date(data, text)))
+                text = _read_doc(data, f.name)
+                entries.append((f, text, _doc_date(data, text, f.name)))
             if entries and all(e[2] is not None for e in entries):
                 entries.sort(key=lambda e: (e[2], e[0].name))
             else:
@@ -253,8 +679,8 @@ def read_documents(paths):
             continue
         else:
             data = p.read_bytes()
-            text = _read_bytes(data, p.name)
-            d = _doc_date(data, text)
+            text = _read_doc(data, p.name)
+            d = _doc_date(data, text, p.name)
             docs.append((p.name, text))
             docs.dates[p.name] = d.isoformat(sep=" ") if d else None
     return docs
