@@ -38,7 +38,14 @@ class SignalsOffByDefault(unittest.TestCase):
             neg = wf["nodes"]["negotiate"]
             self.assertNotIn("extraction_schema", neg, name)
             self.assertNotIn("turn_state", wf["nodes"], name)
-            self.assertEqual(neg["on_enter"], {"type": "llm", "prompt": G.NEGOTIATE_ENTER}, name)
+            # FX1: the entry is a fixed tts line when the policy fixes it (static_entry), else the model speaks it
+            if G.static_entry(TG.S.normalise(TG.raw(name))):
+                self.assertEqual(neg["on_enter"], {"type": "tts", "text": "{{w_entry_line}}"}, name)
+            else:
+                self.assertEqual(neg["on_enter"], {"type": "llm", "prompt": G.NEGOTIATE_ENTER}, name)
+            llm = G.generate_workflow(TG.raw(name), options={"static_entry": False})["nodes"]["negotiate"]
+            self.assertEqual(llm["on_enter"], {"type": "llm", "prompt": G.NEGOTIATE_ENTER}, name)
+            self.assertNotIn("extraction_schema", llm, name)
             self.assertTrue(neg["on_enter_first_entry_only"], name)
             self.assertNotIn("turn_state", [t["target_node"] for t in neg["transitions"]], name)
             # negotiate is the node the options-off (pre-v4) build makes (the hooks' embedded runtime differs only in

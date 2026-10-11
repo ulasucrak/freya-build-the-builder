@@ -101,7 +101,14 @@ class Structure(unittest.TestCase):
         self.assertNotIn("turn_state", wf["nodes"])
         self.assertNotIn("end_said", wf["nodes"])
         self.assertTrue(neg["on_enter_first_entry_only"])
-        self.assertIn("State the debt", neg["on_enter"]["prompt"])
+        # FX1: the entry is a fixed tts line when the policy fixes it; with static_entry off the model states the debt
+        if G.static_entry(S.normalise(TG.raw("brief-b"))):
+            self.assertEqual(neg["on_enter"], {"type": "tts", "text": "{{w_entry_line}}"})
+        else:
+            self.assertIn("State the debt", neg["on_enter"]["prompt"])
+        llm = G.generate_workflow(TG.raw("brief-b"), options=dict(OFF, static_entry=False))
+        self.assertIn("State the debt", llm["nodes"]["negotiate"]["on_enter"]["prompt"])
+        self.assertNotIn("turn_state", llm["nodes"])
         self.assertNotIn("w_cb_over", json.dumps(wf["nodes"]["greet_verify"]["transitions"]))
 
     def test_policy_values_not_brief_values(self):

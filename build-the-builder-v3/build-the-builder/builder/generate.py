@@ -1156,9 +1156,38 @@ def shown_rules(p, phase):
     return [r for r in p["rules"] if ph.get(r["id"]) == phase and r["id"] not in roles]
 
 
-def _phase_rules(p, phase):
+def _phase_rules(p, phase, tagged=()):
     labels, roles = _rule_labels(p), rule_roles(p)
-    return _bul([_rule_line(p, r, labels, roles) for r in shown_rules(p, phase)])
+    return _bul([_rule_line(p, r, labels, roles).replace("] ", "] " + CB_TAG, 1) if r["id"] in tagged else _rule_line(p, r, labels, roles)
+                 for r in shown_rules(p, phase)])
+
+
+# EDGE-20: live, a third party's callback time was judged by the model itself (from the 'outside the window' rule and
+# the window list) and schedule_callback was never called, so the hooks' window check and max_asks count never ran.
+# When the hooks enforce it (options guard + enforce_callback), the step prompt says this instead of the window list,
+# and the rule on a time outside the window is marked as the tool's job (the rule text stays: every rule is shown).
+CALLBACK_LINE = ("To arrange a callback, call schedule_callback with the time the person gives; the tool checks the window"
+                 " and tells you what to say.")
+CB_TAG = "(schedule_callback checks this: call it with each time) "
+
+_CB_JUDGE_RX = re.compile(r"\boutside\b|\bnot allowed\b|\bask (?:once|one more time|again)\b|\banother (?:day|time|one)\b", re.I)
+
+
+def _cb_judging(p):
+    """The policy's callback-section texts that have the agent judge an offered time against the window (what to do
+    when it is outside / not allowed). The window definition itself is not one."""
+    return [_norm_rule(t) for t in _texts_in(p.get("callback")) if len(t) > 25 and _CB_JUDGE_RX.search(t)]
+
+
+def _cb_hit(x, texts):
+    x = _norm_rule(_rule_text(x))
+    return any(x[:60] in t or t[:60] in x for t in texts)
+
+
+def callback_rule_ids(p, phase):
+    """Shown rules of a phase that have the agent judge the callback window itself (see _cb_judging)."""
+    texts = _cb_judging(p)
+    return {r["id"] for r in shown_rules(p, phase) if _cb_hit(r["text"], texts)} if texts else set()
 
 
 def wrap_rules(p):
@@ -1242,9 +1271,13 @@ NEGOTIATE_ENTER = ("Identity is verified. State the debt as the rules require, u
                    " sentence each), then ask the first payment question the rules require. Do not call a tool in this turn.")
 
 
-def default_greet_task(p, cl, ef=None):
+def default_greet_task(p, cl, ef=None, cb_tool=False):
+    """`cb_tool`: schedule_callback's hooks check the window and count the tries (options guard + enforce_callback):
+    the window rules, the window list and the per-case callback text give way to CALLBACK_LINE."""
     q = p["identity"]["questions"]
     tp = p["third_party"]
+    tagged = callback_rule_ids(p, "greet") if cb_tool else set()
+    cb_texts = _cb_judging(p) if cb_tool else []
     verbatim = not p["rules"]          # rules missing: carry the section texts here instead
     nocb = p["closing"].get("no_callback") or {}
     cases = []
@@ -1253,11 +1286,13 @@ def default_greet_task(p, cl, ef=None):
     for c in tp["cases"]:
         line = "If " + c["trigger"] + ":"
         again = not asked and (c["action"] == "ask_again" or (c["outcome"] and (c["outcome"], c["reason"]) == (nocb.get("outcome"), nocb.get("reason"))))
-        if again and ef and ef.get("callback_close"):
+        if again and ((ef and ef.get("callback_close")) or cb_tool):
             continue            # schedule_callback counts the tries; its result asks again, the engine closes at the last
         if c["action"] != "callback" and not again and (
                 not (c["outcome"] or c["say"]) or (p["rules"] and _codes_in(c["outcome"], c["reason"], shown))):
             continue            # a rule shown in this step already says it (or there is nothing to do)
+        if c["action"] == "callback" and cb_tool:
+            continue            # CALLBACK_LINE: the tool checks the window and its result says what to do and how to close
         if c["say"]:
             line += " say \"" + c["say"] + "\";"
         if c["action"] == "callback":
@@ -1280,7 +1315,7 @@ def default_greet_task(p, cl, ef=None):
         for i, x in enumerate(q)]
     fail = p["identity"]["fail"]
     forb = p["opening"]["forbidden_before_verification"]
-    wins = "Allowed callback windows: {{w_callback_windows}}" if p["callback"]["days"] else ""
+    wins = CALLBACK_LINE if cb_tool else "Allowed callback windows: {{w_callback_windows}}" if p["callback"]["days"] else ""
     opening = p["opening"]["text"]
     said_in_rules = opening and any(_norm_rule(opening)[:60] in _norm_rule(r["text"]) for r in p["rules"])
     return "\n".join(x for x in [
@@ -1288,7 +1323,7 @@ def default_greet_task(p, cl, ef=None):
         ("Never say these words before identity is verified: " + ", ".join(forb) + ".") if forb else "",
         ("Opening: " + opening) if opening and not said_in_rules else "",
         _bul([x for x in (p["opening"].get("notes") or []) if isinstance(x, str)]) if verbatim else "",
-        _bul(tp["rules"]) if verbatim else "",
+        _bul([(CB_TAG + x) if _cb_hit(x, cb_texts) else x for x in tp["rules"]]) if verbatim else "",
         _bul(cases),
         ("With anyone else, say nothing about an account, a product, money or a payment, not even that you cannot discuss them. "
          "If they ask why you call or offer to pay, say only that you need to speak with the customer personally, then ask when they can be reached.") if tp["cases"] else "",
@@ -1301,7 +1336,7 @@ def default_greet_task(p, cl, ef=None):
         if fail["outcome"] and not (p["rules"] and _codes_in(fail["outcome"], fail["reason"], shown)) else "",
         "Other situations:",
         _bul(_trigger_lines(p, cl, False, ef)),
-        ("Rules for this step:\n" + _phase_rules(p, "greet")) if _phase_rules(p, "greet") else "",
+        ("Rules for this step:\n" + _phase_rules(p, "greet", tagged)) if _phase_rules(p, "greet", tagged) else "",
         NEXT_ACTION,
         STATUS_LINE,
     ] if x)
@@ -1473,7 +1508,7 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
              _bul([p["opening"]["text"]]
                   + [x for x in (p["opening"].get("notes") or []) if isinstance(x, str)][:4])]))}
     greet_tools = [t_verify] + [t for t in (t_callback, t_transfer) if t] + [t_close]
-    task = P.get("greet_verify.task", default_greet_task(p, cl, ef))
+    task = P.get("greet_verify.task", default_greet_task(p, cl, ef, bool(opts["enforce_callback"] and opts["guard"] and t_callback)))
     extra = P.get("greet_verify.extra")
     verify_tool = tn["verify"]
     nodes["greet_verify"] = {
