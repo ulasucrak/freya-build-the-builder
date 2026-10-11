@@ -28,7 +28,7 @@
                 "properties": {
                   "data": {
                     "type": "object",
-                    "description": "Service fields: customerNo (string, required): Customer number the phone menu hands over with the call, e.g. \"90000001\". Sent as a string or a number, both accepted; aiFlow (string, optional): Use case asking; send \"CardOps\" for the statement/debt flow (not validated in test).",
+                    "description": "Service fields: customerNo (string, required): Customer number the phone menu hands over with the call, e.g. \"90000001\". Sent as a string or a number, both accepted; aiFlow (string, optional): Use case asking; always \"CardOps\" for the statement/debt flow (not validated in test).",
                     "properties": {
                       "customerNo": {
                         "type": "string",
@@ -36,10 +36,11 @@
                       },
                       "aiFlow": {
                         "type": "string",
-                        "description": "Use case asking; send \"CardOps\" for the statement/debt flow (not validated in test).",
+                        "description": "Use case asking; always \"CardOps\" for the statement/debt flow (not validated in test).",
                         "enum": [
                           "CardOps"
-                        ]
+                        ],
+                        "default": "CardOps"
                       }
                     },
                     "required": [
@@ -56,7 +57,8 @@
                       },
                       "lang": {
                         "type": "string",
-                        "description": "Call language, e.g. tr."
+                        "description": "Call language; \"tr\".",
+                        "default": "tr"
                       }
                     }
                   }
@@ -398,7 +400,8 @@
                       },
                       "lang": {
                         "type": "string",
-                        "description": "Call language, e.g. tr."
+                        "description": "Call language; \"tr\".",
+                        "default": "tr"
                       }
                     }
                   }
@@ -964,7 +967,8 @@
                       },
                       "lang": {
                         "type": "string",
-                        "description": "Call language, e.g. tr."
+                        "description": "Call language; \"tr\".",
+                        "default": "tr"
                       }
                     }
                   }
@@ -1329,7 +1333,8 @@
                       },
                       "lang": {
                         "type": "string",
-                        "description": "Call language, e.g. tr."
+                        "description": "Call language; \"tr\".",
+                        "default": "tr"
                       }
                     }
                   }
@@ -1601,7 +1606,8 @@
                       },
                       "lang": {
                         "type": "string",
-                        "description": "Call language, e.g. tr."
+                        "description": "Call language; \"tr\".",
+                        "default": "tr"
                       }
                     }
                   }
@@ -1766,7 +1772,7 @@
             }
           },
           "401": {
-            "description": "Gateway: token missing or expired (not checked in the test environment)."
+            "description": "Gateway: token missing or expired; get a new token and retry once. Never returned by the test environment (tokens are not checked)."
           },
           "500": {
             "description": "FBE00099 (type ERROR): technical error on the bank's side. The service failed; nothing was done.",
@@ -1846,7 +1852,7 @@
                 "properties": {
                   "data": {
                     "type": "object",
-                    "description": "Service fields: customerNo (string, required): Customer number the phone menu hands over with the call, e.g. \"90000001\". Sent as a string or a number, both accepted; intAddressInfoType (string, required): What to fetch: E e-mail, P phone, B both. Required (empty gives 400); the test environment answers the same for all three.",
+                    "description": "Service fields: customerNo (string, required): Customer number the phone menu hands over with the call, e.g. \"90000001\". Sent as a string or a number, both accepted; intAddressInfoType (string, required): What to fetch: E e-mail, P phone, B both. Required (empty gives 400); the test environment answers the same for all three. Send E to get the e-mail.",
                     "properties": {
                       "customerNo": {
                         "type": "string",
@@ -1854,12 +1860,13 @@
                       },
                       "intAddressInfoType": {
                         "type": "string",
-                        "description": "What to fetch: E e-mail, P phone, B both. Required (empty gives 400); the test environment answers the same for all three.",
+                        "description": "What to fetch: E e-mail, P phone, B both. Required (empty gives 400); the test environment answers the same for all three. Send E to get the e-mail.",
                         "enum": [
                           "E",
                           "P",
                           "B"
-                        ]
+                        ],
+                        "default": "E"
                       }
                     },
                     "required": [
@@ -1877,7 +1884,8 @@
                       },
                       "lang": {
                         "type": "string",
-                        "description": "Call language, e.g. tr."
+                        "description": "Call language; \"tr\".",
+                        "default": "tr"
                       }
                     }
                   }
@@ -2175,7 +2183,8 @@
                       },
                       "lang": {
                         "type": "string",
-                        "description": "Call language, e.g. tr."
+                        "description": "Call language; \"tr\".",
+                        "default": "tr"
                       }
                     }
                   }
