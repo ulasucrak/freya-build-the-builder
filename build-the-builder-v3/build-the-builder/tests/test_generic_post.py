@@ -131,6 +131,13 @@ class Envelope(unittest.TestCase):
         res = run(err_env(500, "TECH01", "ERROR", "Teknik hata: ABORTED: "))
         self.assertIn("TECH01/ERROR (HTTP 500)", res["data"]["what_to_do_next"])
         self.assertNotIn("ABORTED", json.dumps(res))
+        self.assertNotIn("invalid value", res["data"]["what_to_do_next"])
+
+    def test_400_invalid_arguments(self):
+        res = run(err_env(400, "BAD_ARGS", "ERROR", "card number cannot be empty"))
+        self.assertIn("BAD_ARGS/ERROR (HTTP 400)", res["data"]["what_to_do_next"])
+        self.assertIn("missing or invalid value", res["data"]["what_to_do_next"])
+        self.assertNotIn("cannot be empty", json.dumps(res))
 
     def test_error_without_body_or_code(self):
         res = run({"status": "error", "status_code": 401, "data": None, "message": "Unauthorized token expired"})

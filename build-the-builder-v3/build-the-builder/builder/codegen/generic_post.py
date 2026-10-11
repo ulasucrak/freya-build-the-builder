@@ -292,6 +292,7 @@ if isinstance(result, dict):
             out["type"] = typ
         if http:
             out["http_status"] = http
-        out["what_to_do_next"] = t + " Follow the rule for this situation; never read the service's message text aloud."
+        out["what_to_do_next"] = (t + " Follow the rule for this situation; never read the service's message text aloud."
+                                  + (" The request had a missing or invalid value: check what you sent." if http in (400, 422) else ""))
         result["data"] = out
         result["message"] = t
