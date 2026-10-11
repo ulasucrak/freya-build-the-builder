@@ -263,6 +263,16 @@ class LiveRegressions(unittest.TestCase):
         r = O.check_promise(pr, 540, "Monday the 26th", D(2026, 10, 14), self.cal)
         self.assertEqual((r["code"], r["suggest_date"]), ("not_business_day", "2026-10-27"))
 
+    def test_offer_count_and_no_repeat_in_facts(self):
+        """MIX-09 / GEN-05-refuses (chain250): an extra floor offer after a plain no, an offer repeated after a refusal."""
+        pr = O.products_for_case(self.p, [{"product_id": "p1", "type": "personal_loan", "past_due": 540.0, "days_late": 5,
+                                            "instalment_amount": 180.0}], "2026-10-14T11:00")[0]
+        facts = O.account_facts_text([pr], self.cal, D(2026, 10, 14))
+        n = str(len(pr["offers"]))
+        self.assertIn("Offers allowed for this product: " + n + " in total", facts)
+        self.assertIn("After attempt " + n + " is refused (a plain no or 'I can't' is a refusal), make no other offer", facts)
+        self.assertIn("never repeat an offer that was refused", facts)
+
 
 class S3Closing(unittest.TestCase):
     """Extractor output for fixtures/S3 (another lender's closing table: mixed-promise outcome, note severity order,

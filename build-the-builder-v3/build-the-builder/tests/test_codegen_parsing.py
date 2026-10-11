@@ -3,6 +3,7 @@ amounts in words / with corrections, relative and corrected days, corrected iden
 
     cd build-the-builder && python3 -m unittest tests.test_codegen_parsing -v
 """
+import json
 import pathlib
 import sys
 import unittest
@@ -72,21 +73,70 @@ class CheckOfferParsing(unittest.TestCase):
         self.assertTrue(self.run_check(date="tomorrow")["ok"])
 
     def test_relative_and_corrected_days(self):
-        for said, label in [("end of the week", "(2026-10-16)"), ("a week from today", "(2026-10-21)"),
-                            ("end of next week", "(2026-10-23)"), ("Friday next week", "(2026-10-23)"),
+        for said, label in [("a week from today", "(2026-10-21)"), ("Friday next week", "(2026-10-23)"),
                             ("Friday, no, Thursday", "(2026-10-15)"), ("the 20th, not the 21st", "(2026-10-20)"),
-                            ("the twenty first, sorry, I mean the twentieth", "(2026-10-20)")]:
+                            ("the twenty first, sorry, I mean the twentieth", "(2026-10-20)"), ("this time next week", "(2026-10-21)")]:
             out = self.run_check(date=said)
             self.assertTrue(out["ok"], (said, out))
             self.assertTrue(out["date"].endswith(label), (said, out))
-        # the last business day of the month (Sat 31 Oct is not one), inside the deadline
-        self.assertTrue(self.run_check(date="end of the month")["date"].endswith("(2026-10-30)"))
+            self.assertEqual(out["period"], "", said)
         self.assertTrue(self.run_check(date="in a fortnight")["date"].endswith("(2026-10-28)"))
-        out = self.run_check(date="end of next month")
-        self.assertEqual(out["code"], "after_deadline")
-        self.assertTrue(out["suggest_date"].endswith("(2026-11-02)"), out)
-        self.assertEqual(self.run_check(date="next week")["code"], "bad_date")        # vague: ask for the exact day
         self.assertEqual(self.run_check(date="the 31st of next month")["code"], "bad_date")
+
+    def test_periods_are_vague_and_propose_the_deadline(self):
+        """EDGE-05 / AD-16 (chain250): a period is no day (the rules: ask once, then propose the deadline)."""
+        for said in ("end of the month", "at the end of the month, when my salary comes", "end of next week", "next week",
+                     "end of the week", "month end", "end of next month", "early next month"):
+            out = self.run_check(date=said)
+            self.assertFalse(out["ok"], said)
+            self.assertEqual(out["code"], "bad_date", said)   # the code the generator tests know; `period` marks it
+            self.assertEqual(out["period"], said)
+            self.assertTrue(out["suggest_date"].endswith("(2026-11-02)"), out)
+            self.assertIn("propose the deadline, Monday 2 November 2026", out["what_to_do_next"])
+        out = self.run_check(date="when my salary comes")          # unreadable, no period: also the deadline after one ask
+        self.assertEqual((out["code"], out["period"]), ("bad_date", ""))
+        self.assertIn("propose the deadline, Monday 2 November 2026", out["what_to_do_next"])
+
+    def run_after(self, first, **args):
+        """check_offer after an earlier check_offer call: the engine keeps its result in check_offer_response.*"""
+        vs = dict(self.vs)
+        st, out = T.run_code_locally(self.code, dict(date=first, product_id="p1"), vs)
+        for k, v in out.items():
+            vs["check_offer_response.data." + k] = v
+        st, out = T.run_code_locally(self.code, dict(args, product_id="p1"), vs)
+        self.assertEqual(st, "success", out)
+        return out
+
+    def test_weekday_inside_the_period_said_before(self):
+        # AD-16: 'at the end of next week' -> 'Thursday' is Thursday 22 October, not tomorrow (15 October)
+        out = self.run_after("end of next week", date="Thursday")
+        self.assertTrue(out["ok"], out)
+        self.assertTrue(out["date"].endswith("(2026-10-22)"), out)
+        self.assertEqual(out["period"], "")
+        self.assertTrue(self.run_after("next week", date="Monday")["date"].endswith("(2026-10-19)"))
+        self.assertTrue(self.run_after("end of the month", date="Friday")["date"].endswith("(2026-10-30)"))
+        self.assertTrue(self.run_after("end of the month", date="the 27th")["date"].endswith("(2026-10-27)"))
+        self.assertTrue(self.run_check(date="Thursday at the end of next week")["date"].endswith("(2026-10-22)"))
+        # the period is not carried further, and 'this/next <weekday>' keep their own meaning
+        self.assertTrue(self.run_after("Friday", date="Thursday")["date"].endswith("(2026-10-15)"))
+        self.assertTrue(self.run_after("end of next week", date="this Thursday")["date"].endswith("(2026-10-15)"))
+        self.assertTrue(self.run_check(date="Thursday")["date"].endswith("(2026-10-15)"))
+
+    def test_suggested_day_of_a_planned_attempt_is_not_repeated(self):
+        """GEN-05-refuses: 'I am not paying on the 24' -> the deadline, which is also the last planned attempt."""
+        vs = dict(self.vs)
+        prods = json.loads(vs["w_products_json"])
+        prods[0]["offers"] = [dict(n=1, amount=420.0, date="2026-10-16"), dict(n=2, amount=126.0, date="2026-11-02")]
+        vs["w_products_json"] = json.dumps(prods)
+        st, out = T.run_code_locally(self.code, dict(date="the 3rd of November", product_id="p1"), vs)
+        self.assertEqual(out["code"], "after_deadline")
+        self.assertIn("Attempt 2 in the account facts is on this day too", out["what_to_do_next"])
+        self.assertIn("do not offer it again", out["what_to_do_next"])
+        st, out = T.run_code_locally(self.code, dict(date="Saturday the 17th", product_id="p1"), vs)
+        self.assertEqual(out["code"], "not_business_day")
+        self.assertNotIn("Attempt", out["what_to_do_next"])
+        st, out = T.run_code_locally(self.code, dict(date="end of next month", product_id="p1"), vs)   # a period: no noise
+        self.assertNotIn("Attempt", out["what_to_do_next"])
 
 
 class HookParsing(unittest.TestCase):

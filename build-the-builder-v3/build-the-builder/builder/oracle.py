@@ -945,6 +945,57 @@ def relative_date(text, today, cal=None):
     return None
 
 
+DAY_NAMED_RE = r"\d|\b(?:mon|tues|wednes|thurs|fri|satur|sun|to)day\b|\b(?:mon|tue|wed|thu|fri)\b|\btime\b|\btomorrow\b"
+
+
+def said_period(text, today, cal=None):
+    """The period the customer named ('next week', 'end of the month', 'month end', 'later this week', 'early next
+    month'; the last stated part when corrected) -> (first day, last day, True for the end of the period) from today
+    on, or None. 'a week from today' / 'in 2 weeks' are no period. A text that also names a day ('Friday next week')
+    keeps its period; DAY_NAMED_RE tells whether it names one. 'this' week/month whose business days are all past
+    (a weekend): the next one."""
+    try:
+        cal = cal or dict(weekend=[6, 7])
+        s = " ".join(re.sub(r"\b(the|of|in)\b|,", " ", said_parts(text)[-1]).split())
+        s = re.sub(r"\b(this |next |coming )?(week|month)[ -]end\b", r"end \1\2", s)
+        m = re.search(r"\b(end|late|later|beginning|start|early|middle|mid)?[ -]?(this |next |coming )?(week|month)\b", s)
+        if not m or not (m.group(1) or m.group(2)):
+            return None
+        k = int(m.group(2) in ("next ", "coming "))
+        for j in (k, k + 1):
+            if m.group(3) == "week":
+                a = week_monday(today) + datetime.timedelta(days=7 * j)
+                b = a + datetime.timedelta(days=6)
+            else:
+                y, mo = divmod(today.month - 1 + j, 12)
+                a = datetime.date(today.year + y, mo + 1, 1)
+                b = (a + datetime.timedelta(days=32)).replace(day=1) - datetime.timedelta(days=1)
+            a = max(a, today)
+            if next_business_day(a, cal, True) <= b:
+                return a, b, m.group(1) in ("end", "late", "later")
+    except Exception:
+        pass
+    return None
+
+
+def period_day(text, period, today, cal=None):
+    """A weekday the customer named alone ('Thursday') or with the period ('Thursday at the end of next week') ->
+    that weekday inside the period (said_period of `period`): its last one for the end of a period, else its first;
+    None when no weekday is named, the text says this/next itself, or the day is not in the period."""
+    try:
+        s = said_parts(text)[-1]
+        m = re.search(r"\b(this |next |coming )?([a-z]+day)\b", s)
+        wd = weekday_from_word(m.group(2)) if m else None
+        p = said_period(period, today, cal)
+        if wd is None or not p or (m.group(1) and not said_period(s, today, cal)) or re.search(r"\d", day_words_to_digits(s)):
+            return None
+        ds = [p[0] + datetime.timedelta(days=i) for i in range((p[1] - p[0]).days + 1)]
+        ds = [d for d in ds if d.weekday() == wd]
+        return (ds[-1] if p[2] else ds[0]) if ds else None
+    except Exception:
+        return None
+
+
 def said_date(text, today, next_rule="", cal=None, future=True, order=""):
     """A day as the customer said it, with corrections ('Friday, sorry, I mean Monday', 'the 20th, not the 21st':
     the last stated day that can be read) and every relative form (relative_date, then parse_spoken_date)."""
@@ -1454,8 +1505,10 @@ def account_facts_text(products, cal, today=None):
             for o in p.get("offers") or []:
                 lines.append("   " + offer_text(o))
             if p.get("offers"):
-                lines.append("   After attempt " + str(len(p.get("offers"))) + " is refused, make no other offer for this product: no other amount"
-                             + " (not the floor either), no other day.")
+                n = str(len(p.get("offers")))
+                lines.append("   Offers allowed for this product: " + n + " in total, counting every offer you make. After attempt " + n
+                             + " is refused (a plain no or 'I can't' is a refusal), make no other offer for this product: no other amount"
+                             + " (not the floor either), no other day, and never repeat an offer that was refused.")
             if p.get("deadline"):
                 lines.append("   A promise for " + str(p.get("id")) + " is valid with an amount from " + money(p.get("floor"))
                              + " to " + money(p.get("full")) + " and a business day from today to " + str(p.get("deadline")) + "."

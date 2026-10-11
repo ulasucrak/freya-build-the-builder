@@ -255,5 +255,42 @@ class ReviewRegressions(unittest.TestCase):
         self.assertEqual(O.parse_spoken_date("this Monday", TODAY), D(2026, 10, 19))
 
 
+class Periods(unittest.TestCase):
+    """chain250 AD-16 / EDGE-05: a period is vague (ask once, then the deadline); a weekday said next is inside it."""
+
+    def test_said_period(self):
+        for text, want in [("at the end of next week", (D(2026, 10, 19), D(2026, 10, 25), True)),
+                           ("next week", (D(2026, 10, 19), D(2026, 10, 25), False)),
+                           ("at the end of the month, when my salary comes", (TODAY, D(2026, 10, 31), True)),
+                           ("month-end", (TODAY, D(2026, 10, 31), True)), ("end of the week", (TODAY, D(2026, 10, 18), True)),
+                           ("early next month", (D(2026, 11, 1), D(2026, 11, 30), False)),
+                           ("end of next month", (D(2026, 11, 1), D(2026, 11, 30), True)),
+                           ("end of the month, sorry, end of next week", (D(2026, 10, 19), D(2026, 10, 25), True))]:
+            self.assertEqual(O.said_period(text, TODAY, CAL), want, text)
+        for text in ("a week from today", "in two weeks", "this weekend", "soon", "when my salary comes", "", None, "a month"):
+            self.assertIsNone(O.said_period(text, TODAY, CAL), text)
+        # said on a Saturday: this week has no business day left
+        self.assertEqual(O.said_period("end of the week", D(2026, 10, 17), CAL), (D(2026, 10, 19), D(2026, 10, 25), True))
+        self.assertEqual(O.said_period("end of the month", D(2026, 12, 31), CAL)[1], D(2026, 12, 31))
+        self.assertEqual(O.said_period("next month", D(2026, 12, 2), CAL)[:2], (D(2027, 1, 1), D(2027, 1, 31)))
+
+    def test_a_period_names_no_day(self):
+        import re
+        for text, named in [("end of next week", False), ("end of the month", False), ("Friday next week", True),
+                            ("this time next week", True), ("the 5th of next month", True), ("the fifth of next month", True)]:
+            self.assertEqual(bool(re.search(O.DAY_NAMED_RE, O.day_words_to_digits(text.lower()))), named, text)
+
+    def test_period_day(self):
+        self.assertEqual(O.period_day("Thursday", "end of next week", TODAY, CAL), D(2026, 10, 22))   # AD-16
+        self.assertEqual(O.period_day("thursday.", "at the end of next week", TODAY, CAL), D(2026, 10, 22))
+        self.assertEqual(O.period_day("Thursday at the end of next week", "Thursday at the end of next week", TODAY, CAL), D(2026, 10, 22))
+        self.assertEqual(O.period_day("Friday", "end of the month", TODAY, CAL), D(2026, 10, 30))       # the last Friday
+        self.assertEqual(O.period_day("Friday", "early next month", TODAY, CAL), D(2026, 11, 6))       # the first Friday
+        self.assertEqual(O.period_day("Monday", "end of the week", TODAY, CAL), None)                  # not in it any more
+        for text, period in [("next Thursday", "end of next week"), ("this Thursday", "next week"), ("Thursday", ""),
+                             ("Thursday", "soon"), ("Thursday the 15th", "next week"), ("the 27th", "end of the month"), (None, None)]:
+            self.assertIsNone(O.period_day(text, period, TODAY, CAL), (text, period))
+
+
 if __name__ == "__main__":
     unittest.main()
