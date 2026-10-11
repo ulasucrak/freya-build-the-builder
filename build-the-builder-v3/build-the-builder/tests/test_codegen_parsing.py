@@ -121,6 +121,9 @@ class CheckOfferParsing(unittest.TestCase):
         self.assertTrue(self.run_after("Friday", date="Thursday")["date"].endswith("(2026-10-15)"))
         self.assertTrue(self.run_after("end of next week", date="this Thursday")["date"].endswith("(2026-10-15)"))
         self.assertTrue(self.run_check(date="Thursday")["date"].endswith("(2026-10-15)"))
+        # FX7 / N007: a bare weekday said on that weekday (today is Wednesday) is next week's, not today
+        self.assertTrue(self.run_check(date="Wednesday")["date"].endswith("(2026-10-21)"))
+        self.assertTrue(self.run_check(date="this Wednesday")["date"].endswith("(2026-10-14)"))
 
     def test_suggested_day_of_a_planned_attempt_is_not_repeated(self):
         """GEN-05-refuses: 'I am not paying on the 24' -> the deadline, which is also the last planned attempt."""
