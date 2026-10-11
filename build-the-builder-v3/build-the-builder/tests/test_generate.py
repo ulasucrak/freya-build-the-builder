@@ -266,7 +266,9 @@ class Structure(unittest.TestCase):
                         model_fields.add(f)
         self.assertTrue(model_fields)
         self.assertFalse(model_fields & set(sim.vs))
-        self.assertTrue(all(k.startswith("w_") for k in sim.vs if k not in ("now", "customer_id")))
+        # besides w_*: the call variables the setup defaults to "" (G8), never one with a tool field's name
+        calls = set([v["name"] for v in S.normalise(raw("brief-b"))["variables"]])
+        self.assertTrue(all(k.startswith("w_") or k in calls for k in sim.vs if k not in ("now", "customer_id")))
 
     def test_other_bank_names(self):
         wf = G.generate_workflow(raw("fixture-x"))
@@ -1336,7 +1338,7 @@ class PromptBudget(unittest.TestCase):
                             self.assertIn(t["detect"], x, (node, t["name"]))
         sysp = wf["system_prompt"]
         self.assertIn("never 'I have recorded' before the result", sysp)
-        self.assertIn("several calls in one message run at once and results can be lost", sysp)
+        self.assertIn("One tool call per message, then wait for its result (parallel calls: results can be lost)", sysp)
 
 
 class JudgeReasonFixes(unittest.TestCase):

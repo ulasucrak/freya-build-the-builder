@@ -23,7 +23,7 @@ Graph (every value comes from the policy; nothing here knows a brief):
       code-forced close     -> close_check -> finish -> farewell (tts goodbye) -> close_api -> end_closed
                             (also schedule_callback's last stopped try); turn_state also counts turns -> turn_cap
       goodbye without close -> goodbye_close (code) -> close_check -> finish -> close_api (routing intent; option goodbye_close)
-      turn cap reached      -> force_close (code) -> close_api (api_request close_call) -> end_forced
+      turn cap reached      -> turn_cap (code) -> close_check -> finish -> farewell (tts goodbye) -> close_api -> end_forced
     workflow tool final_close (end_of_call): safety-net close_call when none was sent (stopped otherwise).
 
 Hooks (python, embedded from builder/oracle.py + builder/codegen/*.py) normalise answers/dates/amounts, stop
@@ -37,7 +37,7 @@ derive close_call's outcome/reason from recorded facts (transfer, failed identit
     greet_verify.task / .on_enter / .extra
     negotiate.task / .on_enter / .extra
     tool.<tool name>               replaces a tool description
-    farewell                       spoken by end_forced
+    farewell                       spoken by the farewell node before a code-decided close (turn cap too)
 """
 import argparse
 import ast
@@ -84,6 +84,10 @@ DEFAULT_OPTIONS = {
                                    # Off by default: the extraction is a model call before every negotiate reply
                                    # (live v4: median 3 s, up to 12.5 s; callers hung up after ~60 s of silence)
     "enforce_callback": True,      # schedule_callback: after max_asks stopped tries the engine closes (no_callback)
+    "static_entry": True,          # negotiate's first message (one sentence per product + the first payment question)
+                                   # is built by prepare_account and spoken as a fixed line (tts), when the policy fixes
+                                   # its content (static_entry); the slowest regular turn (median 3.4 s, p90 10.7 s)
+    "reasoning_off": False,        # reasoning_override "disabled" on the conversation nodes. Untested live: off
 }
 
 # Safety net (HANDOFF TP-09: a goodbye loop of ~50 turns without close_call). Judged by the routing model on the
@@ -559,6 +563,62 @@ def static_opening(p):
         if used and set(used) <= names and _quoted_in_rules(p, v, ("greet", "all")):
             return opening + " " + v.strip()
     return ""
+
+
+_MANY_RX = re.compile(r"\b(all|every|everything|multi|multiple|several|them|both)\b", re.I)
+_PAY_RX = re.compile(r"\b(pay|paid|clear|settle|payment)\b", re.I)
+_DEBT_RX = re.compile(r"days late|days overdue|days in arrears|days past due|how many days|number of days|one sentence each"
+                      r"|(past.due|overdue) amount|amount (past due|overdue)", re.I)
+_INTRO_RX = re.compile(r"\bsay (?:that )?(?:you are|you're|we are|we're) calling ((?:from [^.;,:\n\"`]+? )?about [^.;,:\n\"`]+?)"
+                       r"(?=\s*(?:[.;,:\n]|\band\b|$))", re.I)
+_ASK_ALL_RX = re.compile(r"\b(?:whether|if) (?:the customer|the member|the caller|they|you) can (pay|clear|settle) "
+                         r"(all of (?:them|it)|everything|them all|all (?:the |their )?\w+|the whole \w+) today", re.I)
+_ASK_ALL2_RX = re.compile(r"\b(?:whether|if) everything can be (paid|cleared|settled) today", re.I)
+
+
+def static_entry(p):
+    """What the first message after verification says, when the policy fixes it from the account data alone: one
+    sentence per late product (product name in words, days late, the past-due amount) and the first payment question,
+    quoted in the brief (one product / several products). The prepare_account code fills it in per call, so the model
+    is not asked to write the longest line of the call. None when anything is left open (then the model speaks it)."""
+    texts = [r["text"] for r in p["rules"]] + [x for x in (p["products"].get("notes") or []) if isinstance(x, str)]
+    debt = [t for t in texts if _DEBT_RX.search(t)]
+    if not debt:
+        return None
+    one, many = "", ""
+    for k, v in p["phrases"].items():
+        v = (v or "").strip() if isinstance(v, str) else ""
+        if not v.endswith("?") or "today" not in v.lower() or not _PAY_RX.search(v + " " + k.replace("_", " ")) or "{" in v:
+            continue
+        if _MANY_RX.search(k.replace("_", " ") + " " + v):
+            many = many or v
+        else:
+            one = one or v
+    if not many:
+        for t in texts:
+            m = _ASK_ALL_RX.search(t)
+            if m:
+                many = "Can you %s %s today?" % (m.group(1).lower(), m.group(2))
+                break
+            m = _ASK_ALL2_RX.search(t)
+            if m:
+                many = "Can you %s everything today?" % {"paid": "pay", "cleared": "clear", "settled": "settle"}[m.group(1).lower()]
+                break
+    if not one or (p["products"]["max_count"] > 1 and not many):
+        return None
+    intro = ""
+    for t in debt + texts:
+        m = _INTRO_RX.search(t)
+        if m:
+            intro = "I am calling " + m.group(1).strip() + "."
+            break
+    low = " ".join(debt).lower()
+    noun = next((n for k, n in (("past-due amount", "past-due amount"), ("past due amount", "past-due amount"), ("overdue amount", "overdue amount"),
+                                ("amount in arrears", "amount in arrears"), ("arrears", "amount in arrears"), ("past-due", "past-due amount"),
+                                ("past due", "past-due amount"), ("overdue", "overdue amount")) if k in low), "past-due amount")
+    late = next((n for k, n in (("days late", "late"), ("days overdue", "overdue"), ("days in arrears", "in arrears"),
+                                ("days past due", "past due")) if k in low), "late")
+    return {"intro": intro, "noun": noun, "late": late, "one": one, "many": many or one}
 
 
 def _pre_verification_outcomes(p):
@@ -1112,6 +1172,8 @@ def wrap_rules(p):
 
 # data minimisation and disclosure only to the verified person (KVKK / GDPR principles); asking for the customer by
 # the name the bank gives is not a disclosure
+# long replies are slow (live: under 60 characters 0.7 s, over 300 characters 5 s) and the customer hears every word
+SHORT_LINE = "one or two short sentences (max 120 chars), one question at a time; no repeats but the read-back."
 PRIVACY_LINE = ("Privacy: never read back or repeat an identity answer (date of birth, digits); before verification say nothing about"
                 " the account; give no personal or account details to anyone but the verified customer.")
 
@@ -1123,7 +1185,7 @@ def default_system_prompt(p):
     kept = " ".join(r["text"] for ph_ in ("all", "greet", "negotiate") for r in shown_rules(p, ph_))
     phrases = _bul(["%s: \"%s\"" % (k, v) for k, v in p["phrases"].items() if isinstance(v, str) and v.strip() not in kept])
     return "\n".join(x for x in [
-        "You are a bank's digital phone agent on a live call. Speak %s: one to three short sentences per turn, one question at a time." % p["language"],
+        "You are a bank's phone agent on a live call. Speak %s: " % p["language"] + SHORT_LINE,
         "Use only facts from this prompt, the call variables and tool results; never invent amounts, dates, reasons or offers.",
         PRIVACY_LINE,
         "",
@@ -1131,7 +1193,7 @@ def default_system_prompt(p):
         vars_,
         "",
         "Tools:",
-        "- When a rule says to call a tool, call it. One tool call per message, then wait for its result (several calls in one message run at once and results can be lost). Follow a result's what_to_do_next and speak in the same turn; never end a turn with nothing to say.",
+        "- When a rule says to call a tool, call it. One tool call per message, then wait for its result (parallel calls: results can be lost). Follow a result's what_to_do_next and speak in the same turn; never end a turn with nothing to say.",
         "- A failed or stopped call recorded nothing ('Status of your last tool request'): say something was recorded, scheduled or transferred only after a result says so; a read-back asks for confirmation, never 'I have recorded' before the result.",
         "- close_call: last and once, after all other results, with your thanks and goodbye.",
         "",
@@ -1239,7 +1301,10 @@ def _ladder_line(p, ef=None):
             " ('not on <day>' with no new day too; not 'too much') uses the next; after the last, close. One sympathy sentence, once.")
 
 
-def default_negotiate_task(p, cl, check=False, ef=None):
+ENTRY_SAID = "Your first message in this step was already spoken (do not repeat it): \"{{w_entry_line}}\""
+
+
+def default_negotiate_task(p, cl, check=False, ef=None, entry=False):
     multi = p["products"]["max_count"] > 1
     notes = p["notes"]
     pm = p["promise"]
@@ -1248,6 +1313,7 @@ def default_negotiate_task(p, cl, check=False, ef=None):
     lines = [
         "Current step: the customer is verified. Handle the late products below by the bank's rules, from stating the debt to closing the call."
         " The security questions are over: never mention them or why they were asked.",
+        ENTRY_SAID if entry else "",
         "{{w_account_facts}}",
         "{{w_date_facts}}",
         HOOK_POINTER,
@@ -1314,11 +1380,21 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
     rt = runtime_policy(p, names)
     ef = enforce_rt(p, opts)
     rt["enforce"] = ef
+    # call variables (first_name, title, ...) that the setup code defaults to "" when a call does not pass them; the
+    # clock variable is left alone (the setup reads it and falls back to the sandbox clock), and so is any name a tool
+    # field has (a variable with a model-filled field's name would bake that field)
+    fields = {f for t in p["tools"].values() for f in ((t or {}).get("fields") or {})}
+    rt["call_vars"] = [v for v in _var_names(p) if v != names["now_var"] and v not in fields]
     cl = p["closing"]
     P = _Prompts(prompts)
     neg_enter = P.get("negotiate.on_enter", NEGOTIATE_ENTER)
     if ef["signals"]:
         rt["enter"] = neg_enter
+    # fixed first line of negotiate (not with the per-turn signals, whose re-entry speaks {{w_enter_prompt}}, nor when
+    # the prompts give their own entry instruction)
+    entry = static_entry(p) if opts["static_entry"] and not ef["signals"] and not P.get("negotiate.on_enter") else None
+    if entry:
+        rt["entry"] = entry
     tn = {r: _tool_name(p, r) for r in ROLES}
     to = opts["timeout_ms"]
 
@@ -1411,7 +1487,7 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
     nodes["prepare_account"] = _code_node("prepare_account", "prepare_account", rt, "negotiate")
 
     neg_tools = [t for t in (t_check, t_promise, t_note, t_transfer) if t] + [t_close]
-    task = P.get("negotiate.task", default_negotiate_task(p, cl, bool(t_check), ef))
+    task = P.get("negotiate.task", default_negotiate_task(p, cl, bool(t_check), ef, bool(entry)))
     extra = P.get("negotiate.extra")
     signals = signal_schema(p, ef)
     # the extraction labels the customer's last message; a labelled message goes through turn_state (code), which
@@ -1421,7 +1497,8 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
                  "condition": _or(*[_eq("x_reply", v) for v in ef["signals"]])}] if signals else []
     nodes["negotiate"] = {
         "name": "negotiate", "node_type": "conversation",
-        "on_enter": {"type": "llm", "prompt": "{{w_enter_prompt}}" if signals else neg_enter},
+        "on_enter": {"type": "tts", "text": "{{w_entry_line}}"} if entry else
+                    {"type": "llm", "prompt": "{{w_enter_prompt}}" if signals else neg_enter},
         "on_enter_first_entry_only": not signals,
         "task_message": task + (("\n\n" + extra) if extra else ""),
         "tools": neg_tools,
@@ -1465,14 +1542,13 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
                          "condition": _or(_eq("w_close_requested", "yes"))}],
     }
     nodes["finish"] = _code_node("finish", "finish", rt, "close_api")
-    if ef["signals"] or ef["callback_close"]:
-        # a close the code decided (ladder used up, the N-th 'do not want to talk', the last callback try): the
-        # farewell is spoken here, before the engine sends close_call (the rules want the goodbye before it)
-        nodes["finish"]["transitions"].insert(0, {"target_node": "farewell", "description": "the code closed the call: say goodbye first",
-                                                  "condition": _or(_eq("w_end_say", "yes"))})
-        nodes["farewell"] = _code_node("farewell", "farewell", rt, "close_api",
-                                       on_enter={"type": "tts", "text": P.get("farewell", "Thank you for your time. Goodbye.")},
-                                       source='vset(vs, "w_farewell_done", "yes")\n')
+    # a close the code decided (ladder used up, the N-th 'do not want to talk', the last callback try, a turn cap):
+    # the farewell is spoken here, before the engine sends close_call (rule: thank and say goodbye BEFORE close_call)
+    nodes["finish"]["transitions"].insert(0, {"target_node": "farewell", "description": "the code closed the call: say goodbye first",
+                                              "condition": _or(_eq("w_end_say", "yes"), _eq("w_forced", "yes"))})
+    nodes["farewell"] = _code_node("farewell", "farewell", rt, "close_api",
+                                   on_enter={"type": "tts", "text": P.get("farewell", "Thank you for your time. Goodbye.")},
+                                   source='vset(vs, "w_farewell_done", "yes")\n')
     close_fixed = _api_tool(p, tn["close"], "Close the call.", baked={names["close_outcome"]: "{{w_close_outcome}}",
                                                                      names["close_reason"]: "{{w_close_reason}}"},
                             pre="close_final_pre", rt=rt, retries=0, timeout=to)
@@ -1485,8 +1561,14 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
                        + [{"target_node": "end_closed", "description": "always", "condition": {"operator": "always"}}],
     }
     nodes["end_closed"] = _end_node("end_closed", "call_closed")
-    nodes["end_forced"] = _end_node("end_forced", "call_closed_by_limit", P.get("farewell", "Thank you for your time. Goodbye."))
+    # the farewell node already said goodbye before close_api: the end node says nothing more
+    nodes["end_forced"] = _end_node("end_forced", "call_closed_by_limit")
 
+
+    if opts["reasoning_off"]:
+        for n in nodes.values():
+            if n.get("node_type") == "conversation":
+                n["reasoning_override"] = "disabled"
 
     wf = {
         "initial_node": "setup",

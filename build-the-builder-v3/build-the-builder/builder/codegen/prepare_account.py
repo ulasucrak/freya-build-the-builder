@@ -26,5 +26,37 @@ vset(vs, "w_notes_rule", ("Decide a note reason for each product without a promi
      "Only at the end, when every product has a promise or a reason, or when the call ends early (a refusal, a customer who will not talk), "
      "call add_note once per such product, one per message, before you say goodbye; then say goodbye and close.")
      if notes_apply(vs) else "Notes are not used for this customer: do not call add_note.")
-vset(vs, "w_next_action", ("Identity verified, account loaded (" + str(len(prods)) + " product(s): " + ", ".join([str(p.get("id")) for p in prods])
-                           + ") - next: state the debt as in the account facts, then handle the products one by one.") if prods else "")
+# negotiate's first message, when the policy fixes it (RT "entry"): one sentence per product, then the first payment
+# question; spoken as a fixed line (no model call). Only from the account data; never a placeholder.
+E = RT.get("entry") or dict()
+line = ""
+if E:
+    if prods:
+        parts = [str(E.get("intro") or "")]
+        for p in prods:
+            nm_ = str(p.get("name") or "").strip() or ("product " + str(p.get("id") or p.get("index")))
+            nm_ = nm_ if nm_.lower().startswith("your ") else "your " + nm_
+            d = p.get("days_late")
+            a = money(p.get("full"))
+            a = a[:-3] if a.endswith(".00") else a
+            s = nm_[0].upper() + nm_[1:]
+            if d is not None:
+                s += " is " + str(d) + (" day " if d == 1 else " days ") + str(E.get("late") or "late")
+            if a:
+                s += (", and the " if d is not None else ": the ") + str(E.get("noun") or "past-due amount") + " is " + a
+            if d is None and not a:
+                s += " has a late payment"
+            parts.append(s + ".")
+        parts.append(str((E.get("many") if len(prods) > 1 else E.get("one")) or ""))
+        line = " ".join([x for x in parts if x])
+    else:
+        line = "Thank you. I am sorry, I cannot see your account details at the moment."
+    line = re.sub(r"[{}]", "", line)
+vset(vs, "w_entry_line", line)
+ids = ", ".join([str(p.get("id")) for p in prods])
+if prods and line:
+    vset(vs, "w_next_action", "Verified; " + str(len(prods)) + " product(s): " + ids + ". Debt and first question already said: answer the reply.")
+elif prods:
+    vset(vs, "w_next_action", "Verified; " + str(len(prods)) + " product(s): " + ids + ". Next: state the debt, then handle each product.")
+else:
+    vset(vs, "w_next_action", "")
