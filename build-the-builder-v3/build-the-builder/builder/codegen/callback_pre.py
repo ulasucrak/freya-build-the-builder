@@ -37,8 +37,9 @@ else:
     else:
         ef = RT.get("enforce") or dict()
         nc = pair(ef.get("no_callback"))
-        chk["next"] = "That was the last try: do not schedule a callback. " + (
-            "Then " + close_instruction(nc["outcome"], nc["reason"]) if nc["outcome"] else "Close the call as the rules say for this case.")
+        # N149: the model turned 'do not schedule' into one more question; nothing is asked after the last try
+        chk["next"] = "That was the last try: do not schedule a callback and do not ask anything else. Say only that you cannot schedule one, then " + (
+            close_instruction(nc["outcome"], nc["reason"]) if nc["outcome"] else "thank them, say goodbye and close the call as the rules say.")
         if ef.get("callback_close") and nc["outcome"]:
             # the engine closes from here (greet_verify routes on w_cb_over after this result): no close_call turn
             vset(vs, "w_close_req_outcome", nc["outcome"])
