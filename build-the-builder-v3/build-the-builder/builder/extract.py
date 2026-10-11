@@ -511,15 +511,40 @@ def _read_pdf(data):
 
 DATA_SUMMARY_BYTES = 32 * 1024   # json/csv data files bigger than this are summarised, never sent whole
 MAX_DOC_CHARS = 40000            # per-file cap on the text sent to the model; the rest is cut ("[cut]")
+MAX_TOTAL_CHARS = 148000         # whole input: the longest documents are cut further when the sum is larger
+MIN_CUT_CHARS = 8000             # ... but never below this
 DATA_EXT = (".json", ".jsonl", ".ndjson", ".csv", ".tsv")
 
 
 def _cap(text, limit=MAX_DOC_CHARS):
+    """text cut to about `limit` characters: the head and the tail (often a conclusion or a change) are kept,
+    the middle is replaced by a "[cut: ...]" line."""
     if len(text) <= limit:
         return text
-    cut = text.rfind("\n", 0, limit)
-    cut = cut if cut > limit * 0.8 else limit
-    return text[:cut] + "\n[cut: %d more characters of this file not shown]" % (len(text) - cut)
+    head_n, tail_n = int(limit * 0.75), int(limit * 0.25)
+    a = text.rfind("\n", 0, head_n)
+    a = a if a > head_n * 0.8 else head_n
+    b = text.find("\n", len(text) - tail_n)
+    b = b + 1 if 0 <= b < len(text) - tail_n * 0.8 else len(text) - tail_n
+    return (text[:a].rstrip() + "\n[cut: %d characters of this file not shown]\n" % (b - a)
+            + text[b:].lstrip("\n"))
+
+
+def _fit_total(docs, budget):
+    """Cut the longest documents (never below MIN_CUT_CHARS) so the whole input stays within `budget`."""
+    lens = [len(t) for _, t in docs]
+    if sum(lens) <= budget:
+        return
+    lo, hi = MIN_CUT_CHARS, max(lens)
+    while lo < hi:  # the largest per-file limit that fits
+        mid = (lo + hi + 1) // 2
+        if sum(min(n, mid) + (80 if n > mid else 0) for n in lens) <= budget:
+            lo = mid
+        else:
+            hi = mid - 1
+    for i, (label, text) in enumerate(docs):
+        if len(text) > lo:
+            docs[i] = (label, _cap(text, lo))
 
 
 def _records(value, depth=0):
@@ -563,7 +588,7 @@ def _data_summary(data, name):
         first = {h.strip(): v.strip() for h, v in zip(head, rows[1])}
         return ("(data file, %d records, not shown: summary only)\nColumns: %s\nFirst record:\n%s"
                 % (len(rows) - 1, " | ".join(c.strip() for c in head),
-                   _cap(json.dumps(first, indent=1, ensure_ascii=False), 4000)))
+                   _cap(json.dumps(first, ensure_ascii=False), 3000)))
     try:
         if low.endswith((".jsonl", ".ndjson")):
             value = [json.loads(ln) for ln in text.splitlines() if ln.strip()]
@@ -579,14 +604,14 @@ def _data_summary(data, name):
         for k in (r if isinstance(r, dict) else {}):
             if k not in keys:
                 keys.append(k)
-    scalars = ["%s = %s" % (k, json.dumps(v, ensure_ascii=False)[:500]) for k, v in
+    scalars = ["%s = %s" % (k, _cap(json.dumps(v, ensure_ascii=False), 600)) for k, v in
                (value.items() if isinstance(value, dict) else []) if not isinstance(v, (dict, list))][:20]
     return ("(data file, %d records, not shown: summary only)\nStructure: %s\n%sRecords: %d at %s\n%s"
             "First record:\n%s"
             % (len(recs), _cap(_outline(value), 4000), "".join("Top-level value: %s\n" % x for x in scalars),
                len(recs), path or "top level",
                ("Record fields: %s\n" % ", ".join(map(str, keys[:80]))) if keys else "",
-               _cap(json.dumps(recs[0], indent=1, ensure_ascii=False), 4000)))
+               _cap(json.dumps(recs[0], ensure_ascii=False), 3000)))
 
 
 def _read_doc(data, name):
@@ -657,9 +682,9 @@ def _hidden(path, root):
 
 def read_documents(paths):
     """DocList of (name, text). Files keep the order they were given in. A folder expands to its files
-    (dotfiles / hidden folders skipped), sorted by date (Date header, else a leading YYYY-MM-DD in the file
-    name) when every file has one, else by name
-    (then order_known is False)."""
+    (dotfiles / hidden folders skipped; named by their path inside the folder), sorted by date (Date header,
+    else a leading YYYY-MM-DD in the file name) when every file has one, else by path (then order_known is
+    False). Big data files are summarised and every text is capped (MAX_DOC_CHARS, MAX_TOTAL_CHARS)."""
     docs = DocList()
     for p in paths:
         p = pathlib.Path(p)
@@ -677,8 +702,9 @@ def read_documents(paths):
                 if len(entries) > 1:
                     docs.order_known = False
             for f, text, d in entries:
-                docs.append((f.name, text))
-                docs.dates[f.name] = d.isoformat(sep=" ") if d else None
+                label = f.relative_to(p).as_posix()  # sub-folder names tell what a file is (mail, mock, test data)
+                docs.append((label, text))
+                docs.dates[label] = d.isoformat(sep=" ") if d else None
         elif p.name == ".DS_Store":
             continue
         else:
@@ -687,6 +713,7 @@ def read_documents(paths):
             d = _doc_date(data, text, p.name)
             docs.append((p.name, text))
             docs.dates[p.name] = d.isoformat(sep=" ") if d else None
+    _fit_total(docs, MAX_TOTAL_CHARS)
     return docs
 
 
@@ -2033,7 +2060,7 @@ def numbered_rules(docs):
     """Numbered list items ('12. text' + continuation lines) per document, verbatim."""
     rules = []
     for label, text in docs:
-        stem = re.sub(r"\.[^.]+$", "", label)
+        stem = re.sub(r"\.[^.]+$", "", label.rsplit("/", 1)[-1])
         cur = None
         for line in text.splitlines():
             m = re.match(r"^\s{0,3}(\d{1,3})[.)]\s+(\S.*)$", line)
