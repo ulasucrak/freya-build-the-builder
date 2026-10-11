@@ -1,0 +1,30 @@
+{
+  "id": "D1",
+  "title": "Google Drive sync + diff of final case folder",
+  "agent": "runner",
+  "owns": [],
+  "depends": [],
+  "state": "merged",
+  "attempts": 1,
+  "agent_ids": [
+    {
+      "id": "aa82001aa1756b29b",
+      "model": "sonnet",
+      "at": 1791740535.271487
+    }
+  ],
+  "created": 1791740527.200966,
+  "updated": 1791740977.4374459,
+  "last_activity": 1791740951.326942,
+  "last_report": {
+    "state": "done",
+    "msg": "Drive sync built+run: new=3 (README.md, example-scenarios.md, sources/emails/attachments/2026-10-08-statement-debt-analysis.md) changed=1 (sources/emails/2026-09-24-kickoff-questions.txt: ozan@ -> ozan.er@ in Cc) missing=0; test-customers.json unchanged (34 cust, 617 pairs); local case folder now mirrors Drive; scripts in scratchpad drive_sync.sh/drive_watch.sh",
+    "at": 1791740951.3269389
+  },
+  "spec": "GOAL: the organizers keep updating the final-case files in a PUBLIC Google Drive folder: https://drive.google.com/drive/folders/1r9KOek3SXiE0mu1wBofezD0bjiAJhcYQ . Build a repeatable sync so we always run on the latest files. Be fast (≤15 min).\n1. Write /private/tmp/claude-501/-Users-ulas-Desktop-Freya/57eb871d-3581-44e5-a48d-daea97c23a2e/scratchpad/drive_sync.sh (and helper python if needed) that downloads the whole folder tree (recursively, keeping relative paths) into a fresh dir /private/tmp/claude-501/-Users-ulas-Desktop-Freya/57eb871d-3581-44e5-a48d-daea97c23a2e/scratchpad/drive/<UTC timestamp>/ . Preferred: create a throwaway venv /private/tmp/claude-501/-Users-ulas-Desktop-Freya/57eb871d-3581-44e5-a48d-daea97c23a2e/scratchpad/venv-gdown (python3 -m venv) and pip install gdown there (NOT into the project venv), then gdown --folder <url> -O <dir> --remaining-ok. Fallback if gdown fails: scrape https://drive.google.com/embeddedfolderview?id=<folderId> (lists files + subfolders with ids), recurse into subfolders, download files via https://drive.usercontent.google.com/download?id=<id>&export=download&confirm=t . Google Docs/Sheets (if any) export as text/markdown/csv.\n2. Compare the downloaded tree with the local case folder \"/Users/ulas/Desktop/Freya/Build the Builder - Final Case\" (ignore .DS_Store): list NEW / CHANGED (sha256) / MISSING files. For changed text files, write unified diffs to /private/tmp/claude-501/-Users-ulas-Desktop-Freya/57eb871d-3581-44e5-a48d-daea97c23a2e/scratchpad/drive/<ts>-diff.txt ; for test-customers.json report record-count/keys change and whether any request/response pair changed.\n3. If there are new/changed files: copy them into \"/Users/ulas/Desktop/Freya/Build the Builder - Final Case\" (keep a backup of the previous version of each changed file in /private/tmp/claude-501/-Users-ulas-Desktop-Freya/57eb871d-3581-44e5-a48d-daea97c23a2e/scratchpad/drive/backup-<ts>/ ), so the local case folder mirrors Drive. Never delete local files that are missing on Drive — just report them.\n4. Print a one-line machine-readable summary at the end: SYNC <ts> new=N changed=M missing=K files=<comma list>.\n5. Run it once now and report. Also write /private/tmp/claude-501/-Users-ulas-Desktop-Freya/57eb871d-3581-44e5-a48d-daea97c23a2e/scratchpad/drive_watch.sh: loops every 300 s running drive_sync.sh and EXITS (code 0) as soon as a sync reports new>0 or changed>0, printing the summary (so the orchestrator gets notified); stops after 3 h.\nDo not modify the git repo. Final report ≤15 lines: what changed vs our local copy right now (file list + 1-line gist each), and the exact commands to run the sync and the watcher.",
+  "base": null,
+  "branch": null,
+  "worktree": null,
+  "workdir": "/Users/ulas/Desktop/Freya",
+  "merged_sha": null
+}

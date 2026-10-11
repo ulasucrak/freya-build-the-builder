@@ -1,0 +1,37 @@
+{
+  "id": "Q1",
+  "title": "Generic path quick wins from RG review",
+  "agent": "coder",
+  "owns": [
+    "build-the-builder-v3/build-the-builder/builder/generate.py",
+    "build-the-builder-v3/build-the-builder/builder/codegen/generic_post.py",
+    "build-the-builder-v3/build-the-builder/builder/codegen/generic_pre.py",
+    "build-the-builder-v3/build-the-builder/tests/test_generate_generic*.py",
+    "build-the-builder-v3/build-the-builder/tests/test_generic_post*.py"
+  ],
+  "depends": [],
+  "state": "running",
+  "attempts": 1,
+  "agent_ids": [
+    {
+      "id": "aa083534222b11ae2",
+      "model": "opus",
+      "at": 1791742256.989567
+    }
+  ],
+  "created": 1791742251.847818,
+  "updated": 1791742536.395974,
+  "last_activity": 1791742536.395969,
+  "last_report": {
+    "state": "started",
+    "msg": "generic path: timeouts/no retries, waiting phrase line, headers, end reasons, success codes, raw placeholders",
+    "at": 1791742259.2484999
+  },
+  "spec": "HARD DEADLINE: committed in 20 minutes (we must start the final build soon). Kit build-the-builder-v3/build-the-builder, generic service-agent path only (collection path untouched). Fix, in this priority order, stop when time is up (commit after each):\n1. generate.py ~1556/1793: generic api tools timeoutMs 20000 and maxRetries 0 for ALL generic tools.\n2. generate.py ~1555/1716: (covered by 1: no retries anywhere in generic path).\n3. Prompt (~1855): add ONE generic line: \"Before calling a service, say the rules' waiting phrase (if the rules define one) in the same message.\" Keep prompt growth minimal.\n4. ~1801: generic tools send also \"Accept: application/json\"; header parameters declared in openapi and a bearer token from securitySchemes become headers with {{var}} values when a matching call variable exists (generic; skip if none).\n5. ~1551 END_REASONS: derive end reasons from policy trigger actions/outcomes (normalised to [a-z_]) plus 'done' and 'no_response'; keep current set as fallback if derivation gives nothing.\n6. generic_post.py:193 + inline copy: success-code list read from the openapi response schema enum/example of the result code field when available (passed via rt_post); fallback to current list.\n7. generic_pre.py:55: when a {{var}} stays unfilled (literal placeholder), pass the raw text through instead of dropping the field.\nNo case literals (tests/test_generate.py bans some words; keep generic). Full suite: cd kit && /Users/ulas/Desktop/Freya/.venv/bin/python -m unittest discover -s tests -p \"test_*.py\" must stay green (593 OK now). Dry-run validate a generic workflow with final-mock/openapi.json (as G did) if quick. Final report ≤10 lines.",
+  "base": "714042ab4aec482c694bd0d26190ec50e1c72617",
+  "branch": "orch/final-Q1",
+  "worktree": "/Users/ulas/Desktop/Freya/.worktrees/Q1",
+  "workdir": null,
+  "merged_sha": null,
+  "last_commit": 1791742536.395971
+}

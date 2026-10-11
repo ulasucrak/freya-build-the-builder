@@ -1,0 +1,30 @@
+{
+  "id": "RG",
+  "title": "Review generic path: no case hard-coding + correctness",
+  "agent": "reviewer",
+  "owns": [],
+  "depends": [],
+  "state": "merged",
+  "attempts": 1,
+  "agent_ids": [
+    {
+      "id": "ab844a31cc78faa90",
+      "model": "opus",
+      "at": 1791742143.724183
+    }
+  ],
+  "created": 1791742139.344374,
+  "updated": 1791742251.72227,
+  "last_activity": 1791742226.5324428,
+  "last_report": {
+    "state": "done",
+    "msg": "approve-with-nits: no case literals in builder; borderline: success code '1'/returnCode envelope, fixed END_REASONS incl main_menu; risks: 15s timeout+1 retry on reads vs 12s mock, mutating detection by verb list, no Accept/Authorization headers, no waiting phrase guidance",
+    "at": 1791742226.53244
+  },
+  "spec": "Read-only review of orch/final vs main (git diff main...orch/final -- build-the-builder-v3/build-the-builder/builder build-the-builder-v3/build-the-builder/build.py) — tasks G, G2, X, P added a generic service-agent path to our agent BUILDER for the hackathon final case (folder \"/Users/ulas/Desktop/Freya/Build the Builder - Final Case\"). Hackathon rule: \"do not hard-code this case into the builder\"; the workflow is reviewed by judges and traces are read to check the agent came out of the builder.\nCheck within 15 minutes:\n1. HARD-CODING: any case-specific literal in builder code (service/path names like cards.list, field names like customerNo/ibanEmail/debtTL, aiFlow/CardOps, Turkish sentences from the case, currency lists tied to the case, 'Freya Bank', customer numbers, file names of the case folder). Generic language support (Turkish number words/month names) is fine. List each with file:line and a generic alternative.\n2. CORRECTNESS RISKS in the generic workflow for a live call: pre hook envelope building, post hook unwrap/errors, end nodes and transfer, variables {{customerNumber}}/{{now}}, timeouts (one mock answer takes 12 s), retries on mutating tools, prompt size (~5k tokens) — anything that would break calls.\n3. Quick wins (≤10 min of coding each) ranked.\nVerdict + ≤12 lines of concrete items (file:line, why, fix). Do not edit files.",
+  "base": null,
+  "branch": null,
+  "worktree": null,
+  "workdir": "/Users/ulas/Desktop/Freya",
+  "merged_sha": null
+}

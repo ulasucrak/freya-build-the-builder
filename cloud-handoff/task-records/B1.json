@@ -1,0 +1,30 @@
+{
+  "id": "B1",
+  "title": "Trial build final-try1 + 42 scenarios",
+  "agent": "runner",
+  "owns": [],
+  "depends": [],
+  "state": "running",
+  "attempts": 1,
+  "agent_ids": [
+    {
+      "id": "af81895e0cc0e2034",
+      "model": "sonnet",
+      "at": 1791742139.2838001
+    }
+  ],
+  "created": 1791742126.411833,
+  "updated": 1791742139.283802,
+  "last_activity": 1791742139.283802,
+  "last_report": {
+    "state": "started",
+    "msg": "build final-try1 then run 42 scenarios",
+    "at": 1791742134.364268
+  },
+  "spec": "FAST. cwd = /Users/ulas/Desktop/Freya/build-the-builder-v3/build-the-builder (branch orch/final). source env.sh (never print keys). PY=/Users/ulas/Desktop/Freya/.venv/bin/python.\n1. Build: time BUILD_TRACE_OUT=traces/final-try1.log $PY build.py \"/Users/ulas/Desktop/Freya/Build the Builder - Final Case\" --openapi ../../final-mock/openapi.json --slot final-try1 --budget-min 27   (generic path auto-skips self-test). Report build time, errors/warnings, agent_id (from .freya-agents.json slot final-try1), workflow node list + tool names, system prompt size (chars) and its first 15 lines (language line etc.) from out/final-try1.workflow.json.\n2. Run scenarios: $PY tools/run_scenarios.py <agent_id> --cases /private/tmp/claude-501/-Users-ulas-Desktop-Freya/57eb871d-3581-44e5-a48d-daea97c23a2e/scratchpad/final-scenarios.json --language tr --force-cancel-others --out results/final-try1.json --tx-dir results/tx-final-try1/ . (One sim per workspace; if another sim blocks, it's ours from earlier -> cancel.)\n3. Report (≤20 lines): N/42 pass, per family (EX/O/E/A), each failed id with 1-line judge reason, empty calls, slowest turn median/max, any tool errors (4xx/5xx/timeouts) seen in transcripts, and whether the agent spoke Turkish. Save details to scratchpad/final-try1.md. Do not modify tracked files.",
+  "base": null,
+  "branch": null,
+  "worktree": null,
+  "workdir": "/Users/ulas/Desktop/Freya",
+  "merged_sha": null
+}
