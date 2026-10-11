@@ -30,10 +30,10 @@ Scoring is done by `tools/score.py`.
 
 ## Baseline (v5, original set)
 - 159/250 overall: Brief A 108/150, Brief B 51/100.
-- About 96 failures were EMPTY calls (infra, 0 turns). Excluding them: about 159/190 (84%).
+- 60 failures were EMPTY calls (infra, 0 turns: 24 Brief A + 36 Brief B). Excluding them: 159/190 (84%).
 - Weakest families (passed/total): Counter-offer 4/19, Persuasion 3/12, Refusal 4/10, Asks back 6/14,
-  Multi-product mix 12/25, Dispute 5/9, Already paid 5/9, Dates 17/25. Many of these are inflated
-  by empty calls. Strongest: Identity 19/20, Pay full 9/10, Mid-call change 17/20.
+  Multi-product mix 12/25, Dispute 5/9, Already paid 5/9, Dates 17/25. These counts include the
+  empty calls. Strongest: Identity 19/20, Pay full 9/10, Mid-call change 17/20.
 
 ## Judge-check fixes made after the v5 run
 1. Dropped the "call is on <date>" check.
