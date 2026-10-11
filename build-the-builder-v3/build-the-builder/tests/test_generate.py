@@ -1260,7 +1260,11 @@ class PromptBudget(unittest.TestCase):
         self.assertEqual(sorted(k for k, v in props.items() if "default" not in v), ["amount", "date", "product_id"])
 
     def test_goodbye_safety_net(self):
-        wf = G.generate_workflow(raw("brief-b"))
+        # off by default (a routing-model call per turn): no node, no intent transition
+        dflt = G.generate_workflow(raw("brief-b"))
+        self.assertNotIn("goodbye_close", dflt["nodes"])
+        self.assertNotIn("matches_intent", json.dumps(dflt))
+        wf = G.generate_workflow(raw("brief-b"), options={"goodbye_close": True})
         n = wf["nodes"]
         self.assertEqual(G.lint_workflow(wf), [])
         for k in ("greet_verify", "negotiate"):

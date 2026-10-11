@@ -69,7 +69,8 @@ DEFAULT_OPTIONS = {
     "negotiate_max_turns": 80,
     "timeout_ms": 12000,
     "check_tool": True,            # check_offer: code_exec tool that checks a customer's own date/amount before the read-back
-    "goodbye_close": True,         # both sides said goodbye but no close_call came: the engine closes (routing intent)
+    "goodbye_close": False,        # both sides said goodbye but no close_call came: the engine closes. Off: needs a
+                                   # routing-model call (matches_intent) on every turn; no deterministic signal exists
 }
 
 # Safety net (HANDOFF TP-09: a goodbye loop of ~50 turns without close_call). Judged by the routing model on the
@@ -872,7 +873,7 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
     t_check = _code_tool("check_offer", "Check a day and/or an amount the customer named for one product. CALL it before you answer them.",
                          {"product_id": "As in the account facts.",
                           "date": "As the customer said it (words are fine) or YYYY-MM-DD; empty if none.",
-                          "amount": "A number, e.g. 420.5; empty if none."},
+                          "amount": "The amount as the customer said it (words are fine), or a number. Leave empty if they named no amount."},
                          "check_offer", rt) if opts["check_tool"] else None
 
     # leave on a successful close, or after two close_call requests that really went out (counted in the
