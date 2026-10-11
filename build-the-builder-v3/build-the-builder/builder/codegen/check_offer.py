@@ -7,7 +7,12 @@ today = today_of(vs)
 prods = products_of(vs)
 prod = find_product(prods, args.get("product_id"))
 said = str(args.get("date") or "").strip()
-amt = to_number(args.get("amount"))
+# corrections ('Friday, sorry, Monday') and relative days ('end of the month') are resolved here; check_promise
+# then gets an exact date
+rd = said_date(said, today, nm("next_weekday", ""), cal) if said else None
+if rd is not None:
+    said = iso(rd)
+amt = parse_amount(args.get("amount")) if str(args.get("amount") or "").strip() else None
 out = dict(ok=False, code="", date="", amount=None, suggest_date="", suggest_amount=None, what_to_do_next="")
 if prod is None:
     out["code"] = "unknown_product"
