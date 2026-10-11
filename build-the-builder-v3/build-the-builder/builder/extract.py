@@ -63,14 +63,15 @@ try:
 except Exception:  # pragma: no cover - module not merged yet
     _schema_validate = None
 
-TOP_KEYS = ["source", "variables", "clock", "calendar", "opening", "third_party", "identity", "products",
-            "bands", "amounts", "dates", "promise", "callback", "triggers", "notes", "outcomes", "phrases",
-            "tools", "rules"]
-PART1_KEYS = ["source", "variables", "clock", "calendar", "opening", "third_party", "identity", "products",
-              "bands", "callback"]
+TOP_KEYS = ["source", "language", "variables", "clock", "calendar", "opening", "third_party", "identity",
+            "products", "bands", "amounts", "dates", "promise", "callback", "triggers", "notes", "outcomes",
+            "phrases", "tools", "rules"]
+PART1_KEYS = ["source", "language", "variables", "clock", "calendar", "opening", "third_party", "identity",
+              "products", "bands", "callback"]
 PART2_KEYS = ["amounts", "dates", "promise", "triggers", "notes", "outcomes", "phrases", "closing"]
 DIFF_KEYS = ["calendar", "bands", "identity", "callback", "outcomes", "triggers", "closing"]
 LIST_KEYS = {"variables", "bands", "triggers", "rules"}
+TEXT_KEYS = {"language"}      # plain text (or null) sections
 OPTIONAL_KEYS = ["closing"]   # contract extensions (policy_schema reads them when present)
 
 TOTAL_BUDGET_S = int(os.environ.get("EXTRACT_BUDGET_S", "225"))   # whole extraction must stay < 4 min
@@ -578,9 +579,12 @@ def _data_summary(data, name):
         for k in (r if isinstance(r, dict) else {}):
             if k not in keys:
                 keys.append(k)
-    return ("(data file, %d records, not shown: summary only)\nStructure: %s\nRecords: %d at %s\n%s"
+    scalars = ["%s = %s" % (k, json.dumps(v, ensure_ascii=False)[:500]) for k, v in
+               (value.items() if isinstance(value, dict) else []) if not isinstance(v, (dict, list))][:20]
+    return ("(data file, %d records, not shown: summary only)\nStructure: %s\n%sRecords: %d at %s\n%s"
             "First record:\n%s"
-            % (len(recs), _cap(_outline(value), 4000), len(recs), path or "top level",
+            % (len(recs), _cap(_outline(value), 4000), "".join("Top-level value: %s\n" % x for x in scalars),
+               len(recs), path or "top level",
                ("Record fields: %s\n" % ", ".join(map(str, keys[:80]))) if keys else "",
                _cap(json.dumps(recs[0], indent=1, ensure_ascii=False), 4000)))
 
@@ -862,9 +866,13 @@ def parse_openapi(path_or_spec):
 # =============================================================== 3. LLM prompts (generic contract)
 
 SYSTEM = (
-    "You are a meticulous extraction engine. You turn a bank's specification for an outbound phone agent "
-    "(clean spec or raw material: mails, policy extracts, memos, code lists) into a JSON policy that a code "
-    "generator consumes. Use ONLY what the documents say. Never invent values, names, dates or phrases; when "
+    "You are a meticulous extraction engine. You turn a bank's specification for a phone agent "
+    "(clean spec or raw material: mails, policy extracts, memos, code lists, call-flow diagrams, transcripts) into "
+    "a JSON policy that a code generator consumes. Extract only how the phone agent must behave on its calls. "
+    "Ignore instructions addressed to the people who build, test or host the agent (how to build it, mock or "
+    "deploy its services, submit the work, or how the work is scored or judged), setup steps, and test/sample data "
+    "rows: they are context, never rules for the agent. "
+    "Use ONLY what the documents say. Never invent values, names, dates or phrases; when "
     "something is not specified use null / [] / false and say so in that section's \"notes\". Copy rule texts, "
     "phrases and sentences to be spoken VERBATIM (keep {placeholders} the documents use). Use the exact "
     "identifiers (tool names, field names, enum values, variable names) found in the documents and the tool "
@@ -892,7 +900,12 @@ def _opts(options):
 CONTRACT = {
     "source": '{"briefs": [document names in order], "overrides_applied": ["one line per change a later '
               'document/memo makes to an earlier rule: what changed, old -> new, with a short quote"], "notes": []}',
-    "variables": '[{"name": exact call-variable name, "meaning": text}]  -- variables the agent knows at call start',
+    "language": 'the language the agent speaks on the calls, as an English language name (e.g. "English", '
+                '"German", "Spanish"): the language the documents say the calls are held in, else the language '
+                'of the sentences the agent must say; null only if the documents give no hint',
+    "variables": '[{"name": exact call-variable name, "meaning": text, "example": one example value of this '
+                 'variable exactly as the documents show it (e.g. in a sample call or test data), or null}]  -- '
+                 'variables the agent knows at call start',
     "clock": '{"now_variable": name of the variable holding the current date/time or null, "timezone": text|null, '
              '"date_format": format of that variable as the documents show it, "notes": []}',
     "calendar": '{"weekend": [ISO weekday ints, Monday=1 .. Sunday=7, that are NOT business days], '
@@ -1039,8 +1052,11 @@ def part_prompt(keys, docs_text, tools, api_description):
 
 def rules_prompt(docs_text):
     return (
-        "List EVERY rule in the documents below, verbatim, in document order, as JSON: "
-        "{\"rules\": [{\"id\": text, \"text\": verbatim text}]}.\n"
+        "List EVERY rule in the documents below for the phone agent's behaviour on its calls, verbatim, in "
+        "document order, as JSON: {\"rules\": [{\"id\": text, \"text\": verbatim text}]}.\n"
+        "- Leave out instructions to the people who build, test or host the agent (building it, mocking or "
+        "deploying services, submission, scoring/judging), setup steps, code, and test/sample data records: "
+        "they are not rules for the agent.\n"
         "- A numbered rule keeps its number: id = \"<document name without extension>.<number>\".\n"
         "- Unnumbered rule sentences/bullets (also in mails, memos, code lists): id = \"<document name without "
         "extension>.<short section slug>.<k>\".\n"
@@ -1318,6 +1334,22 @@ def _as_list(key, value, warnings):
     return [value]
 
 
+def norm_language(v, warnings=None):
+    """Language name as text ("German"), or None when not stated. Accepts {"name": ...}, lists, codes."""
+    if isinstance(v, dict):
+        v = next((v[k] for k in ("name", "language", "value", "spoken") if v.get(k)), None)
+    if isinstance(v, (list, tuple)):
+        v = next((x for x in v if isinstance(x, str) and x.strip()), None)
+    if not isinstance(v, str):
+        if v is not None and warnings is not None:
+            warnings.append("language: expected text, got %s" % type(v).__name__)
+        return None
+    v = re.sub(r"\s+", " ", v).strip().strip(".\"'")
+    if not v or v.lower() in ("null", "none", "unknown", "n/a", "not stated"):
+        return None
+    return v[:1].upper() + v[1:] if v[:1].islower() else v
+
+
 def normalise_section(key, v, warnings):
     """Coerce one section to its contract types. Bad values move into notes with a warning."""
     if key == "calendar":
@@ -1521,9 +1553,19 @@ def normalise_section(key, v, warnings):
                 t.setdefault(f, None)
             out.append(t)
         return out
+    if key == "language":
+        return norm_language(v, warnings)
     if key == "variables":
         v = _as_list(key, v, warnings)
-        return [x if isinstance(x, dict) else {"name": str(x), "meaning": ""} for x in v]
+        out = []
+        for x in v:
+            x = dict(x) if isinstance(x, dict) else {"name": str(x), "meaning": ""}
+            if "example" in x:  # one value as the documents show it; test calls use it
+                ex = x["example"]
+                x["example"] = None if ex in (None, "", [], {}) else (
+                    ex if isinstance(ex, (str, int, float)) else json.dumps(ex, ensure_ascii=False))
+            out.append(x)
+        return out
     if key == "rules":
         v = _as_list(key, v, warnings)
         out = []
@@ -1847,7 +1889,11 @@ def local_validate(policy):
         return ["policy is not an object"]
     for k in TOP_KEYS:
         if k not in policy:
-            problems.append("missing top-level key: %s" % k)
+            if k not in TEXT_KEYS:  # optional text sections (language) may be absent
+                problems.append("missing top-level key: %s" % k)
+        elif k in TEXT_KEYS:
+            if policy[k] is not None and not isinstance(policy[k], str):
+                problems.append("%s must be text or null" % k)
         elif k in LIST_KEYS and not isinstance(policy[k], list):
             problems.append("%s must be a list" % k)
         elif k not in LIST_KEYS and not isinstance(policy[k], dict):
@@ -2015,42 +2061,8 @@ def _call_json(prompt, purpose, deadline, model=None):
                         timeout_s=max(0.0, deadline - time.time()), deadline=deadline)
 
 
-def extract_policy(brief_paths, openapi_path, *, replicates=2, budget_s=None, warnings=None):
-    """brief file(s) + openapi -> policy dict (contract v1). Raises ExtractError if the LLM fails entirely."""
-    t0 = time.time()
-    budget_s = budget_s or TOTAL_BUDGET_S
-    warnings = [] if warnings is None else warnings
-    docs = read_documents(brief_paths)
-    if not docs:
-        raise ExtractError("no brief documents found in %s" % brief_paths)
-    tools_info = parse_openapi(openapi_path)
-    docs_text = documents_block(docs)
-    api_desc = tools_info.get("description", "")
-    replicates = max(1, int(replicates))
-    end = t0 + budget_s - END_MARGIN_S
-    round1_end = t0 + budget_s * ROUND1_SHARE
-
-    jobs = {}
-    with cf.ThreadPoolExecutor(max_workers=2 * replicates + 1) as pool:
-        for r in range(replicates):
-            jobs[("p1", r)] = pool.submit(_call_json, part_prompt(PART1_KEYS, docs_text, tools_info["tools"], api_desc),
-                                          "extract policy part 1 (replicate %d)" % (r + 1), round1_end)
-            jobs[("p2", r)] = pool.submit(_call_json, part_prompt(PART2_KEYS, docs_text, tools_info["tools"], api_desc),
-                                          "extract policy part 2 (replicate %d)" % (r + 1), round1_end)
-        jobs[("rules", 0)] = pool.submit(_call_json, rules_prompt(docs_text), "extract verbatim rules",
-                                         round1_end, llm.fast_model())
-        results = {}
-        for key, fut in jobs.items():
-            try:
-                res = fut.result()
-                results[key] = res if isinstance(res, dict) else {}
-                if not isinstance(res, dict):
-                    warnings.append("%s: model returned %s, not an object" % (key, type(res).__name__))
-            except Exception as e:
-                warnings.append("%s failed: %s" % (key, e))
-                _log("%s failed: %s" % (key, e))
-    _log("round 1 done in %.0fs" % (time.time() - t0))
-
+def _merge_and_resolve(results, replicates, docs_text, tools_info, end, warnings):
+    """Merge each replicate's two parts; settle disagreements between replicates with a resolve call."""
     reps = []
     for r in range(replicates):
         p1, p2 = results.get(("p1", r)), results.get(("p2", r))
@@ -2088,6 +2100,54 @@ def extract_policy(brief_paths, openapi_path, *, replicates=2, budget_s=None, wa
                 warnings.append("no time left to resolve %s; kept replicate 1" % ", ".join(conflicts))
         else:
             _log("replicates agree on %s" % ", ".join(DIFF_KEYS))
+    return primary
+
+
+def extract_policy(brief_paths, openapi_path, *, replicates=2, budget_s=None, warnings=None):
+    """brief file(s) + openapi -> policy dict (contract v1). Raises ExtractError if the LLM fails entirely."""
+    t0 = time.time()
+    budget_s = budget_s or TOTAL_BUDGET_S
+    warnings = [] if warnings is None else warnings
+    docs = read_documents(brief_paths)
+    if not docs:
+        raise ExtractError("no brief documents found in %s" % brief_paths)
+    tools_info = parse_openapi(openapi_path)
+    docs_text = documents_block(docs)
+    api_desc = tools_info.get("description", "")
+    replicates = max(1, int(replicates))
+    end = t0 + budget_s - END_MARGIN_S
+    round1_end = t0 + budget_s * ROUND1_SHARE
+
+    results = {}
+
+    def collect(key, fut):
+        try:
+            res = fut.result()
+            results[key] = res if isinstance(res, dict) else {}
+            if not isinstance(res, dict):
+                warnings.append("%s: model returned %s, not an object" % (key, type(res).__name__))
+        except Exception as e:
+            warnings.append("%s failed: %s" % (key, e))
+            _log("%s failed: %s" % (key, e))
+
+    jobs = {}
+    pool = cf.ThreadPoolExecutor(max_workers=2 * replicates + 1)
+    try:
+        for r in range(replicates):
+            jobs[("p1", r)] = pool.submit(_call_json, part_prompt(PART1_KEYS, docs_text, tools_info["tools"], api_desc),
+                                          "extract policy part 1 (replicate %d)" % (r + 1), round1_end)
+            jobs[("p2", r)] = pool.submit(_call_json, part_prompt(PART2_KEYS, docs_text, tools_info["tools"], api_desc),
+                                          "extract policy part 2 (replicate %d)" % (r + 1), round1_end)
+        # the verbatim rules list (long answer) is needed last: it may run on while replicates are compared and
+        # resolved, until the end of the whole budget
+        rules_job = pool.submit(_call_json, rules_prompt(docs_text), "extract verbatim rules", end, llm.fast_model())
+        for key, fut in jobs.items():
+            collect(key, fut)
+        _log("round 1 done in %.0fs" % (time.time() - t0))
+        primary = _merge_and_resolve(results, replicates, docs_text, tools_info, end, warnings)
+        collect(("rules", 0), rules_job)
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
 
     rules = normalise_section("rules", (results.get(("rules", 0)) or {}).get("rules"), warnings)
     det = numbered_rules(docs)
