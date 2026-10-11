@@ -20,7 +20,8 @@ Graph (every value comes from the policy; nothing here knows a brief):
                             to talk', disputes -> next offer in w_next_action and back (on_enter {{w_enter_prompt}}),
                             or close_check when the ladder / the count is used up (option extract_signals)
       close_call result     -> end_closed (end_call)
-      code-forced close     -> ... close_api -> end_said (fixed farewell; also schedule_callback's last stopped try)
+      code-forced close     -> close_check -> finish -> farewell (tts goodbye) -> close_api -> end_closed
+                            (also schedule_callback's last stopped try); turn_state also counts turns -> turn_cap
       goodbye without close -> goodbye_close (code) -> close_check -> finish -> close_api (routing intent; option goodbye_close)
       turn cap reached      -> force_close (code) -> close_api (api_request close_call) -> end_forced
     workflow tool final_close (end_of_call): safety-net close_call when none was sent (stopped otherwise).
@@ -644,6 +645,7 @@ def enforce_rt(p, opts):
         "service_note": _note_for(p, se.get("outcome"), se.get("reason")),
         "callback_close": bool(opts.get("enforce_callback")) and bool(nocb.get("outcome")),
         "no_callback": pr(nocb),
+        "max_turns": int(opts.get("negotiate_max_turns") or 80),
     }
 
 
@@ -665,8 +667,12 @@ def signal_schema(p, ef):
     desc = ("What the customer's LAST message does, judged against the agent's message just before it. "
             + " ".join("%s = %s;" % (s, what[s]) for s in sig)
             + " other = anything else: agrees, names a day, a period or an amount, asks a question, mentions illness, a death"
-              " or job loss, says they already paid, asks for a person or a new plan, or anything not listed.")
-    out = [{"name": "x_reply", "type": "string", "enum_values": sig + ["other"], "description": desc, "min_confidence": 0.6}]
+              " or job loss, says they already paid, asks for a person or a new plan, or anything not listed."
+            + " Tie-break: a message that fits " + ("dispute or " if "dispute" in sig else "") + "other in any part is labelled"
+              " that, never " + " or ".join(x for x in ("refusal", "too_much", "no_talk") if x in sig) + ": e.g. 'no, I lost my"
+              " job', 'no, why are you calling?', 'I can do 200 on Friday', 'no, but next week' are other. When unsure, other.")
+    # 0.8: a refusal or a 'do not want to talk' moves the ladder or closes the call; a doubtful label is dropped
+    out = [{"name": "x_reply", "type": "string", "enum_values": sig + ["other"], "description": desc, "min_confidence": 0.8}]
     if p["products"]["max_count"] > 1:
         out.append({"name": "x_product", "type": "string", "min_confidence": 0.5,
                     "description": "The late product the customer's last message is about, in the words used in the call"
@@ -1424,7 +1430,9 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
         nodes["negotiate"]["extraction_schema"] = signals
         ts = _code_node("turn_state", "turn_state", rt, "negotiate")
         ts["transitions"] = [{"target_node": "close_check", "description": "the ladder or the count is used up: close",
-                              "condition": _or(_eq("w_turn_route", "close"))}] + ts["transitions"]
+                              "condition": _or(_eq("w_turn_route", "close"))},
+                             {"target_node": "turn_cap", "description": "negotiate turns (summed over re-entries) over the cap",
+                              "condition": _or(_eq("w_turn_route", "cap"))}] + ts["transitions"]
         nodes["turn_state"] = ts
 
     nodes["turn_cap"] = _code_node("turn_cap", "turn_cap", rt, "close_check")
@@ -1455,6 +1463,14 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
                          "condition": _or(_eq("w_close_requested", "yes"))}],
     }
     nodes["finish"] = _code_node("finish", "finish", rt, "close_api")
+    if ef["signals"] or ef["callback_close"]:
+        # a close the code decided (ladder used up, the N-th 'do not want to talk', the last callback try): the
+        # farewell is spoken here, before the engine sends close_call (the rules want the goodbye before it)
+        nodes["finish"]["transitions"].insert(0, {"target_node": "farewell", "description": "the code closed the call: say goodbye first",
+                                                  "condition": _or(_eq("w_end_say", "yes"))})
+        nodes["farewell"] = _code_node("farewell", "farewell", rt, "close_api",
+                                       on_enter={"type": "tts", "text": P.get("farewell", "Thank you for your time. Goodbye.")},
+                                       source='vset(vs, "w_farewell_done", "yes")\n')
     close_fixed = _api_tool(p, tn["close"], "Close the call.", baked={names["close_outcome"]: "{{w_close_outcome}}",
                                                                      names["close_reason"]: "{{w_close_reason}}"},
                             pre="close_final_pre", rt=rt, retries=0, timeout=to)
@@ -1464,14 +1480,11 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
         "disable_inactivity_monitor": True, "pre_actions": [close_fixed],
         "transitions": [{"target_node": "end_forced", "description": "the call hit a turn limit",
                          "condition": _or(_eq("w_forced", "yes"))}]
-                       + ([{"target_node": "end_said", "description": "the code closed the call: the farewell is spoken here",
-                            "condition": _or(_eq("w_end_say", "yes"))}] if ef["signals"] or ef["callback_close"] else [])
                        + [{"target_node": "end_closed", "description": "always", "condition": {"operator": "always"}}],
     }
     nodes["end_closed"] = _end_node("end_closed", "call_closed")
     nodes["end_forced"] = _end_node("end_forced", "call_closed_by_limit", P.get("farewell", "Thank you for your time. Goodbye."))
-    if ef["signals"] or ef["callback_close"]:
-        nodes["end_said"] = _end_node("end_said", "call_closed", P.get("farewell", "Thank you for your time. Goodbye."))
+
 
     wf = {
         "initial_node": "setup",

@@ -37,12 +37,21 @@ def state(sim, wf, reply, product=""):
     return sim.vs["w_turn_route"]
 
 
-def close_target(wf, vs):
-    """The end node close_api routes to for these variables (first matching transition)."""
-    for tr in wf["nodes"]["close_api"]["transitions"]:
+def route_of(wf, node, vs):
+    """The node `node` routes to for these variables (first matching transition)."""
+    for tr in wf["nodes"][node]["transitions"]:
         c = tr["condition"]
         if c.get("operator") == "always" or any(str(vs.get(x["variable"])) == str(x["operand"]) for x in c["conditions"]):
             return tr["target_node"]
+
+
+def close_path(wf, vs):
+    """Nodes from finish to the end node: a code-decided close says goodbye (tts) BEFORE close_api sends close_call."""
+    path, n = [], "finish"
+    while wf["nodes"][n]["node_type"] != "end_call":
+        n = route_of(wf, n, vs)
+        path.append(n)
+    return path
 
 
 class Structure(unittest.TestCase):
@@ -76,7 +85,7 @@ class Structure(unittest.TestCase):
         self.assertEqual(neg["on_enter"], {"type": "llm", "prompt": "{{w_enter_prompt}}"})
         self.assertFalse(neg["on_enter_first_entry_only"])
         ts = wf["nodes"]["turn_state"]
-        self.assertEqual([t["target_node"] for t in ts["transitions"]], ["close_check", "negotiate"])
+        self.assertEqual([t["target_node"] for t in ts["transitions"]], ["close_check", "turn_cap", "negotiate"])
         self.assertTrue(ts["passthrough"])
         # no model-callable tool was added
         self.assertEqual(sorted(t["function"]["name"] for t in neg["tools"]),
@@ -133,6 +142,38 @@ class Structure(unittest.TestCase):
         self.assertIn("After attempt 2 is refused", s.vs["w_account_facts"])
 
 
+class ReviewFixes(unittest.TestCase):
+    def test_labels_tie_break_and_confidence(self):
+        """Review 2: a message that also fits 'other' (hardship, a question, a counter-offer, 'no, but ...') or a dispute
+        is labelled that, never refusal / no_talk; a doubtful label (below 0.8) is dropped."""
+        ex = G.generate_workflow(TG.raw("brief-b"))["nodes"]["negotiate"]["extraction_schema"][0]
+        self.assertGreaterEqual(ex["min_confidence"], 0.8)
+        d = ex["description"]
+        self.assertIn("Tie-break: a message that fits dispute or other in any part is labelled that, never refusal or too_much or no_talk", d)
+        for x in ("'no, I lost my job'", "'I can do 200 on Friday'", "'no, but next week'", "When unsure, other."):
+            self.assertIn(x, d)
+
+    def test_turn_cap_survives_re_entry(self):
+        """Review 4: each re-entry resets negotiate's turn counter; turn_state sums the turns and routes to turn_cap."""
+        wf = G.generate_workflow(TG.raw("brief-a"), options={"negotiate_max_turns": 6})
+        ts = wf["nodes"]["turn_state"]
+        self.assertIn({"target_node": "turn_cap", "description": "negotiate turns (summed over re-entries) over the cap",
+                       "condition": {"logic": "or", "conditions": [{"variable": "w_turn_route", "operator": "equals", "operand": "cap"}]}},
+                      ts["transitions"])
+        self.assertEqual(wf["nodes"]["turn_cap"]["transitions"][-1]["target_node"], "close_check")
+        sim = TG.Sim(wf, customer_id="c1")
+        sim.vs["w_id_state"] = "verified"
+        sim.account([LOAN_LATE])
+        sim.vs["negotiate.current_turns"] = 3                     # turns in the node since the last entry
+        self.assertEqual(state(sim, wf, "too_much"), "stay")       # 3
+        sim.vs["negotiate.current_turns"] = 1
+        self.assertEqual(state(sim, wf, "other"), "stay")          # 4
+        sim.vs.pop("negotiate.current_turns")
+        self.assertEqual(state(sim, wf, "other"), "stay")          # 5 (a hop counts at least one turn)
+        self.assertEqual(state(sim, wf, "other"), "cap")           # 6: the cap is reached
+        self.assertEqual(sim.vs["w_neg_turns"], "6")
+
+
 class Ladder(unittest.TestCase):
     def setUp(self):
         self.wf = G.generate_workflow(TG.raw("brief-a"))
@@ -159,10 +200,16 @@ class Ladder(unittest.TestCase):
         self.assertEqual(self.sim.vs["w_end_say"], "yes")
         route, body, _t = self.sim.engine_close()
         self.assertEqual((route, body), ("finish", {"outcome": "no_promise", "reason": "refused"}))
-        self.assertEqual(close_target(self.wf, self.sim.vs), "end_said")
-        sp = self.wf["nodes"]["end_said"]["terminal"]["function"]["parameters"]["properties"]
-        self.assertEqual(sp["message_mode"]["default"], "custom")
-        self.assertTrue(sp["spoken_message"]["default"])
+        # rule 47: goodbye before close_call -> the farewell node speaks before close_api, the end node is silent
+        self.assertEqual(close_path(self.wf, self.sim.vs), ["farewell", "close_api", "end_closed"])
+        fw = self.wf["nodes"]["farewell"]
+        self.assertEqual(fw["on_enter"]["type"], "tts")
+        self.assertTrue(fw["on_enter"]["text"])
+        self.assertTrue(fw["passthrough"])
+        self.assertEqual(self.wf["nodes"]["end_closed"]["terminal"]["function"]["parameters"]["properties"]["message_mode"]["default"], "none")
+        self.assertNotIn("end_said", self.wf["nodes"])
+        # a close the model asked for itself (it said goodbye) does not get a second farewell
+        self.assertEqual(close_path(self.wf, dict(self.sim.vs, w_end_say="no")), ["close_api", "end_closed"])
 
     def test_early_band_one_attempt(self):
         self.sim.account([CARD_EARLY])
@@ -228,25 +275,41 @@ class MultiProduct(unittest.TestCase):
         state(self.sim, self.wf, "refusal", "card")
         self.assertEqual(self.sim.vs["w_turn_route"], "stay")                  # other products are still open
         self.assertIn("All 1 offer(s) for p1 were refused", self.sim.vs["w_next_action"])
-        self.assertIn("continue with p2", self.sim.vs["w_next_action"])
+        # review 1: moving on IS the next product's attempt 1 (the first payment question was already asked)
+        self.assertIn("continue with p2 (personal loan): make its attempt 1 of 2 only: 900.00 on Friday 16 October 2026",
+                      self.sim.vs["w_next_action"])
         self.assertEqual(self.sim.vs["w_intent_p1"], "refused")
-        state(self.sim, self.wf, "refusal", "car loan")                        # the product the customer named
-        self.assertEqual(self.sim.vs["w_refusals_p3"], "1")
         state(self.sim, self.wf, "refusal", "loan")                            # 'loan' fits two: the current product
         self.assertEqual(self.sim.vs["w_refusals_p2"], "1")
+        self.assertIn("Refusal 1 for p2", self.sim.vs["w_next_action"])
+        self.assertIn("make attempt 2 of 2 only: 300.00 on Friday 23 October 2026", self.sim.vs["w_next_action"])
+        state(self.sim, self.wf, "refusal", "car loan")                        # the product the customer named
+        self.assertEqual(self.sim.vs["w_refusals_p3"], "1")
+        self.assertIn("make attempt 1 of 2 only: 600.00", self.sim.vs["w_next_action"])
 
     def test_dispute_on_one_product_forces_the_note_reason(self):
         state(self.sim, self.wf, "dispute", "personal loan")
         self.assertEqual(self.sim.vs["w_dispute_p2"], "yes")
-        self.assertIn("continue with p1", self.sim.vs["w_next_action"])
+        self.assertIn("continue with p1 (credit card ending 6604): make its attempt 1 of 1 only: 300.00", self.sim.vs["w_next_action"])
+        state(self.sim, self.wf, "refusal", "card")                            # its attempt 1 refused: p1 is used up
+        self.assertEqual(self.sim.vs["w_intent_p1"], "refused")
         cfg, _r, _m = self.sim.call("negotiate", "create_promise", {"product_id": "p2", "amount": 900, "date": "2026-10-16"})
         self.assertIn("not-sent-disputed", cfg["url"])
         cfg, _r, _m = self.sim.call("negotiate", "create_promise", {"product_id": "p1", "amount": 300, "date": "2026-10-16"})
-        self.assertNotIn(".invalid", cfg["url"])                               # other products are not affected
+        self.assertNotIn("disputed", cfg["url"])                               # other products are not affected
         cfg, _r, _m = self.sim.call("negotiate", "add_note", {"product_id": "p2", "reason": "refused"})
         self.assertEqual(cfg["body"]["reason"], "dispute")
         cfg, _r, _m = self.sim.call("negotiate", "add_note", {"product_id": "p3", "reason": "refused"})
         self.assertEqual(cfg["body"]["reason"], "refused")
+
+    def test_unclear_dispute_with_several_open_products_asks(self):
+        state(self.sim, self.wf, "dispute", "")
+        self.assertFalse([k for k in self.sim.vs if k.startswith("w_dispute_") or k.startswith("w_intent_")])
+        self.assertIn("ask which product they mean", self.sim.vs["w_next_action"])
+        self.sim.call("negotiate", "create_promise", {"product_id": "p1", "amount": 300, "date": "2026-10-16"})
+        self.sim.call("negotiate", "create_promise", {"product_id": "p2", "amount": 900, "date": "2026-10-16"})
+        state(self.sim, self.wf, "dispute", "")                                # one product left open: it is that one
+        self.assertEqual(self.sim.vs["w_dispute_p3"], "yes")
 
     def test_dispute_of_a_promised_product_changes_nothing(self):
         self.sim.call("negotiate", "create_promise", {"product_id": "p1", "amount": 300, "date": "2026-10-16"})
@@ -254,7 +317,8 @@ class MultiProduct(unittest.TestCase):
         self.assertFalse([k for k in self.sim.vs if k.startswith("w_dispute_")])
 
     def test_all_refused_closes_with_notes_first(self):
-        for pname, n in (("card", 2), ("personal loan", 3), ("car loan", 3)):
+        # p1: the first payment question + attempt 1; p2 and p3 start at attempt 1 (review 1): two refusals each
+        for pname, n in (("card", 2), ("personal loan", 2), ("car loan", 2)):
             for _ in range(n):
                 state(self.sim, self.wf, "refusal", pname)
         self.assertEqual(self.sim.vs["w_turn_route"], "close")
@@ -286,7 +350,7 @@ class Callback(unittest.TestCase):
         self.assertEqual(s.vs["w_cb_over"], "yes")                              # EDGE-20: no third ask
         route, body, _t = s.engine_close()
         self.assertEqual((route, body["outcome"], body["reason"]), ("finish", "not_reached", "no_callback"))
-        self.assertEqual(close_target(wf, s.vs), "end_said")
+        self.assertEqual(close_path(wf, s.vs), ["farewell", "close_api", "end_closed"])
 
     def test_off(self):
         wf = G.generate_workflow(TG.raw("brief-b"), options=OFF)
