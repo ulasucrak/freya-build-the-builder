@@ -387,3 +387,20 @@ def safe_note_text(reason, reasons):
     """The only free text a note may carry: a fixed phrase with the reason code when it is one of the tool's reasons."""
     r = str(reason or "").strip()
     return ("No promise. Reason: " + r + ".") if r and r in reasons else "No promise."
+
+
+def match_product(prods, said):
+    """The product whose name, type or id shares the most words with what was said ('the card', 'car loan'); None
+    when nothing or several match equally."""
+    stop = set(["the", "my", "a", "an", "for", "of", "on", "ending", "one", "product", "account", "and", "that", "this"])
+    words = set(re.findall(r"[a-z0-9]+", str(said or "").lower())) - stop
+    best, score, tie = None, 0, False
+    for p in prods if words else []:
+        pw = set(re.findall(r"[a-z0-9]+", (str(p.get("name") or "") + " " + str(p.get("type") or "").replace("_", " ")
+                                            + " " + str(p.get("id") or "")).lower()))
+        s = len(words & pw)
+        if s > score:
+            best, score, tie = p, s, False
+        elif s == score and s > 0:
+            tie = True
+    return None if tie or score == 0 else best

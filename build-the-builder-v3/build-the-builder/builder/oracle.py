@@ -1485,8 +1485,9 @@ def replacement_days_text(today, deadline, cal):
     return "; ".join(out)
 
 
-def account_facts_text(products, cal, today=None):
-    """Multi-line block of per-product facts for the prompts."""
+def account_facts_text(products, cal, today=None, ladder_in_code=False):
+    """Multi-line block of per-product facts for the prompts. `ladder_in_code`: refusals are counted by the
+    workflow's code (the next offer comes in the state line), so the offer-count paragraph is one sentence."""
     try:
         if not products:
             return "The account could not be loaded. No product facts are available."
@@ -1504,7 +1505,9 @@ def account_facts_text(products, cal, today=None):
                 lines.append("   Deadline (latest promise date): " + date_label(to_date(p.get("deadline"))) + ".")
             for o in p.get("offers") or []:
                 lines.append("   " + offer_text(o))
-            if p.get("offers"):
+            if p.get("offers") and ladder_in_code:
+                lines.append("   Offers allowed: " + str(len(p.get("offers"))) + " attempts; never repeat an offer that was refused.")
+            elif p.get("offers"):
                 n = str(len(p.get("offers")))
                 lines.append("   Offers allowed for this product: " + n + " in total, counting every offer you make. After attempt " + n
                              + " is refused (a plain no or 'I can't' is a refusal), make no other offer for this product: no other amount"

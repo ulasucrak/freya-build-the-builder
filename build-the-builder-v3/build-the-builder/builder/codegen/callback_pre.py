@@ -26,7 +26,14 @@ else:
     if bad < int(num((RT.get("callback") or dict()).get("max_asks"), 2)):
         chk["next"] = "Do not say it was scheduled. Ask once for another day and time inside the allowed window."
     else:
-        nc = pair((RT.get("closing") or dict()).get("no_callback"))
+        ef = RT.get("enforce") or dict()
+        nc = pair(ef.get("no_callback"))
         chk["next"] = "That was the last try: do not schedule a callback. " + (
             "Then " + close_instruction(nc["outcome"], nc["reason"]) if nc["outcome"] else "Close the call as the rules say for this case.")
+        if ef.get("callback_close") and nc["outcome"]:
+            # the engine closes from here (greet_verify routes on w_cb_over after this result): no close_call turn
+            vset(vs, "w_close_req_outcome", nc["outcome"])
+            vset(vs, "w_close_req_reason", nc["reason"])
+            vset(vs, "w_end_say", "yes")
+            vset(vs, "w_cb_over", "yes")
     block_request(config, vs, "w_cb_block", chk, "schedule_callback")

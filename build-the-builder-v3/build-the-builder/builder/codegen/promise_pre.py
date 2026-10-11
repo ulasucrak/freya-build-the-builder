@@ -1,6 +1,7 @@
 # Pre-hook of create_promise: normalise product id, amount and date; stop a request that breaks the policy
 # (amount outside floor..full, date not a business day, in the past or after the product's deadline, a second
-# promise for the same product, any promise after a transfer, a further try after the allowed retries).
+# promise for the same product, any promise after a transfer or for a disputed product, a further try after the
+# allowed retries).
 # Attempts are counted here: the post-hook does not run when the bank cannot be reached.
 config = extra
 body = body_of(config)
@@ -33,6 +34,8 @@ if nm("guard", "on") == "on" and prods:
     chk = check_promise(prod, amt, dd, today, cal, promised_of(vs), nm("next_weekday", ""))
     if chk.get("ok") and transfers_of(vs):
         chk = dict(ok=False, code="after-transfer", message="The call was transferred. No promise may be recorded after a transfer.")
+    if chk.get("ok") and str(vget(vs, key_of("w_dispute_", pid))) == "yes":
+        chk = dict(ok=False, code="disputed", message="The customer disputes this product: no promise may be recorded for it.")
     if chk.get("ok") and tries > retry:
         chk = dict(ok=False, code="no-more-retries", message="create_promise already failed for this product as often as the rules allow. Do not try again.")
     if not chk.get("ok"):
@@ -43,11 +46,11 @@ if nm("guard", "on") == "on" and prods:
             nxt += " The amount you may offer instead is " + money(chk.get("suggest_amount")) + "."
         if chk.get("code") == "no-more-retries":
             nxt += " Tell the customer you could not record it, as the rules say."
-            se = pair((RT.get("closing") or dict()).get("service_error"))
-            if (RT.get("notes") or dict()).get("enabled") and pid:
-                for k, v in ((RT.get("closing") or dict()).get("note_map") or dict()).items():
-                    if pair(v) == se:
-                        mark(vs, "w_intent_", pid, k)
+            sn = (RT.get("enforce") or dict()).get("service_note")
+            if (RT.get("notes") or dict()).get("enabled") and pid and sn:
+                mark(vs, "w_intent_", pid, sn)
+        elif chk.get("code") == "disputed":
+            nxt += " Do not argue and take no promise for it; follow the rules for a dispute."
         else:
             nxt += " Explain it in one sentence, follow the rules for this case, and call create_promise again only after a new read-back and a clear yes."
         chk["next"] = nxt

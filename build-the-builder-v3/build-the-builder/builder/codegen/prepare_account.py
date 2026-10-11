@@ -9,13 +9,15 @@ for i, p in enumerate(raw):
     b = build_product(p, i, RT, today, cal)
     b.pop("raw", None)
     prods.append(b)
-vset(vs, "w_account_facts", account_facts_text(prods, cal, today))
+vset(vs, "w_account_facts", account_facts_text(prods, cal, today, bool((RT.get("enforce") or dict()).get("signals"))))
+# negotiate's entry instruction: the first entry states the debt; a re-entry from turn_state answers the last message
+vset(vs, "w_enter_prompt", str(RT.get("enter") or "State the debt as the rules require, using the account facts."))
 # the hooks need only these fields; the offer texts are in w_account_facts already (keeps the variable table small)
 slim = []
 for p in prods:
     slim.append(dict(index=p.get("index"), id=p.get("id"), type=p.get("type"), name=p.get("name"), full=p.get("full"),
                      floor=p.get("floor"), deadline=p.get("deadline"), band=p.get("band"),
-                     offers=[dict(n=o.get("n"), amount=o.get("amount"), date=o.get("date")) for o in (p.get("offers") or [])]))
+                     offers=[dict(n=o.get("n"), amount=o.get("amount"), alt=o.get("alt_amount"), date=o.get("date")) for o in (p.get("offers") or [])]))
 vset(vs, "w_products_json", json.dumps(slim, separators=(",", ":")))
 vset(vs, "w_product_count", str(len(prods)))
 vset(vs, "w_product_ids", ",".join([str(p.get("id")) for p in prods]))
