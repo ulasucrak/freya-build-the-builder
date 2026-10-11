@@ -15,7 +15,13 @@ Graph (every value comes from the policy; nothing here knows a brief):
          -> prepare_account (code) per product: band, deadline, floor/full, offers -> {{w_account_facts}}
          -> negotiate       debt statement, negotiation, read-back, promises, notes, triggers, closing
                             tools: create_promise, add_note, transfer_to_agent, close_call
+                            extraction x_reply (+ x_product): refusal / too_much / no_talk / dispute / other
+            -> turn_state   (code) a labelled message: per-product refusal ladder, 'too much', the N-th 'do not want
+                            to talk', disputes -> next offer in w_next_action and back (on_enter {{w_enter_prompt}}),
+                            or close_check when the ladder / the count is used up (option extract_signals)
       close_call result     -> end_closed (end_call)
+      code-forced close     -> close_check -> finish -> farewell (tts goodbye) -> close_api -> end_closed
+                            (also schedule_callback's last stopped try); turn_state also counts turns -> turn_cap
       goodbye without close -> goodbye_close (code) -> close_check -> finish -> close_api (routing intent; option goodbye_close)
       turn cap reached      -> force_close (code) -> close_api (api_request close_call) -> end_forced
     workflow tool final_close (end_of_call): safety-net close_call when none was sent (stopped otherwise).
@@ -71,6 +77,11 @@ DEFAULT_OPTIONS = {
     "check_tool": True,            # check_offer: code_exec tool that checks a customer's own date/amount before the read-back
     "goodbye_close": False,        # both sides said goodbye but no close_call came: the engine closes. Off: needs a
                                    # routing-model call (matches_intent) on every turn; no deterministic signal exists
+    # v4 enforcement in code, no model-callable tool added:
+    "extract_signals": True,       # negotiate: the per-turn extraction labels the customer's last message (refusal,
+                                   # too much, does not want to talk, dispute); a code node counts per product and
+                                   # writes the next offer, closes when the ladder or the 'twice' count is used up
+    "enforce_callback": True,      # schedule_callback: after max_asks stopped tries the engine closes (no_callback)
 }
 
 # Safety net (HANDOFF TP-09: a goodbye loop of ~50 turns without close_call). Judged by the routing model on the
@@ -564,6 +575,111 @@ def _post_outcomes(p):
     return {o for o in out if o} - _pre_verification_outcomes(p)
 
 
+# ----------------------------------------------------------------------------------------------- v4 enforcement
+
+_TWICE_RX = re.compile(r"\s*\b(twice|two times|a second time|the second time|three times|a third time|the third time)\b", re.I)
+
+
+def _count_trigger(p):
+    """(trigger, count) for the post-verification trigger that acts when the customer says something N times
+    ('says twice that they do not want to talk'), else (None, 0)."""
+    pre = _pre_verification_outcomes(p)
+    for t in p["triggers"]:
+        m = _TWICE_RX.search(t["detect"] or "")
+        if m and t["outcome"] and t["outcome"] not in pre and t["action"] in ("close", "note"):
+            return t, (3 if re.search(r"three|third", m.group(1), re.I) else 2)
+    return None, 0
+
+
+def _dispute_trigger(p):
+    """The post-verification trigger of a dispute (its codes name it), else None."""
+    pre = _pre_verification_outcomes(p)
+    for t in p["triggers"]:
+        codes = " ".join(str(t.get(k) or "") for k in ("name", "reason", "note_reason")).lower()
+        if "disput" in codes and t["outcome"] not in pre:
+            return t
+    return None
+
+
+def _note_for(p, outcome, reason, prefer=""):
+    """The note reason whose closing pair is (outcome, reason); `prefer` when it is one of the tool's reasons."""
+    reasons = list(p["notes"].get("tool_reasons") or [])
+    if prefer and (prefer in reasons or not reasons):
+        return prefer
+    for k, v in (p["closing"].get("note_map") or {}).items():
+        if isinstance(v, dict) and (v.get("outcome") or "") == (outcome or "") and (v.get("reason") or "") == (reason or ""):
+            return k
+    return reason if reason in reasons else ""
+
+
+def enforce_rt(p, opts):
+    """Runtime section 'enforce': what the code enforces and with which policy values (counts and outcomes come from
+    the policy). `signals`: the extraction labels negotiate shows (x_reply values)."""
+    cl = p["closing"]
+    refused = cl.get("refused") or {}
+    talk, n_talk = _count_trigger(p)
+    disp = _dispute_trigger(p)
+    nocb = cl.get("no_callback") or {}
+    se = cl.get("service_error") or {}
+    floors = any(t.get("floor_field") or t.get("floor_expr") for t in (p["products"].get("types") or {}).values())
+    sig = []
+    if opts.get("extract_signals"):
+        if any(b.get("attempts") for b in p["bands"]):
+            sig += ["refusal"] + (["too_much"] if floors else [])
+        if talk is not None:
+            sig.append("no_talk")
+        if disp is not None:
+            sig.append("dispute")
+    pr = lambda x: {"outcome": (x or {}).get("outcome") or "", "reason": (x or {}).get("reason") or ""}
+    return {
+        "signals": sig,
+        "close_on_ladder_end": bool(refused.get("outcome")) and "refusal" in sig,
+        "refused": pr(refused),
+        "refused_note": _note_for(p, refused.get("outcome"), refused.get("reason")),
+        "talk_count": n_talk if "no_talk" in sig else 0,
+        "talk": pr(talk),
+        "talk_note": _note_for(p, (talk or {}).get("outcome"), (talk or {}).get("reason"), (talk or {}).get("note_reason") or ""),
+        "dispute": pr(disp),
+        "dispute_note": _note_for(p, (disp or {}).get("outcome"), (disp or {}).get("reason"), (disp or {}).get("note_reason") or "") if disp else "",
+        "dispute_on": "dispute" in sig,
+        "service_note": _note_for(p, se.get("outcome"), se.get("reason")),
+        "callback_close": bool(opts.get("enforce_callback")) and bool(nocb.get("outcome")),
+        "no_callback": pr(nocb),
+        "max_turns": int(opts.get("negotiate_max_turns") or 80),
+    }
+
+
+def signal_schema(p, ef):
+    """extraction_schema of negotiate: one small enum about the customer's last message (+ the product it is about
+    when the account can have several). [] when nothing is enforced."""
+    sig = ef["signals"]
+    if not sig:
+        return []
+    talk, _n = _count_trigger(p)
+    disp = _dispute_trigger(p)
+    what = {
+        "refusal": "says no to, ignores or does not answer the agent's request or offer to pay, and names no day, no period"
+                   " and no amount of their own (a plain no, 'I can't', 'not then')",
+        "too_much": "says the amount itself is too much or more than they can pay, naming no amount",
+        "no_talk": _TWICE_RX.sub("", (talk or {}).get("detect") or "").strip().rstrip("."),
+        "dispute": ((disp or {}).get("detect") or "").strip().rstrip("."),
+    }
+    desc = ("What the customer's LAST message does, judged against the agent's message just before it. "
+            + " ".join("%s = %s;" % (s, what[s]) for s in sig)
+            + " other = anything else: agrees, names a day, a period or an amount, asks a question, mentions illness, a death"
+              " or job loss, says they already paid, asks for a person or a new plan, or anything not listed."
+            + " Tie-break: a message that fits " + ("dispute or " if "dispute" in sig else "") + "other in any part is labelled"
+              " that, never " + " or ".join(x for x in ("refusal", "too_much", "no_talk") if x in sig) + ": e.g. 'no, I lost my"
+              " job', 'no, why are you calling?', 'I can do 200 on Friday', 'no, but next week' are other. When unsure, other.")
+    # 0.8: a refusal or a 'do not want to talk' moves the ladder or closes the call; a doubtful label is dropped
+    out = [{"name": "x_reply", "type": "string", "enum_values": sig + ["other"], "description": desc, "min_confidence": 0.8}]
+    if p["products"]["max_count"] > 1:
+        out.append({"name": "x_product", "type": "string", "min_confidence": 0.5,
+                    "description": "The late product the customer's last message is about, in the words used in the call"
+                                   " (e.g. 'the card', 'car loan'); empty when it names none."})
+    return out
+
+
 def _trigger_phases(p, t, ph):
     """Phases of the rules a trigger's notes come from (empty when none matches)."""
     notes = [_norm_rule(n) for n in (t.get("notes") or []) if isinstance(n, str) and len(n) > 25]
@@ -575,7 +691,7 @@ def _trigger_phases(p, t, ph):
     return out
 
 
-def _trigger_lines(p, cl, verified):
+def _trigger_lines(p, cl, verified, ef=None):
     """One short line per trigger that can happen in this phase and needs an action (a tool, a note, an outcome).
     The verbatim rule text is in the system prompt or the step's rules, so a trigger that only says something is
     left to its rule, and a trigger whose rules all belong to the other step is left out; trigger notes are added
@@ -622,7 +738,9 @@ def _trigger_lines(p, cl, verified):
         elif t["outcome"]:
             pr_ = t["outcome"] + (" / " + t["reason"] if t["reason"] else "")
             line += (" Close: " + pr_ + ".") if act != "continue" else (" When it ends the call, the outcome is " + pr_ + ".")
-            if twice:
+            if twice and verified and ef and ef.get("talk_count"):
+                line += " Counted by the system, which closes the call the last time; before that, acknowledge it and make the next offer."
+            elif twice:
                 line += (" The first time: do not mention security; acknowledge it and make the current product's next offer." if verified else
                          " The first time: explain once, as the rules say, why the security questions are asked, and ask again.")
                 line += ((" Count it in any words, amid other talk too." if verified else "")
@@ -1039,7 +1157,11 @@ def _codes_in(outcome, reason, text):
     return bool(outcome) and bool(has(outcome)) and bool(has(reason))
 
 
-def default_greet_task(p, cl):
+NEGOTIATE_ENTER = ("Identity is verified. State the debt as the rules require, using the account facts (every late product, one"
+                   " sentence each), then ask the first payment question the rules require. Do not call a tool in this turn.")
+
+
+def default_greet_task(p, cl, ef=None):
     q = p["identity"]["questions"]
     tp = p["third_party"]
     verbatim = not p["rules"]          # rules missing: carry the section texts here instead
@@ -1050,6 +1172,8 @@ def default_greet_task(p, cl):
     for c in tp["cases"]:
         line = "If " + c["trigger"] + ":"
         again = not asked and (c["action"] == "ask_again" or (c["outcome"] and (c["outcome"], c["reason"]) == (nocb.get("outcome"), nocb.get("reason"))))
+        if again and ef and ef.get("callback_close"):
+            continue            # schedule_callback counts the tries; its result asks again, the engine closes at the last
         if c["action"] != "callback" and not again and (
                 not (c["outcome"] or c["say"]) or (p["rules"] and _codes_in(c["outcome"], c["reason"], shown))):
             continue            # a rule shown in this step already says it (or there is nothing to do)
@@ -1095,21 +1219,25 @@ def default_greet_task(p, cl):
         ("If the check fails: " + fail["say"] + " Close " + fail["outcome"] + (" / " + fail["reason"] if fail["reason"] else "") + ".")
         if fail["outcome"] and not (p["rules"] and _codes_in(fail["outcome"], fail["reason"], shown)) else "",
         "Other situations:",
-        _bul(_trigger_lines(p, cl, False)),
+        _bul(_trigger_lines(p, cl, False, ef)),
         ("Rules for this step:\n" + _phase_rules(p, "greet")) if _phase_rules(p, "greet") else "",
         NEXT_ACTION,
         STATUS_LINE,
     ] if x)
 
 
-def _ladder_line(p):
-    """The offer sequence, counted from the policy's bands: how many persuasion attempts each band allows."""
+def _ladder_line(p, ef=None):
+    """The offer sequence, counted from the policy's bands: how many persuasion attempts each band allows. With the
+    signals extracted the code counts refusals and names the next offer (state line), so the line is short."""
     per = ", ".join("%s %d" % (b["name"], len(b.get("attempts") or [])) for b in p["bands"] if b.get("name"))
+    if ef and "refusal" in ef.get("signals", []):
+        return ("Persuasion attempts" + (" (" + per + ")" if per else "") + ": the system counts refusals and gives the next offer in"
+                " the state line; make exactly that offer, once. One sympathy sentence, once.")
     return ("Persuasion attempts" + (" (" + per + ")" if per else "") + ": each product's, in order, once; a refusal or non-answer"
             " ('not on <day>' with no new day too; not 'too much') uses the next; after the last, close. One sympathy sentence, once.")
 
 
-def default_negotiate_task(p, cl, check=False):
+def default_negotiate_task(p, cl, check=False, ef=None):
     multi = p["products"]["max_count"] > 1
     notes = p["notes"]
     pm = p["promise"]
@@ -1121,7 +1249,7 @@ def default_negotiate_task(p, cl, check=False):
         "{{w_account_facts}}",
         "{{w_date_facts}}",
         HOOK_POINTER,
-        _ladder_line(p),
+        _ladder_line(p, ef),
         _bul(p["amounts"]["rules"] + [p["dates"]["customer_date_after_deadline"], p["dates"]["vague_date"]] + p["dates"]["rules"]) if verbatim else "",
         "Read-back: " + pm["readback"] if verbatim else "",
     ]
@@ -1138,7 +1266,7 @@ def default_negotiate_task(p, cl, check=False):
     else:
         lines.append("Do not call add_note in this call.")
     rows = [r for r, t in zip(_outcome_lines(p), p["outcomes"]["table"]) if t["outcome"] not in pre_out]
-    lines += ["Things the customer may say:", _bul(_trigger_lines(p, cl, True)),
+    lines += ["Things the customer may say:", _bul(_trigger_lines(p, cl, True, ef)),
               # with a rules list the outcome table is in the rules (system prompt or this step) and in close_call
               ("Closing (outcome / reason): " + "; ".join(rows) + ".") if verbatim else "",
               _bul(p["outcomes"]["precedence"]) if verbatim else "",
@@ -1182,8 +1310,13 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
             raise ValueError("policy has no %s tool" % ROLES[role][0])
     names = _names(p, opts)
     rt = runtime_policy(p, names)
+    ef = enforce_rt(p, opts)
+    rt["enforce"] = ef
     cl = p["closing"]
     P = _Prompts(prompts)
+    neg_enter = P.get("negotiate.on_enter", NEGOTIATE_ENTER)
+    if ef["signals"]:
+        rt["enter"] = neg_enter
     tn = {r: _tool_name(p, r) for r in ROLES}
     to = opts["timeout_ms"]
 
@@ -1245,7 +1378,7 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
              _bul([p["opening"]["text"]]
                   + [x for x in (p["opening"].get("notes") or []) if isinstance(x, str)][:4])]))}
     greet_tools = [t_verify] + [t for t in (t_callback, t_transfer) if t] + [t_close]
-    task = P.get("greet_verify.task", default_greet_task(p, cl))
+    task = P.get("greet_verify.task", default_greet_task(p, cl, ef))
     extra = P.get("greet_verify.extra")
     verify_tool = tn["verify"]
     nodes["greet_verify"] = {
@@ -1260,7 +1393,8 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
              "condition": _or(_eq(verify_tool + "_response.data." + names["verify_all"], "true"),
                               _eq(verify_tool + "_response.data." + names["verify_all"], "True"),
                               _eq("w_id_state", "verified"))},
-        ] + goodbye,
+        ] + ([{"target_node": "close_check", "description": "the last allowed callback time was outside the window",
+               "condition": _or(_eq("w_cb_over", "yes"))}] if ef["callback_close"] and t_callback else []) + goodbye,
     }
 
     account_tool = _api_tool(p, tn["account"], "Get the late products.", rt=rt, retries=2, timeout=to)
@@ -1275,18 +1409,31 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
     nodes["prepare_account"] = _code_node("prepare_account", "prepare_account", rt, "negotiate")
 
     neg_tools = [t for t in (t_check, t_promise, t_note, t_transfer) if t] + [t_close]
-    task = P.get("negotiate.task", default_negotiate_task(p, cl, bool(t_check)))
+    task = P.get("negotiate.task", default_negotiate_task(p, cl, bool(t_check), ef))
     extra = P.get("negotiate.extra")
+    signals = signal_schema(p, ef)
+    # the extraction labels the customer's last message; a labelled message goes through turn_state (code), which
+    # counts it and comes back with the next action, or closes. Re-entry runs on_enter again: its instruction is a
+    # variable (the debt statement on the first entry, the answer to the last message after turn_state)
+    to_state = [{"target_node": "turn_state", "description": "the customer's last message is a counted event",
+                 "condition": _or(*[_eq("x_reply", v) for v in ef["signals"]])}] if signals else []
     nodes["negotiate"] = {
         "name": "negotiate", "node_type": "conversation",
-        "on_enter": {"type": "llm", "prompt": P.get("negotiate.on_enter",
-                                                   "Identity is verified. State the debt as the rules require, using the account facts (every late product, one sentence each), then ask the first payment question the rules require. Do not call a tool in this turn.")},
-        "on_enter_first_entry_only": True,
+        "on_enter": {"type": "llm", "prompt": "{{w_enter_prompt}}" if signals else neg_enter},
+        "on_enter_first_entry_only": not signals,
         "task_message": task + (("\n\n" + extra) if extra else ""),
         "tools": neg_tools,
         "max_node_turns": opts["negotiate_max_turns"], "max_turn_transition": "turn_cap",
-        "transitions": [closed] + goodbye,
+        "transitions": [closed] + to_state + goodbye,
     }
+    if signals:
+        nodes["negotiate"]["extraction_schema"] = signals
+        ts = _code_node("turn_state", "turn_state", rt, "negotiate")
+        ts["transitions"] = [{"target_node": "close_check", "description": "the ladder or the count is used up: close",
+                              "condition": _or(_eq("w_turn_route", "close"))},
+                             {"target_node": "turn_cap", "description": "negotiate turns (summed over re-entries) over the cap",
+                              "condition": _or(_eq("w_turn_route", "cap"))}] + ts["transitions"]
+        nodes["turn_state"] = ts
 
     nodes["turn_cap"] = _code_node("turn_cap", "turn_cap", rt, "close_check")
     if opts["goodbye_close"]:
@@ -1316,6 +1463,14 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
                          "condition": _or(_eq("w_close_requested", "yes"))}],
     }
     nodes["finish"] = _code_node("finish", "finish", rt, "close_api")
+    if ef["signals"] or ef["callback_close"]:
+        # a close the code decided (ladder used up, the N-th 'do not want to talk', the last callback try): the
+        # farewell is spoken here, before the engine sends close_call (the rules want the goodbye before it)
+        nodes["finish"]["transitions"].insert(0, {"target_node": "farewell", "description": "the code closed the call: say goodbye first",
+                                                  "condition": _or(_eq("w_end_say", "yes"))})
+        nodes["farewell"] = _code_node("farewell", "farewell", rt, "close_api",
+                                       on_enter={"type": "tts", "text": P.get("farewell", "Thank you for your time. Goodbye.")},
+                                       source='vset(vs, "w_farewell_done", "yes")\n')
     close_fixed = _api_tool(p, tn["close"], "Close the call.", baked={names["close_outcome"]: "{{w_close_outcome}}",
                                                                      names["close_reason"]: "{{w_close_reason}}"},
                             pre="close_final_pre", rt=rt, retries=0, timeout=to)
@@ -1324,11 +1479,12 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
         "passthrough_default_transition": "end_closed", "on_enter": {"type": "silent"},
         "disable_inactivity_monitor": True, "pre_actions": [close_fixed],
         "transitions": [{"target_node": "end_forced", "description": "the call hit a turn limit",
-                         "condition": _or(_eq("w_forced", "yes"))},
-                        {"target_node": "end_closed", "description": "always", "condition": {"operator": "always"}}],
+                         "condition": _or(_eq("w_forced", "yes"))}]
+                       + [{"target_node": "end_closed", "description": "always", "condition": {"operator": "always"}}],
     }
     nodes["end_closed"] = _end_node("end_closed", "call_closed")
     nodes["end_forced"] = _end_node("end_forced", "call_closed_by_limit", P.get("farewell", "Thank you for your time. Goodbye."))
+
 
     wf = {
         "initial_node": "setup",

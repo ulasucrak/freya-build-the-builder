@@ -153,7 +153,7 @@ class Sim:
         return None, None, "", holds
 
     def engine_close(self):
-        assert self.vs.get("w_close_requested") == "yes" or self.vs.get("w_forced") == "yes"
+        assert "yes" in (self.vs.get("w_close_requested"), self.vs.get("w_forced"), self.vs.get("w_end_say"))   # v4: code-forced close
         run(code_of(self.wf["nodes"]["close_check"]), self.vs)
         if self.vs.get("w_close_route") == "wrap":
             return "wrap", None, self.vs.get("w_wrap_todo", "")
@@ -490,6 +490,11 @@ class EdgeRegressions(unittest.TestCase):
             neg = wf["nodes"]["negotiate"]["task_message"]
             for line in neg.splitlines():          # a close after "twice" says what to do the first time
                 if re.search(r"\btwice\b", line) and "Close:" in line:
+                    # v4: the extraction labels it and turn_state counts it (the code closes the last time)
+                    self.assertIn("Counted by the system, which closes the call the last time; before that, acknowledge it", line, name)
+            off = G.generate_workflow(raw(name), options={"extract_signals": False, "enforce_callback": False})["nodes"]["negotiate"]["task_message"]
+            for line in off.splitlines():
+                if re.search(r"\btwice\b", line) and "Close:" in line:
                     self.assertIn("The first time: do not mention security", line, name)
             self.assertIn("Ask each question without giving a reason", wf["nodes"]["greet_verify"]["task_message"], name)
             greet = wf["nodes"]["greet_verify"]["task_message"]
@@ -643,7 +648,7 @@ class LiveDateRegressions(unittest.TestCase):
             self.assertEqual(vs["w_today"], "2026-10-14")
             offers = json.loads(vs["w_products_json"])[0]["offers"]
             self.assertEqual((offers[0]["date"], offers[1]["date"]), ("2026-10-16", "2026-10-23"))     # PUB-06
-            self.assertIn("Attempt 1 (a persuasion attempt: only after a refusal or a non-answer): amount 2125.10 (or 637.50", vs["w_account_facts"])
+            self.assertIn("Attempt 1: amount 2125.10 (or 637.50", vs["w_account_facts"])   # v4: refusals counted in code
             self.assertIn("on Friday 16 October 2026 (2026-10-16)", vs["w_account_facts"])
             wf, vs2 = self.facts(wall, loan)
             self.assertIn("Mon 26 Oct (holiday) -> Tuesday 27 October 2026 (2026-10-27)", vs2["w_account_facts"])  # PUB-07
@@ -1347,16 +1352,23 @@ class JudgeReasonFixes(unittest.TestCase):
             self.assertEqual(len(line), 1, name)
             for b in p["bands"]:
                 self.assertIn("%s %d" % (b["name"], len(b.get("attempts") or [])), line[0], name)
+            # v4: refusals are counted in code (turn_state); the line points at the state line
+            self.assertIn("the system counts refusals and gives the next offer in the state line", line[0], name)
+            neg = G.generate_workflow(raw(name), options={"extract_signals": False, "enforce_callback": False})["nodes"]["negotiate"]["task_message"]
+            line = [x for x in neg.splitlines() if x.startswith("Persuasion attempts")]
+            self.assertEqual(len(line), 1, name)
+            for b in p["bands"]:
+                self.assertIn("%s %d" % (b["name"], len(b.get("attempts") or [])), line[0], name)
             self.assertIn("'not on <day>' with no new day too; not 'too much') uses the next", line[0])
             self.assertIn("after the last, close", line[0])
             self.assertIn("One sympathy sentence, once.", line[0])
             self.assertNotIn("Persuasion attempts", G.generate_workflow(raw(name))["nodes"]["greet_verify"]["task_message"])
-        line = [x for x in G.generate_workflow(raw("fixture-x"))["nodes"]["negotiate"]["task_message"].splitlines()
+        line = [x for x in G.generate_workflow(raw("fixture-x"), options={"extract_signals": False, "enforce_callback": False})["nodes"]["negotiate"]["task_message"].splitlines()
                 if x.startswith("Persuasion attempts")][0]
         self.assertIn("(A 1, B 3, C 0)", line)
 
     def test_second_no_talk_counted_amid_other_talk_after_verification_only(self):
-        wf = G.generate_workflow(raw("brief-a-live"))
+        wf = G.generate_workflow(raw("brief-a-live"), options={"extract_signals": False, "enforce_callback": False})
         neg = wf["nodes"]["negotiate"]["task_message"]
         greet = wf["nodes"]["greet_verify"]["task_message"]
         line = [x for x in neg.splitlines() if x.startswith("- does_not_want_to_talk")][0]
@@ -1366,7 +1378,9 @@ class JudgeReasonFixes(unittest.TestCase):
 
     def test_callback_window_left_to_the_tool_and_asked_again_once(self):
         for name in ("brief-a", "brief-a-live", "brief-b"):
-            wf = G.generate_workflow(raw(name))
+            # v4 default: the hook counts the tries and the engine closes; the "ask once" line is gone (EnforcementV4)
+            self.assertNotIn("ask for another time only once", G.generate_workflow(raw(name))["nodes"]["greet_verify"]["task_message"])
+            wf = G.generate_workflow(raw(name), options={"extract_signals": False, "enforce_callback": False})
             greet = wf["nodes"]["greet_verify"]["task_message"]
             self.assertIn("before you reply, even one outside the window (never judge it yourself)", greet, name)
             ask = [x for x in greet.splitlines() if "ask for another time only once;" in x]

@@ -11,6 +11,10 @@ prod = find_product(prods, body.get(pf))
 if prod is not None:
     body[pf] = prod.get("id")
 pid = str(body.get(pf) or "")
+# a product the customer disputed (labelled by the extraction, counted in turn_state) gets the dispute reason
+dn = str((RT.get("enforce") or dict()).get("dispute_note") or "")
+if dn and pid and str(vget(vs, key_of("w_dispute_", pid))) == "yes":
+    body[rf] = dn
 reason = str(body.get(rf) or "")
 # privacy (data minimisation, KVKK): the model must not store what the customer told (health, a death, family,
 # work). Every free-text field of the request gets a short fixed phrase built from the reason code only.
