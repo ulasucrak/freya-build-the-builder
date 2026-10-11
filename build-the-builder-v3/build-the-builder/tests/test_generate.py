@@ -1217,3 +1217,12 @@ class Generalization(unittest.TestCase):
         r = T.run_code_locally(code, {"product_id": "p1", "refused": "yes"}, vs)[1]
         self.assertEqual((r["code"], r["date"][-12:]), ("vague_deadline", "(2026-11-02)"))
         self.assertEqual(T.run_code_locally(code, {"product_id": "p1", "refused": "yes"}, vs)[1]["code"], "offer")   # attempt 1 still left
+
+    def test_250new_flow_lines(self):
+        """250-new run: identity asked at most twice (N098); Brief B: no 'today' per product, record after all (N163...)."""
+        wb = G.generate_workflow(raw("brief-b"))
+        wa = G.generate_workflow(raw("brief-a"))
+        self.assertIn("at most twice", wb["nodes"]["greet_verify"]["task_message"])
+        self.assertIn("never ask about today again", wb["nodes"]["negotiate"]["task_message"])
+        self.assertNotIn("never ask about today again", wa["nodes"]["negotiate"]["task_message"])    # one product: not needed
+        self.assertIn("is one amount", wa["nodes"]["negotiate"]["task_message"])

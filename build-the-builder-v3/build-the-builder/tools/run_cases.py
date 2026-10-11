@@ -57,7 +57,9 @@ def main():
     key = {i: i + ":" + hashlib.sha1(json.dumps(p, sort_keys=True).encode()).hexdigest()[:10] for i, p in spec.items()}
     new = [c for c in cases if key[c["id"]] not in ids]
     if new:
-        made = freya.create_personas([spec[c["id"]] for c in new])["personas"]
+        made = []
+        for i in range(0, len(new), 100):                          # Freya takes at most 200 personas per request
+            made += freya.create_personas([spec[c["id"]] for c in new[i:i + 100]])["personas"]
         ids.update({key[c["id"]]: p["id"] for c, p in zip(new, made)}); json.dump(ids, open(store, "w"), indent=1)
     ids = {c["id"]: ids[key[c["id"]]] for c in cases}
     (ROOT / "results").mkdir(exist_ok=True)

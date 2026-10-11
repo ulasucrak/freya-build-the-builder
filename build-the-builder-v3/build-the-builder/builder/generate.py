@@ -744,6 +744,7 @@ def default_greet_task(p, cl):
         ("With anyone who is not the customer, say nothing about an account, a product, money or a payment, not even that you cannot discuss them. "
          "If they ask what the call is about or offer to pay, say only that you need to speak with the customer personally, then ask when the customer can be reached.") if tp["cases"] else "",
         wins,
+        "Asking whether you speak with the customer: at most twice in the call. 'Hello', 'mm-hm', 'I'm listening', a question or a sentence that breaks off is not a confirmation. After the second ask without a clear confirmation, close as the rules say for an unclear answer.",
         "Security questions, only to the customer, once they confirmed who they are, one at a time. Customers often give an answer in pieces over several turns (day and month, then the year; two digits, then two more): that is not a refusal and not a wrong answer. Call verify_identity with each piece as it comes; the pieces are joined automatically, and you ask only for the missing part. Count wrong answers only from verify_identity results.",
         _bul(qlines, ""),
         "Ask each question without giving a reason. Explain why only if the customer will not answer or asks why, and only once in the call.",
@@ -764,12 +765,18 @@ def default_negotiate_task(p, cl, check=False):
     pm = p["promise"]
     verbatim = not p["rules"]
     pre_out = _pre_verification_outcomes(p)
+    multi_flow = ("Several products: after the customer says they cannot pay all of them today, never ask about today again, for any product. Go "
+                  "through the products in order; for each one call check_offer with refused=yes to get its first offer. Record nothing until every "
+                  "product has an agreed promise or a reason; then one read-back for all promises, one confirmation, then create_promise per product."
+                  if multi and check else "")
     lines = [
         "Current step: the customer is verified. Handle the late products below, from stating the debt to closing the call, by the bank's rules.",
         "The security questions are over: never mention them or why they were asked.",
         "{{w_account_facts}}",
         "{{w_date_facts}}",
+        multi_flow,
         "Use only these product ids. Weekdays and years come only from the calendar facts. Say sympathy at most once.",
+        "A message that breaks off, or is only small talk, is not a refusal and not an answer: ask your last question again. An amount given in parts ('five hundred' ... 'and ten') is one amount (510): put the parts together before you use it.",
         ("Offers: when the customer refuses, gives a non-answer or says the amount is too much, call check_offer for that product with refused=yes or "
          "too_much=yes and make exactly the one offer it returns. Never make an offer it did not return." if check else
          "Deadlines, floors and attempt offers are already computed: use them as given. Count persuasion attempts per product; when they are used up, make no further offer for that product."),
