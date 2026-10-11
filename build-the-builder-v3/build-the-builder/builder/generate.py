@@ -277,6 +277,7 @@ def _names(p, opts):
         "now_var": p["clock"]["now_variable"],
         "next_weekday": p["dates"].get("next_weekday") or "",
         "guard": "on" if opts["guard"] else "off",
+        "offer_tool": "check_offer" if opts.get("check_tool") else "",   # persuasion offers come from the tool, not the facts
         "block_url": BLOCK_URL,
         "verify_tool": t["verify"], "promise_tool": t["promise"], "note_tool": t["note"],
         "callback_tool": t["callback"], "transfer_tool": t["transfer"], "close_tool": t["close"],
@@ -768,9 +769,10 @@ def default_negotiate_task(p, cl, check=False):
         "The security questions are over: never mention them or why they were asked.",
         "{{w_account_facts}}",
         "{{w_date_facts}}",
-        "Use only these product ids. Deadlines, floors and attempt offers are already computed: use them as given.",
-        "Before create_promise, check the amount (floor to full) and the date (a business day from today up to that product's deadline) against these facts. Weekdays and years come only from the calendar facts.",
-        "Count persuasion attempts per product; when they are used up, make no further offer for that product. Say sympathy at most once.",
+        "Use only these product ids. Weekdays and years come only from the calendar facts. Say sympathy at most once.",
+        ("Offers: when the customer refuses, gives a non-answer or says the amount is too much, call check_offer for that product with refused=yes or "
+         "too_much=yes and make exactly the one offer it returns. Never make an offer it did not return." if check else
+         "Deadlines, floors and attempt offers are already computed: use them as given. Count persuasion attempts per product; when they are used up, make no further offer for that product."),
         _bul(p["amounts"]["rules"] + [p["dates"]["customer_date_after_deadline"], p["dates"]["vague_date"]] + p["dates"]["rules"]) if verbatim else "",
         "Read-back: " + pm["readback"] if verbatim else "",
         "Recording: after a clear yes to the read-back, call create_promise once per product, one per message, after each result. If it fails, call it again with the same values, at most %d more time(s); if it still fails: %s."
@@ -863,7 +865,9 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
     t_check = _code_tool("check_offer", "Check a date and/or an amount the customer named for one product, before the read-back. CALL it whenever the customer names a day or an amount themselves.",
                          {"product_id": "product_id exactly as listed in the account facts.",
                           "date": "The day as the customer said it (words are fine), or YYYY-MM-DD. Leave empty if they named no day.",
-                          "amount": "The amount as a number, e.g. 420.5. Leave empty if they named no amount."},
+                          "amount": "The amount as a number, e.g. 420.5. Leave empty if they named no amount.",
+                          "refused": "'yes' when the customer refused the last offer or the pay-today question, or gave a non-answer; then leave date and amount empty.",
+                          "too_much": "'yes' when the customer says the amount itself is too much; then leave date and amount empty."},
                          "check_offer", rt) if opts["check_tool"] else None
 
     # leave on a successful close, or after two close_call requests that really went out (counted in the

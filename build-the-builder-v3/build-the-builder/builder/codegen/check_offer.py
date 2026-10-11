@@ -15,7 +15,43 @@ if wd and wk and today is not None and weekday_from_word(wd.group(1)) is not Non
     said = iso(week_monday(today) + datetime.timedelta(days=(7 if wk.group(1) == "next" else 0) + weekday_from_word(wd.group(1))))
 amt = to_number(args.get("amount"))
 out = dict(ok=False, code="", date="", amount=None, suggest_date="", suggest_amount=None, what_to_do_next="")
-if prod is None:
+refused = str(args.get("refused") or "").strip().lower() in ("yes", "true", "1")
+too_much = str(args.get("too_much") or "").strip().lower() in ("yes", "true", "1")
+if prod is not None and (refused or too_much) and not said and amt is None:
+    # persuasion offers in code: the model reports a refusal / 'too much', the code says the one offer to make now
+    pid = str(prod.get("id"))
+    fl, full = prod.get("floor"), prod.get("full")
+    tk = key_of("w_toomuch_", pid)
+    if refused and not too_much and prev and to_date(prod.get("deadline")):
+        # no exact day after a vague period: the vague-date rule applies (propose the deadline), not a persuasion attempt
+        vset(vs, "w_offer_vague", "")
+        dl = to_date(prod.get("deadline"))
+        a = fl if str(vget(vs, tk, "") or "") and fl is not None else full
+        out.update(code="vague_deadline", ok=True, amount=money(a), date=date_label(dl))
+        out["what_to_do_next"] = ("No exact day after a vague period: propose " + money(a) + " on the latest date you can record, " + date_label(dl)
+                                  + ", as the rules say for a vague date. This is not a persuasion attempt; if the customer refuses it, call check_offer with refused=yes.")
+    elif too_much and fl is not None and fl != full and not str(vget(vs, tk, "") or ""):
+        vset(vs, tk, "yes")
+        out.update(code="floor_offer", ok=True, amount=money(fl))
+        out["what_to_do_next"] = ("Offer " + money(fl) + " for " + str(prod.get("name")) + " once, for the same day that was being discussed, as the rules say "
+                                  "for an amount that is too much. Make no other offer now; if the customer refuses it, call check_offer with refused=yes.")
+    else:
+        rk = key_of("w_refusals_", pid)
+        n = int(num(vget(vs, rk, 0))) + 1
+        vset(vs, rk, str(n))
+        offers = prod.get("offers") or []
+        if n <= len(offers):
+            o = offers[n - 1]
+            a = o.get("alt") if (str(vget(vs, tk, "") or "") and o.get("alt") is not None) else o.get("amount")
+            d = to_date(o.get("date"))
+            out.update(code="offer", ok=True, amount=money(a), date=date_label(d))
+            out["what_to_do_next"] = ("Persuasion attempt " + str(n) + " of " + str(len(offers)) + " for " + str(prod.get("name")) + ": offer exactly "
+                                      + money(a) + " on " + date_label(d) + ", once. Make no other offer; if the customer refuses it, call check_offer with refused=yes.")
+        else:
+            out.update(code="no_offers_left", ok=False)
+            out["what_to_do_next"] = ("No persuasion attempts are left for " + str(prod.get("name")) + ". Make no other offer for it (no other amount, no other day). "
+                                      "Continue with the next product, or follow the rules for a refusal.")
+elif prod is None:
     out["code"] = "unknown_product"
     out["what_to_do_next"] = "Unknown product. Call check_offer again with a product_id exactly as listed in the account facts."
 else:

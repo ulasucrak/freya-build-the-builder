@@ -617,11 +617,25 @@ class Builder:
         self.best.update(passed=res["passed"], total=res["total"], estimated=False)
         tested = {c["id"] for c in run_cases}
         version = 1
+        rerun_done = False
         for rnd in range(1, self.repair_rounds + 1):
             failing = [r for r in self.results.values() if not r.get("pass")]
             if not failing:
                 self.trace.note("all self-test cases pass; no repair needed")
                 return
+            if not rerun_done and all(not r.get("tools") for r in failing):
+                # every failure stopped before the first tool call (a platform/code-step hiccup, seen on Freya): the
+                # prompts are not the cause, so retest the same version once instead of spending a repair on them
+                rerun_done = True
+                again = [c for c in cases if c["id"] in {r["id"] for r in failing} and c["id"] in tested]
+                if again and self.budget.can_start(_estimate(len(again)), RESERVE_SAVE_S + RESERVE_END_S):
+                    self.trace.note("%d failure(s) without any tool call: retesting the same version (no repair)" % len(again))
+                    res = self.run_test(tester, self.best["wf"], again, "self-test v%d (rerun, no change)" % version)
+                    if not res or not res.get("ok"):
+                        return
+                    self.results.update({r["id"]: r for r in res["rows"]})
+                    self.best.update(passed=sum(1 for r in self.results.values() if r.get("pass")))
+                    continue
             passing = [cid for cid, r in self.results.items() if r.get("pass")]
             retest_ids = [r["id"] for r in failing] + random.Random(self.seed + rnd).sample(passing, min(2, len(passing)))
             retest = [c for c in cases if c["id"] in retest_ids and c["id"] in tested]

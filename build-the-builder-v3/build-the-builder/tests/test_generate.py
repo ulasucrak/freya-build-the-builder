@@ -635,8 +635,8 @@ class LiveDateRegressions(unittest.TestCase):
             self.assertEqual(vs["w_today"], "2026-10-14")
             offers = json.loads(vs["w_products_json"])[0]["offers"]
             self.assertEqual((offers[0]["date"], offers[1]["date"]), ("2026-10-16", "2026-10-23"))     # PUB-06
-            self.assertIn("Attempt 1 (a persuasion attempt: only after a refusal or a non-answer): amount 2125.10 (or 637.50", vs["w_account_facts"])
-            self.assertIn("on Friday 16 October 2026 (2026-10-16)", vs["w_account_facts"])
+            self.assertEqual((offers[0]["amount"], offers[0]["alt"]), (2125.1, 637.5))   # offers come from check_offer
+            self.assertNotIn("Attempt 1", vs["w_account_facts"])
             wf, vs2 = self.facts(wall, loan)
             self.assertIn("Mon 26 Oct (holiday) -> Tuesday 27 October 2026 (2026-10-27)", vs2["w_account_facts"])  # PUB-07
             cfg = {"url": "u", "body": {"product_id": "p1", "amount": 540, "date": "2026-10-26"}}
@@ -933,8 +933,8 @@ class Snippets(unittest.TestCase):
 
     def test_products_json_is_slim(self):
         self.sim.account(self.prods)
-        self.assertLess(len(self.sim.vs["w_products_json"]), 500)
-        self.assertIn("Attempt 1", self.sim.vs["w_account_facts"])
+        self.assertLess(len(self.sim.vs["w_products_json"]), 600)
+        self.assertNotIn("Attempt 1", self.sim.vs["w_account_facts"])           # offers are given by check_offer
 
     def test_transfer_wins_and_blocks_writes(self):
         self.sim.account(self.prods)
@@ -1180,3 +1180,40 @@ class Generalization(unittest.TestCase):
         self.assertEqual(r["code"], "bad_date")
         self.assertIn("2026-10-23", r["what_to_do_next"])                        # the deadline to propose if no day comes
         self.assertEqual(T.run_code_locally(code, {"product_id": "p1", "date": "Thursday"}, vs)[1]["date"][-12:], "(2026-10-22)")
+
+
+    def test_check_offer_gives_the_persuasion_offers(self):
+        """MIX-09 / GEN-05: offers are counted in code; after the last one there is no other offer."""
+        from builder import testmode as T
+        wf = G.generate_workflow(raw("brief-b"))
+        code = [t for t in wf["nodes"]["negotiate"]["tools"] if t["function"]["name"] == "check_offer"][0]["function"]["parameters"]["properties"]["code"]["default"]
+        def fresh(days_late):
+            vs = {"now": "2026-10-14T11:00"}
+            T.run_code_locally(code_of(wf["nodes"]["setup"]), {}, vs)
+            vs["w_account_products"] = [{"product_id": "p1", "type": "credit_card", "card_last4": "4821", "past_due": 420.0, "days_late": days_late, "minimum_payment": 126.0}]
+            T.run_code_locally(code_of(wf["nodes"]["prepare_account"]), {}, vs)
+            return vs
+        run = lambda vs, **a: T.run_code_locally(code, dict(product_id="p1", **a), vs)[1]
+        vs = fresh(6)                                                               # early band: one attempt
+        self.assertEqual((run(vs, refused="yes")["code"], vs and run(vs, refused="yes")["code"]), ("offer", "no_offers_left"))
+        vs = fresh(8)                                                               # late band: two attempts
+        a1, a2, a3 = run(vs, refused="yes"), run(vs, refused="yes"), run(vs, refused="yes")
+        self.assertEqual((a1["amount"], a1["date"][-12:], a2["amount"], a2["date"][-12:], a3["code"]),
+                         ("420.00", "(2026-10-16)", "126.00", "(2026-10-23)", "no_offers_left"))
+        vs = fresh(6)                                                               # too much: floor once, then attempt 1 at the floor
+        self.assertEqual(run(vs, too_much="yes")["code"], "floor_offer")
+        self.assertEqual(run(vs, refused="yes")["amount"], "126.00")
+
+    def test_non_answer_after_a_vague_period_gets_the_deadline(self):
+        """EDGE-05: 'end of the month' ... 'I don't know' -> the deadline (vague-date rule), not persuasion attempt 1."""
+        from builder import testmode as T
+        wf = G.generate_workflow(raw("brief-b"))
+        code = [t for t in wf["nodes"]["negotiate"]["tools"] if t["function"]["name"] == "check_offer"][0]["function"]["parameters"]["properties"]["code"]["default"]
+        vs = {"now": "2026-10-14T11:00"}
+        T.run_code_locally(code_of(wf["nodes"]["setup"]), {}, vs)
+        vs["w_account_products"] = [{"product_id": "p1", "type": "credit_card", "card_last4": "4821", "past_due": 420.0, "days_late": 6, "minimum_payment": 126.0}]
+        T.run_code_locally(code_of(wf["nodes"]["prepare_account"]), {}, vs)
+        self.assertEqual(T.run_code_locally(code, {"product_id": "p1", "date": "end of the month"}, vs)[1]["code"], "bad_date")
+        r = T.run_code_locally(code, {"product_id": "p1", "refused": "yes"}, vs)[1]
+        self.assertEqual((r["code"], r["date"][-12:]), ("vague_deadline", "(2026-11-02)"))
+        self.assertEqual(T.run_code_locally(code, {"product_id": "p1", "refused": "yes"}, vs)[1]["code"], "offer")   # attempt 1 still left
