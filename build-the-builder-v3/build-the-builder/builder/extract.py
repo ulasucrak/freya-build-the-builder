@@ -50,6 +50,7 @@ import re
 import sys
 import time
 import zipfile
+import zlib
 
 try:  # package import (python -m builder.extract) or direct
     from . import llm
@@ -62,20 +63,23 @@ try:
 except Exception:  # pragma: no cover - module not merged yet
     _schema_validate = None
 
-TOP_KEYS = ["source", "variables", "clock", "calendar", "opening", "third_party", "identity", "products",
-            "bands", "amounts", "dates", "promise", "callback", "triggers", "notes", "outcomes", "phrases",
-            "tools", "rules"]
-PART1_KEYS = ["source", "variables", "clock", "calendar", "opening", "third_party", "identity", "products",
-              "bands", "callback"]
+TOP_KEYS = ["source", "language", "variables", "clock", "calendar", "opening", "third_party", "identity",
+            "products", "bands", "amounts", "dates", "promise", "callback", "triggers", "notes", "outcomes",
+            "phrases", "tools", "rules"]
+PART1_KEYS = ["source", "language", "variables", "clock", "calendar", "opening", "third_party", "identity",
+              "products", "bands", "callback"]
 PART2_KEYS = ["amounts", "dates", "promise", "triggers", "notes", "outcomes", "phrases", "closing"]
 DIFF_KEYS = ["calendar", "bands", "identity", "callback", "outcomes", "triggers", "closing"]
 LIST_KEYS = {"variables", "bands", "triggers", "rules"}
+TEXT_KEYS = {"language"}      # plain text (or null) sections
 OPTIONAL_KEYS = ["closing"]   # contract extensions (policy_schema reads them when present)
 
 TOTAL_BUDGET_S = int(os.environ.get("EXTRACT_BUDGET_S", "225"))   # whole extraction must stay < 4 min
 ROUND1_SHARE = 0.62        # share of the budget for the parallel extraction round (incl. JSON repairs)
 MIN_RESOLVE_S = 30         # skip the resolve call when less time than this is left
 END_MARGIN_S = 5           # finish this long before the budget ends
+RULES_CHUNK_CHARS = 60000  # bigger inputs: the verbatim rules list is asked in parallel parts (by document)
+MAX_RULES_PARTS = 3
 
 
 class ExtractError(RuntimeError):
@@ -166,10 +170,8 @@ def _read_bytes(data, name):
             return _read_eml(data)
         if low.endswith(".docx"):
             return _read_docx(data)
-        if low.endswith(".pdf"):
-            # stdlib cannot read PDF text reliably; keep the printable strings
-            strings = re.findall(rb"[\x20-\x7e]{4,}", data)
-            return "(PDF, printable strings only)\n" + "\n".join(s.decode("ascii") for s in strings[:5000])
+        if low.endswith(".pdf") or data[:5] == b"%PDF-":
+            return _read_pdf(data)
         text = _decode(data)
         if low.endswith((".html", ".htm")):
             return _strip_html(text)
@@ -185,6 +187,447 @@ def _read_bytes(data, name):
         return "(could not parse %s: %s)\n%s" % (name, e, _decode(data))
 
 
+# ---------------------------------------------------------------- PDF text (stdlib only)
+
+_PDF_OBJ = re.compile(rb"(?<![0-9])(\d{1,10})[ \t\r\n]+(\d{1,5})[ \t\r\n]+obj\b")
+_PDF_TOKEN = re.compile(r"\s+|%[^\r\n]*|/[^\s/<>\[\]{}()%]*|<<|>>|<[0-9A-Fa-f\s]*>|\[|\]"
+                        r"|[+-]?(?:\d+\.?\d*|\.\d+)(?![^\s/<>\[\]{}()%])|[^\s/<>\[\]{}()%]+")
+_PDF_ESC = {"n": "\n", "r": "\r", "t": "\t", "b": "\b", "f": "\f"}
+
+
+def _pdf_inflate(head, raw):
+    """Decoded stream bytes: FlateDecode or unfiltered; None for other filters (images, LZW...)."""
+    if re.search(rb"/(FlateDecode|Fl)\b", head):
+        try:
+            return zlib.decompress(raw)
+        except zlib.error:
+            try:
+                return zlib.decompressobj().decompress(raw)
+            except zlib.error:
+                return None
+    return None if b"/Filter" in head else raw
+
+
+def _pdf_objects(data):
+    """{object number: (dictionary bytes, decoded stream bytes or None)}, incl. objects in object streams."""
+    starts = [(m.start(), m.end(), int(m.group(1))) for m in _PDF_OBJ.finditer(data)]
+    raw = {}
+    for i, (_s, e, num) in enumerate(starts):
+        raw[num] = data[e:starts[i + 1][0] if i + 1 < len(starts) else len(data)]
+
+    def length(head):
+        m = re.search(rb"/Length[ \t\r\n]+(\d+)(?:[ \t\r\n]+\d+[ \t\r\n]+R)?", head)
+        if not m:
+            return None
+        if m.group(0).endswith(b"R"):
+            ref = re.match(rb"\s*(\d+)", raw.get(int(m.group(1)), b""))
+            return int(ref.group(1)) if ref else None
+        return int(m.group(1))
+
+    objs = {}
+    for num, body in raw.items():
+        m = re.search(rb"\bstream\r?\n", body)
+        if not m:
+            objs[num] = (body.split(b"endobj")[0], None)
+            continue
+        head, n, stream = body[:m.start()], length(body[:m.start()]), None
+        if n is not None and b"endstream" in body[m.end() + n:m.end() + n + 30]:
+            stream = body[m.end():m.end() + n]
+        if stream is None:
+            k = body.rfind(b"endstream")
+            stream = body[m.end():k if k > 0 else len(body)].rstrip(b"\r\n")
+        objs[num] = (head, _pdf_inflate(head, stream))
+    for num, (head, stream) in list(objs.items()):
+        first = re.search(rb"/First[ \t\r\n]+(\d+)", head)
+        if stream and first and re.search(rb"/Type\s*/ObjStm", head):
+            first = int(first.group(1))
+            nums = [int(x) for x in re.findall(rb"\d+", stream[:first])]
+            pairs = list(zip(nums[0::2], nums[1::2]))
+            for j, (onum, off) in enumerate(pairs):
+                stop = pairs[j + 1][1] if j + 1 < len(pairs) else len(stream) - first
+                objs.setdefault(onum, (stream[first + off:first + stop], None))
+    return objs
+
+
+def _pdf_balanced(b):
+    """The << ... >> dictionary at the start of b."""
+    depth, i = 0, 0
+    while i < len(b):
+        if b.startswith(b"<<", i):
+            depth, i = depth + 1, i + 2
+        elif b.startswith(b">>", i):
+            depth, i = depth - 1, i + 2
+            if depth <= 0:
+                return b[:i]
+        else:
+            i += 1
+    return b
+
+
+def _pdf_get(objs, body, key):
+    """Value of /key in a dictionary: nested << >> or [ ] as bytes, or the body of the object it refers to."""
+    m = re.search(rb"/" + key + rb"(?![A-Za-z0-9])\s*", body or b"")
+    if not m:
+        return None
+    rest = body[m.end():]
+    ref = re.match(rb"(\d+)\s+\d+\s+R\b", rest)
+    if ref:
+        return objs.get(int(ref.group(1)), (b"", None))[0]
+    if rest.startswith(b"<<"):
+        return _pdf_balanced(rest)
+    if rest.startswith(b"["):
+        return rest[:rest.find(b"]") + 1]
+    return None
+
+
+def _pdf_cmap(stream):
+    """ToUnicode CMap -> ({code: text}, code width in bytes or None)."""
+    text = stream.decode("latin-1")
+    m = re.search(r"begincodespacerange\s*<([0-9A-Fa-f]+)>", text)
+    width = max(1, len(m.group(1)) // 2) if m else None
+
+    def uni(h):
+        h = h if len(h) % 4 == 0 else h.rjust(len(h) + (-len(h)) % 4, "0")
+        try:
+            return bytes.fromhex(h).decode("utf-16-be", errors="ignore")
+        except ValueError:
+            return ""
+    cmap = {}
+    for block in re.findall(r"beginbfchar(.*?)endbfchar", text, re.S):
+        for src, dst in re.findall(r"<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]*)>", block):
+            cmap[int(src, 16)] = uni(dst)
+    for block in re.findall(r"beginbfrange(.*?)endbfrange", text, re.S):
+        for lo, hi, dst in re.findall(r"<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>\s*(<[0-9A-Fa-f]*>|\[[^\]]*\])", block):
+            lo, hi = int(lo, 16), int(hi, 16)
+            if not 0 <= hi - lo <= 65535:
+                continue
+            if dst.startswith("["):
+                for k, d in enumerate(re.findall(r"<([0-9A-Fa-f]*)>", dst)):
+                    cmap[lo + k] = uni(d)
+            elif len(dst) > 2:
+                base, w = int(dst[1:-1], 16), len(dst) - 2
+                for k in range(hi - lo + 1):
+                    cmap[lo + k] = uni("%0*X" % (w, base + k))
+    return cmap, width
+
+
+def _pdf_font(objs, num):
+    head = objs.get(num, (b"", None))[0]
+    font = {"width": 2 if re.search(rb"/Subtype\s*/Type0", head) else 1, "cmap": {},
+            "glyphs": bool(re.search(rb"/Subtype\s*/Type3", head))}
+    m = re.search(rb"/ToUnicode\s+(\d+)\s+\d+\s+R", head)
+    stream = objs.get(int(m.group(1)), (b"", None))[1] if m else None
+    if stream:
+        font["cmap"], width = _pdf_cmap(stream)
+        font["width"] = width or font["width"]
+        font["glyphs"] = False
+    return font
+
+
+def _pdf_show(raw, font):
+    """Text of a shown string under the current font."""
+    if not font:
+        return raw.decode("cp1252", errors="replace")
+    if font["glyphs"]:  # drawing-only font (Type3 without ToUnicode): a separator, not text
+        return " "
+    w, cmap, out = font["width"], font["cmap"], []
+    for i in range(0, len(raw) - w + 1, w):
+        code = int.from_bytes(raw[i:i + w], "big")
+        if code in cmap:
+            out.append(cmap[code])
+        elif w == 1:
+            out.append(bytes([code]).decode("cp1252", errors="replace"))
+    return "".join(out)
+
+
+def _pdf_literal(s, i):
+    """(bytes, end index) of the literal string starting at s[i] == '('."""
+    out, depth, i, n = [], 0, i + 1, len(s)
+    while i < n:
+        c = s[i]
+        if c == "\\":
+            nx = s[i + 1:i + 2]
+            if nx in _PDF_ESC:
+                out.append(_PDF_ESC[nx])
+                i += 2
+            elif nx and nx in "01234567":
+                m = re.match(r"[0-7]{1,3}", s[i + 1:i + 4])
+                out.append(chr(int(m.group(0), 8) & 0xFF))
+                i += 1 + len(m.group(0))
+            elif nx in ("\r", "\n"):
+                i += 3 if s[i + 1:i + 3] == "\r\n" else 2
+            else:
+                out.append(nx)
+                i += 2
+            continue
+        if c == "(":
+            depth += 1
+        elif c == ")":
+            if depth == 0:
+                return "".join(out).encode("latin-1", errors="replace"), i + 1
+            depth -= 1
+        out.append(c)
+        i += 1
+    return "".join(out).encode("latin-1", errors="replace"), i
+
+
+def _pdf_content_text(content, fonts):
+    """Text shown by a content stream (BT/ET, Tf, Tj, TJ, ', ")."""
+    s = content.decode("latin-1")
+    out, stack, font, i, n = [], [], None, 0, len(s)
+
+    def newline():
+        if out and not out[-1].endswith("\n"):
+            out.append("\n")
+    while i < n:
+        if s[i] == "(":
+            raw, i = _pdf_literal(s, i)
+            stack.append(raw)
+            continue
+        m = _PDF_TOKEN.match(s, i)
+        if not m:
+            i += 1
+            continue
+        tok, i = m.group(0), m.end()
+        if tok[0].isspace() or tok[0] == "%" or tok in ("<<", ">>"):
+            continue
+        if tok[0] == "<":
+            h = re.sub(r"\s", "", tok[1:-1])
+            stack.append(bytes.fromhex(h + "0" * (len(h) % 2)))
+        elif tok == "[":
+            stack.append("[")
+        elif tok == "]":
+            arr = []
+            while stack and not (isinstance(stack[-1], str) and stack[-1] == "["):
+                arr.append(stack.pop())
+            if stack:
+                stack.pop()
+            stack.append(arr[::-1])
+        elif tok[0] == "/":
+            stack.append(tok)
+        elif re.match(r"[+-]?(\d|\.\d)", tok):
+            try:
+                stack.append(float(tok))
+            except ValueError:
+                pass
+        else:  # operator
+            if tok == "BT":
+                newline()
+            elif tok == "Tf" and len(stack) >= 2 and isinstance(stack[-2], str):
+                font = fonts.get(stack[-2][1:])
+            elif tok in ("Tj", "'", '"') and stack and isinstance(stack[-1], bytes):
+                if tok != "Tj":
+                    newline()
+                out.append(_pdf_show(stack[-1], font))
+            elif tok == "TJ" and stack and isinstance(stack[-1], list):
+                for el in stack[-1]:
+                    if isinstance(el, bytes):
+                        out.append(_pdf_show(el, font))
+                    elif isinstance(el, float) and el < -200:  # a wide gap is a word space
+                        out.append(" ")
+            elif tok in ("Td", "TD") and len(stack) >= 2 and isinstance(stack[-1], float):
+                if abs(stack[-1]) > 0.01:
+                    newline()
+                else:
+                    out.append(" ")
+            elif tok == "T*":
+                newline()
+            elif tok == "ID":  # inline image data: skip to EI
+                k = re.search(r"\sEI(?=\s|$)", s[i:])
+                i = i + k.end() if k else n
+            stack = []
+    return "".join(out)
+
+
+def _pdf_pages(objs):
+    """Page object numbers in document order (page tree walk; all page objects when there is no tree)."""
+    pages, seen = [], set()
+
+    def walk(num, depth):
+        if num in seen or depth > 30:
+            return
+        seen.add(num)
+        head = objs.get(num, (b"", None))[0]
+        if re.search(rb"/Type\s*/Pages\b", head):
+            for r in re.findall(rb"(\d+)\s+\d+\s+R\b", _pdf_get(objs, head, b"Kids") or b""):
+                walk(int(r), depth + 1)
+        elif re.search(rb"/Type\s*/Page\b", head):
+            pages.append(num)
+    for num, (head, _st) in sorted(objs.items()):
+        if re.search(rb"/Type\s*/Pages\b", head) and not re.search(rb"/Parent\s", head):
+            walk(num, 0)
+    return pages or [num for num, (head, _st) in sorted(objs.items()) if re.search(rb"/Type\s*/Page\b", head)]
+
+
+def _pdf_text(data):
+    """Text of a PDF: FlateDecode content streams, fonts mapped through their ToUnicode CMaps."""
+    objs = _pdf_objects(data)
+    font_cache = {}
+
+    def fonts_of(head, depth=0):
+        res = _pdf_get(objs, head, b"Resources")
+        parent = re.search(rb"/Parent\s+(\d+)\s+\d+\s+R", head)
+        if res is None and parent and depth < 30:
+            return fonts_of(objs.get(int(parent.group(1)), (b"", None))[0], depth + 1)
+        fonts = {}
+        for name, ref in re.findall(rb"/([^\s/<>\[\]()]+)\s+(\d+)\s+\d+\s+R\b", _pdf_get(objs, res, b"Font") or b""):
+            if int(ref) not in font_cache:
+                font_cache[int(ref)] = _pdf_font(objs, int(ref))
+            fonts[name.decode("latin-1")] = font_cache[int(ref)]
+        return fonts
+
+    parts = []
+    for page in _pdf_pages(objs):
+        head = objs[page][0]
+        m = re.search(rb"/Contents\s*(\[[^\]]*\]|\d+\s+\d+\s+R\b)", head)
+        refs = [int(r) for r in re.findall(rb"(\d+)\s+\d+\s+R\b", m.group(1))] if m else []
+        if len(refs) == 1 and objs.get(refs[0], (b"", None))[1] is None:  # indirect array of streams
+            refs = [int(r) for r in re.findall(rb"(\d+)\s+\d+\s+R\b", objs.get(refs[0], (b"", None))[0])]
+        content = b"\n".join(objs.get(r, (b"", None))[1] or b"" for r in refs)
+        parts.append(_pdf_content_text(content, fonts_of(head)))
+    if len(re.findall(r"\w", "".join(parts))) < 20:  # no page tree found: every text stream, fonts by name
+        fonts = {}
+        for head, _st in objs.values():
+            fonts.update(fonts_of(head))
+        parts = [_pdf_content_text(st, fonts) for head, st in objs.values()
+                 if st and b"BT" in st and not re.search(rb"/(Type\s*/ObjStm|Length1|Subtype\s*/Image)", head)]
+    text = "\n".join(parts)
+    text = "".join(c if c.isprintable() or c == "\n" else " " for c in text)
+    lines = [re.sub(r"\s+", " ", ln).strip() for ln in text.split("\n")]
+    return "\n".join(ln for ln in lines if ln)
+
+
+def _read_pdf(data):
+    """PDF text from its content streams; the printable strings of the raw file only when that finds no text."""
+    try:
+        text = _pdf_text(data)
+    except Exception:  # never crash on a file
+        text = ""
+    if len(re.findall(r"[^\W\d_]", text)) >= 20:
+        return "(PDF text; the page layout is not kept)\n" + text
+    strings = re.findall(rb"[\x20-\x7e]{4,}", data)
+    return "(PDF, printable strings only)\n" + "\n".join(s.decode("ascii") for s in strings[:5000])
+
+
+# ---------------------------------------------------------------- big data files, size cap
+
+DATA_SUMMARY_BYTES = 32 * 1024   # json/csv data files bigger than this are summarised, never sent whole
+MAX_DOC_CHARS = 40000            # per-file cap on the text sent to the model; the rest is cut ("[cut]")
+MAX_TOTAL_CHARS = 250000         # whole input (safety net): the longest documents are cut further above this
+MIN_CUT_CHARS = 8000             # ... but never below this
+DATA_EXT = (".json", ".jsonl", ".ndjson", ".csv", ".tsv")
+
+
+def _cap(text, limit=MAX_DOC_CHARS):
+    """text cut to about `limit` characters: the head and the tail (often a conclusion or a change) are kept,
+    the middle is replaced by a "[cut: ...]" line."""
+    if len(text) <= limit:
+        return text
+    head_n, tail_n = int(limit * 0.75), int(limit * 0.25)
+    a = text.rfind("\n", 0, head_n)
+    a = a if a > head_n * 0.8 else head_n
+    b = text.find("\n", len(text) - tail_n)
+    b = b + 1 if 0 <= b < len(text) - tail_n * 0.8 else len(text) - tail_n
+    return (text[:a].rstrip() + "\n[cut: %d characters of this file not shown]\n" % (b - a)
+            + text[b:].lstrip("\n"))
+
+
+def _fit_total(docs, budget):
+    """Cut the longest documents (never below MIN_CUT_CHARS) so the whole input stays within `budget`."""
+    lens = [len(t) for _, t in docs]
+    if sum(lens) <= budget:
+        return
+    lo, hi = MIN_CUT_CHARS, max(lens)
+    while lo < hi:  # the largest per-file limit that fits
+        mid = (lo + hi + 1) // 2
+        if sum(min(n, mid) + (80 if n > mid else 0) for n in lens) <= budget:
+            lo = mid
+        else:
+            hi = mid - 1
+    for i, (label, text) in enumerate(docs):
+        if len(text) > lo:
+            docs[i] = (label, _cap(text, lo))
+
+
+def _records(value, depth=0):
+    """(path, list) of the largest list in a JSON value (the value itself when it is a list)."""
+    if isinstance(value, list):
+        return "", value
+    best = ("", None)
+    if isinstance(value, dict) and depth < 4:
+        for k, v in value.items():
+            path, lst = _records(v, depth + 1)
+            if lst is not None and (best[1] is None or len(lst) > len(best[1])):
+                best = (str(k) + ("." + path if path else ""), lst)
+    return best
+
+
+def _outline(value, depth=0):
+    """Compact structure of a JSON value: keys and value types, list lengths."""
+    if isinstance(value, dict):
+        if depth >= 3:
+            return "{%d keys}" % len(value)
+        items = ["%s: %s" % (json.dumps(k, ensure_ascii=False), _outline(v, depth + 1))
+                 for k, v in list(value.items())[:40]]
+        return "{" + ", ".join(items) + (", ..." if len(value) > 40 else "") + "}"
+    if isinstance(value, list):
+        return "[%d x %s]" % (len(value), _outline(value[0], depth + 1) if value else "nothing")
+    return {bool: "bool", int: "number", float: "number", str: "text"}.get(type(value), "null")
+
+
+def _data_summary(data, name):
+    """Short description of a big data file (structure, record count, first record), or None."""
+    low, text = name.lower(), _decode(data)
+    if low.endswith((".csv", ".tsv")):
+        try:
+            dialect = csv.Sniffer().sniff(text[:4096], delimiters=",;\t|")
+            rows = [r for r in csv.reader(io.StringIO(text), dialect) if any(c.strip() for c in r)]
+        except Exception:
+            return None
+        if len(rows) < 3:
+            return None
+        head = rows[0]
+        first = {h.strip(): v.strip() for h, v in zip(head, rows[1])}
+        return ("(data file, %d records, not shown: summary only)\nColumns: %s\nFirst record:\n%s"
+                % (len(rows) - 1, " | ".join(c.strip() for c in head),
+                   _cap(json.dumps(first, ensure_ascii=False), 3000)))
+    try:
+        if low.endswith((".jsonl", ".ndjson")):
+            value = [json.loads(ln) for ln in text.splitlines() if ln.strip()]
+        else:
+            value = json.loads(text)
+    except ValueError:
+        return None
+    path, recs = _records(value)
+    if not recs or len(recs) < 2 or len(json.dumps(recs, ensure_ascii=False)) < 0.5 * len(text):
+        return None  # not a record file (e.g. a spec or a config): read as text, capped
+    keys = []
+    for r in recs[:50]:
+        for k in (r if isinstance(r, dict) else {}):
+            if k not in keys:
+                keys.append(k)
+    scalars = ["%s = %s" % (k, _cap(json.dumps(v, ensure_ascii=False), 600)) for k, v in
+               (value.items() if isinstance(value, dict) else []) if not isinstance(v, (dict, list))][:20]
+    return ("(data file, %d records, not shown: summary only)\nStructure: %s\n%sRecords: %d at %s\n%s"
+            "First record:\n%s"
+            % (len(recs), _cap(_outline(value), 4000), "".join("Top-level value: %s\n" % x for x in scalars),
+               len(recs), path or "top level",
+               ("Record fields: %s\n" % ", ".join(map(str, keys[:80]))) if keys else "",
+               _cap(json.dumps(recs[0], ensure_ascii=False), 3000)))
+
+
+def _read_doc(data, name):
+    """Text of one input file for the model: big data files summarised, every file capped."""
+    if len(data) > DATA_SUMMARY_BYTES and name.lower().endswith(DATA_EXT):
+        try:
+            summary = _data_summary(data, name)
+        except Exception:  # never crash on a file
+            summary = None
+        if summary:
+            return summary
+    return _cap(_read_bytes(data, name))
+
+
 class DocList(list):
     """[(name, text)] plus `dates` {name: ISO datetime or None} and `order_known` (False when a folder's
     files could not be put in a reliable order)."""
@@ -195,8 +638,21 @@ class DocList(list):
         self.dates = {}
 
 
-def _doc_date(data, text):
-    """Date of a document from its Date header (mail or a 'Date:' line near the top); naive UTC or None."""
+def _doc_date(data, text, name=""):
+    """Date of a document from its Date header (mail or a 'Date:' line near the top), else from a leading
+    YYYY-MM-DD in its file name; naive UTC or None."""
+    d = _header_date(data, text)
+    if d is None:
+        m = re.match(r"(\d{4})-(\d{2})-(\d{2})(?!\d)", pathlib.Path(name or "").name)
+        if m:
+            try:
+                d = _dt.datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+            except ValueError:
+                d = None
+    return d
+
+
+def _header_date(data, text):
     raw = None
     m = re.search(rb"(?im)^date:[ \t]*(.+)$", data[:4000])
     if m:
@@ -228,8 +684,9 @@ def _hidden(path, root):
 
 def read_documents(paths):
     """DocList of (name, text). Files keep the order they were given in. A folder expands to its files
-    (dotfiles / hidden folders skipped), sorted by Date header when every file has one, else by name
-    (then order_known is False)."""
+    (dotfiles / hidden folders skipped; named by their path inside the folder), sorted by date (Date header,
+    else a leading YYYY-MM-DD in the file name) when every file has one, else by path (then order_known is
+    False). Big data files are summarised and every text is capped (MAX_DOC_CHARS, MAX_TOTAL_CHARS)."""
     docs = DocList()
     for p in paths:
         p = pathlib.Path(p)
@@ -238,8 +695,8 @@ def read_documents(paths):
             entries = []
             for f in files:
                 data = f.read_bytes()
-                text = _read_bytes(data, f.name)
-                entries.append((f, text, _doc_date(data, text)))
+                text = _read_doc(data, f.name)
+                entries.append((f, text, _doc_date(data, text, f.name)))
             if entries and all(e[2] is not None for e in entries):
                 entries.sort(key=lambda e: (e[2], e[0].name))
             else:
@@ -247,16 +704,18 @@ def read_documents(paths):
                 if len(entries) > 1:
                     docs.order_known = False
             for f, text, d in entries:
-                docs.append((f.name, text))
-                docs.dates[f.name] = d.isoformat(sep=" ") if d else None
+                label = f.relative_to(p).as_posix()  # sub-folder names tell what a file is (mail, mock, test data)
+                docs.append((label, text))
+                docs.dates[label] = d.isoformat(sep=" ") if d else None
         elif p.name == ".DS_Store":
             continue
         else:
             data = p.read_bytes()
-            text = _read_bytes(data, p.name)
-            d = _doc_date(data, text)
+            text = _read_doc(data, p.name)
+            d = _doc_date(data, text, p.name)
             docs.append((p.name, text))
             docs.dates[p.name] = d.isoformat(sep=" ") if d else None
+    _fit_total(docs, MAX_TOTAL_CHARS)
     return docs
 
 
@@ -436,9 +895,13 @@ def parse_openapi(path_or_spec):
 # =============================================================== 3. LLM prompts (generic contract)
 
 SYSTEM = (
-    "You are a meticulous extraction engine. You turn a bank's specification for an outbound phone agent "
-    "(clean spec or raw material: mails, policy extracts, memos, code lists) into a JSON policy that a code "
-    "generator consumes. Use ONLY what the documents say. Never invent values, names, dates or phrases; when "
+    "You are a meticulous extraction engine. You turn a bank's specification for a phone agent "
+    "(clean spec or raw material: mails, policy extracts, memos, code lists, call-flow diagrams, transcripts) into "
+    "a JSON policy that a code generator consumes. Extract only how the phone agent must behave on its calls. "
+    "Ignore instructions addressed to the people who build, test or host the agent (how to build it, mock or "
+    "deploy its services, submit the work, or how the work is scored or judged), setup steps, and test/sample data "
+    "rows: they are context, never rules for the agent. "
+    "Use ONLY what the documents say. Never invent values, names, dates or phrases; when "
     "something is not specified use null / [] / false and say so in that section's \"notes\". Copy rule texts, "
     "phrases and sentences to be spoken VERBATIM (keep {placeholders} the documents use). Use the exact "
     "identifiers (tool names, field names, enum values, variable names) found in the documents and the tool "
@@ -466,7 +929,12 @@ def _opts(options):
 CONTRACT = {
     "source": '{"briefs": [document names in order], "overrides_applied": ["one line per change a later '
               'document/memo makes to an earlier rule: what changed, old -> new, with a short quote"], "notes": []}',
-    "variables": '[{"name": exact call-variable name, "meaning": text}]  -- variables the agent knows at call start',
+    "language": 'the language the agent speaks on the calls, as an English language name (e.g. "English", '
+                '"German", "Spanish"): the language the documents say the calls are held in, else the language '
+                'of the sentences the agent must say; null only if the documents give no hint',
+    "variables": '[{"name": exact call-variable name, "meaning": text, "example": one example value of this '
+                 'variable exactly as the documents show it (e.g. in a sample call or test data), or null}]  -- '
+                 'variables the agent knows at call start',
     "clock": '{"now_variable": name of the variable holding the current date/time or null, "timezone": text|null, '
              '"date_format": format of that variable as the documents show it, "notes": []}',
     "calendar": '{"weekend": [ISO weekday ints, Monday=1 .. Sunday=7, that are NOT business days], '
@@ -611,10 +1079,19 @@ def part_prompt(keys, docs_text, tools, api_description):
         % (", ".join(keys), _contract_text(keys), _tools_for_prompt(tools), api_description, docs_text))
 
 
-def rules_prompt(docs_text):
+def rules_prompt(docs_text, only=None):
+    """Verbatim rules prompt; `only` = names of the documents to list rules from (the rest is context)."""
+    scope = ""
+    if only:
+        scope = ("- List ONLY the rules found in these documents: %s. The other documents are context: use them "
+                 "for the override/change marks below, but do not list their rules.\n"
+                 % ", ".join('"%s"' % n for n in only))
     return (
-        "List EVERY rule in the documents below, verbatim, in document order, as JSON: "
-        "{\"rules\": [{\"id\": text, \"text\": verbatim text}]}.\n"
+        "List EVERY rule in the documents below for the phone agent's behaviour on its calls, verbatim, in "
+        "document order, as JSON: {\"rules\": [{\"id\": text, \"text\": verbatim text}]}.\n" + scope +
+        "- Leave out instructions to the people who build, test or host the agent (building it, mocking or "
+        "deploying services, submission, scoring/judging), setup steps, code, and test/sample data records: "
+        "they are not rules for the agent.\n"
         "- A numbered rule keeps its number: id = \"<document name without extension>.<number>\".\n"
         "- Unnumbered rule sentences/bullets (also in mails, memos, code lists): id = \"<document name without "
         "extension>.<short section slug>.<k>\".\n"
@@ -892,6 +1369,22 @@ def _as_list(key, value, warnings):
     return [value]
 
 
+def norm_language(v, warnings=None):
+    """Language name as text ("German"), or None when not stated. Accepts {"name": ...}, lists, codes."""
+    if isinstance(v, dict):
+        v = next((v[k] for k in ("name", "language", "value", "spoken") if v.get(k)), None)
+    if isinstance(v, (list, tuple)):
+        v = next((x for x in v if isinstance(x, str) and x.strip()), None)
+    if not isinstance(v, str):
+        if v is not None and warnings is not None:
+            warnings.append("language: expected text, got %s" % type(v).__name__)
+        return None
+    v = re.sub(r"\s+", " ", v).strip().strip(".\"'")
+    if not v or v.lower() in ("null", "none", "unknown", "n/a", "not stated"):
+        return None
+    return v[:1].upper() + v[1:] if v[:1].islower() else v
+
+
 def normalise_section(key, v, warnings):
     """Coerce one section to its contract types. Bad values move into notes with a warning."""
     if key == "calendar":
@@ -1095,9 +1588,19 @@ def normalise_section(key, v, warnings):
                 t.setdefault(f, None)
             out.append(t)
         return out
+    if key == "language":
+        return norm_language(v, warnings)
     if key == "variables":
         v = _as_list(key, v, warnings)
-        return [x if isinstance(x, dict) else {"name": str(x), "meaning": ""} for x in v]
+        out = []
+        for x in v:
+            x = dict(x) if isinstance(x, dict) else {"name": str(x), "meaning": ""}
+            if "example" in x:  # one value as the documents show it; test calls use it
+                ex = x["example"]
+                x["example"] = None if ex in (None, "", [], {}) else (
+                    ex if isinstance(ex, (str, int, float)) else json.dumps(ex, ensure_ascii=False))
+            out.append(x)
+        return out
     if key == "rules":
         v = _as_list(key, v, warnings)
         out = []
@@ -1421,7 +1924,11 @@ def local_validate(policy):
         return ["policy is not an object"]
     for k in TOP_KEYS:
         if k not in policy:
-            problems.append("missing top-level key: %s" % k)
+            if k not in TEXT_KEYS:  # optional text sections (language) may be absent
+                problems.append("missing top-level key: %s" % k)
+        elif k in TEXT_KEYS:
+            if policy[k] is not None and not isinstance(policy[k], str):
+                problems.append("%s must be text or null" % k)
         elif k in LIST_KEYS and not isinstance(policy[k], list):
             problems.append("%s must be a list" % k)
         elif k not in LIST_KEYS and not isinstance(policy[k], dict):
@@ -1561,7 +2068,7 @@ def numbered_rules(docs):
     """Numbered list items ('12. text' + continuation lines) per document, verbatim."""
     rules = []
     for label, text in docs:
-        stem = re.sub(r"\.[^.]+$", "", label)
+        stem = re.sub(r"\.[^.]+$", "", label.rsplit("/", 1)[-1])
         cur = None
         for line in text.splitlines():
             m = re.match(r"^\s{0,3}(\d{1,3})[.)]\s+(\S.*)$", line)
@@ -1589,42 +2096,28 @@ def _call_json(prompt, purpose, deadline, model=None):
                         timeout_s=max(0.0, deadline - time.time()), deadline=deadline)
 
 
-def extract_policy(brief_paths, openapi_path, *, replicates=2, budget_s=None, warnings=None):
-    """brief file(s) + openapi -> policy dict (contract v1). Raises ExtractError if the LLM fails entirely."""
-    t0 = time.time()
-    budget_s = budget_s or TOTAL_BUDGET_S
-    warnings = [] if warnings is None else warnings
-    docs = read_documents(brief_paths)
-    if not docs:
-        raise ExtractError("no brief documents found in %s" % brief_paths)
-    tools_info = parse_openapi(openapi_path)
-    docs_text = documents_block(docs)
-    api_desc = tools_info.get("description", "")
-    replicates = max(1, int(replicates))
-    end = t0 + budget_s - END_MARGIN_S
-    round1_end = t0 + budget_s * ROUND1_SHARE
+def rules_groups(docs, chunk=None):
+    """Consecutive document index groups for the verbatim rules pass: one group for a normal input; a big
+    input is split (by document, about equal sizes) so each part's long verbatim answer stays short."""
+    chunk = chunk or RULES_CHUNK_CHARS
+    sizes = [len(t) for _, t in docs]
+    n = min(MAX_RULES_PARTS, len(docs), max(1, -(-sum(sizes) // chunk)))
+    if n <= 1:
+        return [list(range(len(docs)))]
+    target, groups, cur, acc = sum(sizes) / n, [], [], 0
+    for i, size in enumerate(sizes):
+        cur.append(i)
+        acc += size
+        if acc >= target * (len(groups) + 1) and len(groups) < n - 1 and i < len(sizes) - 1:
+            groups.append(cur)
+            cur = []
+    if cur:
+        groups.append(cur)
+    return groups
 
-    jobs = {}
-    with cf.ThreadPoolExecutor(max_workers=2 * replicates + 1) as pool:
-        for r in range(replicates):
-            jobs[("p1", r)] = pool.submit(_call_json, part_prompt(PART1_KEYS, docs_text, tools_info["tools"], api_desc),
-                                          "extract policy part 1 (replicate %d)" % (r + 1), round1_end)
-            jobs[("p2", r)] = pool.submit(_call_json, part_prompt(PART2_KEYS, docs_text, tools_info["tools"], api_desc),
-                                          "extract policy part 2 (replicate %d)" % (r + 1), round1_end)
-        jobs[("rules", 0)] = pool.submit(_call_json, rules_prompt(docs_text), "extract verbatim rules",
-                                         round1_end, llm.fast_model())
-        results = {}
-        for key, fut in jobs.items():
-            try:
-                res = fut.result()
-                results[key] = res if isinstance(res, dict) else {}
-                if not isinstance(res, dict):
-                    warnings.append("%s: model returned %s, not an object" % (key, type(res).__name__))
-            except Exception as e:
-                warnings.append("%s failed: %s" % (key, e))
-                _log("%s failed: %s" % (key, e))
-    _log("round 1 done in %.0fs" % (time.time() - t0))
 
+def _merge_and_resolve(results, replicates, docs_text, tools_info, end, warnings):
+    """Merge each replicate's two parts; settle disagreements between replicates with a resolve call."""
     reps = []
     for r in range(replicates):
         p1, p2 = results.get(("p1", r)), results.get(("p2", r))
@@ -1662,8 +2155,71 @@ def extract_policy(brief_paths, openapi_path, *, replicates=2, budget_s=None, wa
                 warnings.append("no time left to resolve %s; kept replicate 1" % ", ".join(conflicts))
         else:
             _log("replicates agree on %s" % ", ".join(DIFF_KEYS))
+    return primary
 
-    rules = normalise_section("rules", (results.get(("rules", 0)) or {}).get("rules"), warnings)
+
+def extract_policy(brief_paths, openapi_path, *, replicates=2, budget_s=None, warnings=None):
+    """brief file(s) + openapi -> policy dict (contract v1). Raises ExtractError if the LLM fails entirely."""
+    t0 = time.time()
+    budget_s = budget_s or TOTAL_BUDGET_S
+    warnings = [] if warnings is None else warnings
+    docs = read_documents(brief_paths)
+    if not docs:
+        raise ExtractError("no brief documents found in %s" % brief_paths)
+    tools_info = parse_openapi(openapi_path)
+    docs_text = documents_block(docs)
+    api_desc = tools_info.get("description", "")
+    replicates = max(1, int(replicates))
+    end = t0 + budget_s - END_MARGIN_S
+    round1_end = t0 + budget_s * ROUND1_SHARE
+
+    results = {}
+
+    def collect(key, fut):
+        try:
+            res = fut.result()
+            results[key] = res if isinstance(res, dict) else {}
+            if not isinstance(res, dict):
+                warnings.append("%s: model returned %s, not an object" % (key, type(res).__name__))
+        except Exception as e:
+            warnings.append("%s failed: %s" % (key, e))
+            _log("%s failed: %s" % (key, e))
+
+    jobs = {}
+    groups = rules_groups(docs)
+    pool = cf.ThreadPoolExecutor(max_workers=2 * replicates + len(groups))
+    try:
+        for r in range(replicates):
+            jobs[("p1", r)] = pool.submit(_call_json, part_prompt(PART1_KEYS, docs_text, tools_info["tools"], api_desc),
+                                          "extract policy part 1 (replicate %d)" % (r + 1), round1_end)
+            jobs[("p2", r)] = pool.submit(_call_json, part_prompt(PART2_KEYS, docs_text, tools_info["tools"], api_desc),
+                                          "extract policy part 2 (replicate %d)" % (r + 1), round1_end)
+        # the verbatim rules list (long answer) is needed last: it may run on while replicates are compared and
+        # resolved, until the end of the whole budget; a big input is listed in parallel parts
+        rules_jobs = []
+        for gi, g in enumerate(groups):
+            only = [docs[i][0] for i in g] if len(groups) > 1 else None
+            purpose = "extract verbatim rules" + (" (part %d of %d)" % (gi + 1, len(groups)) if only else "")
+            rules_jobs.append(pool.submit(_call_json, rules_prompt(docs_text, only), purpose, end, llm.fast_model()))
+        for key, fut in jobs.items():
+            collect(key, fut)
+        _log("round 1 done in %.0fs" % (time.time() - t0))
+        primary = _merge_and_resolve(results, replicates, docs_text, tools_info, end, warnings)
+        for gi, fut in enumerate(rules_jobs):
+            collect(("rules", gi), fut)
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
+
+    rules = []
+    for gi, g in enumerate(groups):
+        part = normalise_section("rules", (results.get(("rules", gi)) or {}).get("rules"), warnings)
+        if len(groups) > 1:
+            det_g = numbered_rules([docs[i] for i in g])
+            if len(part) < 0.8 * len(det_g):  # this part failed: its numbered rules at least
+                warnings.append("rules part %d returned %d rules, numbered parse found %d; using numbered parse"
+                                % (gi + 1, len(part), len(det_g)))
+                part = det_g
+        rules += [r for r in part if r not in rules]
     det = numbered_rules(docs)
     if len(rules) < 0.8 * len(det):
         warnings.append("rules pass returned %d rules, numbered parse found %d; using numbered parse"
