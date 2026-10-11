@@ -15,7 +15,8 @@
 #    text never reaches the model.
 #  * spoken forms: a sibling '<field>_spoken' for every date (dd.MM.yyyy, yyyy-MM-dd, ISO date-time) and for every
 #    amount (a number in a block or field named after a currency, next to a currency field, or in a field named
-#    like an amount), in number words + currency words of the call language. Missing or null values get nothing
+#    like an amount), in number words of the call language only (no
+#    currency name: the bank's rules say which one). Missing or null values get nothing
 #    (no zeros are invented), and neither does a zero amount. Counts, ids, codes and calendar numbers are no amounts.
 #    On success with spoken forms, what_to_do_next tells the model to use them.
 LANG_PLACEHOLDER = "CALL_LANGUAGE_HERE"
@@ -35,11 +36,6 @@ TR_MONTHS = "Ocak Şubat Mart Nisan Mayıs Haziran Temmuz Ağustos Eylül Ekim K
 TR_DAYS = "Pazartesi Salı Çarşamba Perşembe Cuma Cumartesi Pazar".split(" ")
 EN_MONTHS = "January February March April May June July August September October November December".split(" ")
 EN_DAYS = "Monday Tuesday Wednesday Thursday Friday Saturday Sunday".split(" ")
-# currency -> (tr major, tr minor, en major one, en major many, en minor one, en minor many)
-CUR_WORDS = dict(TRY=("lira", "kuruş", "Turkish lira", "Turkish lira", "kuruş", "kuruş"),
-                 USD=("dolar", "sent", "dollar", "dollars", "cent", "cents"),
-                 EUR=("avro", "sent", "euro", "euros", "cent", "cents"),
-                 GBP=("sterlin", "peni", "pound", "pounds", "penny", "pence"))
 CUR_OF = dict(tl="TRY", ytl="TRY", lira="TRY", usd="USD", dollar="USD", dolar="USD", eur="EUR", euro="EUR",
               avro="EUR", gbp="GBP", sterling="GBP", sterlin="GBP", pound="GBP")
 CUR_OF["try"] = "TRY"
@@ -99,25 +95,12 @@ def gp_words(n, tr):
     return " ".join([w for w in out if w])
 
 
-def gp_amount(x, cur, tr):
+def gp_amount(x, tr):
+    # number words only: integer part, then the two-digit fraction after the decimal word when it is not zero
     cents = int(round(abs(x) * 100))
-    major = cents // 100
-    minor = cents % 100
-    w = CUR_WORDS.get(cur)
-    if w:
-        parts = []
-        if major or not minor:
-            parts.append(gp_words(major, tr) + " " + (w[0] if tr else w[2 if major == 1 else 3]))
-        if minor:
-            parts.append(gp_words(minor, tr) + " " + (w[1] if tr else w[4 if minor == 1 else 5]))
-        s = (" " if tr else " and ").join(parts)
-    else:
-        s = gp_words(major, tr)
-        frac = ("%.2f" % abs(x)).split(".")[1].rstrip("0")
-        if frac and tr:
-            s += " virgül " + ("sıfır " if frac[0] == "0" else "") + gp_words(int(frac), tr)
-        elif frac:
-            s += " point " + " ".join([EN_SMALL[int(c)] for c in frac])
+    s = gp_words(cents // 100, tr)
+    if cents % 100:
+        s += (" virgül " if tr else " point ") + (gp_words(0, tr) + " " if cents % 100 < 10 else "") + gp_words(cents % 100, tr)
     return (("eksi " if tr else "minus ") + s) if x < 0 and cents else s
 
 
@@ -194,7 +177,7 @@ def gp_walk(node, cur, depth, tr):
                 c = vc or kc or here
                 # a zero amount gets no spoken form: nothing to verbalise, and it keeps the answer short
                 if x is not None and x == x and 0.005 <= abs(x) < 10 ** 15 and (c or [p for p in ps if p.startswith(MONEY_PARTS)]):
-                    s = gp_amount(x, c, tr)
+                    s = gp_amount(x, tr)
             if s:
                 add[sk + "_spoken"] = s
         except Exception:
@@ -268,7 +251,7 @@ if isinstance(result, dict):
         out["ok"] = True
         if spoken and "what_to_do_next" not in out:
             out["what_to_do_next"] = ("To say a date or an amount, use the words of its _spoken field"
-                                      + (" (Turkish)" if TR else "") + "; keep the rule's sentence and do not say the currency twice.")
+                                      + (" (Turkish)" if TR else "") + "; it has no currency name, add the one the rules use.")
         result["data"] = out
     else:
         code = rc if rc is not None and not gp_success_code(rc) else ""

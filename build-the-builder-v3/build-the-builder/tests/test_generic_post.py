@@ -158,7 +158,7 @@ class Envelope(unittest.TestCase):
 
     def test_flat_bodies(self):
         res = run({"status": "success", "status_code": 200, "data": {"ok": True, "due_date": "2026-11-05", "amount_due": 120.5}})
-        self.assertEqual(res["data"]["amount_due_spoken"], "yüz yirmi virgül beş")   # amount, currency unknown
+        self.assertEqual(res["data"]["amount_due_spoken"], "yüz yirmi virgül elli")   # amount, currency unknown
         res = run({"status": "success", "status_code": 200, "data": {"ok": False, "error": "NOT_FOUND"}})
         self.assertEqual((res["data"]["ok"], res["data"]["code"]), (False, "NOT_FOUND"))
         res = run({"status": "success", "status_code": 200, "data": {"ok": False, "error": MSG}})
@@ -182,22 +182,22 @@ class Envelope(unittest.TestCase):
 
     def test_strict_sandbox(self):
         res = run_strict(CODE["tr"], {}, ok_env(DEBT))
-        self.assertEqual(res["data"]["debtTL"]["statementDebt_spoken"], "beş bin lira on üç kuruş")
+        self.assertEqual(res["data"]["debtTL"]["statementDebt_spoken"], "beş bin virgül on üç")
 
 
 class Spoken(unittest.TestCase):
     def test_turkish_amounts_per_currency_block(self):
         d = run(ok_env(DEBT))["data"]
         tl, usd, eur = d["debtTL"], d["debtUSD"], d["debtEUR"]
-        self.assertEqual(tl["statementDebt_spoken"], "beş bin lira on üç kuruş")
-        self.assertEqual(tl["minPayment_spoken"], "iki bin lira beş kuruş")
-        self.assertEqual(tl["remainingDebt_spoken"], "iki bin beş yüz lira")       # zero kuruş is not said
+        self.assertEqual(tl["statementDebt_spoken"], "beş bin virgül on üç")
+        self.assertEqual(tl["minPayment_spoken"], "iki bin virgül sıfır beş")
+        self.assertEqual(tl["remainingDebt_spoken"], "iki bin beş yüz")       # zero kuruş is not said
         self.assertNotIn("transferAmount_spoken", tl)                              # zero: nothing to verbalise
         self.assertEqual(tl["totalDebt_spoken"],
-                         "bir milyon iki yüz otuz dört bin beş yüz altmış yedi lira seksen dokuz kuruş")
-        self.assertEqual(usd["statementDebt_spoken"], "bin iki yüz otuz dört dolar elli sent")
-        self.assertEqual(usd["minPayment_spoken"], "elli sent")
-        self.assertEqual(usd["totalDebt_spoken"], "eksi on iki dolar")
+                         "bir milyon iki yüz otuz dört bin beş yüz altmış yedi virgül seksen dokuz")
+        self.assertEqual(usd["statementDebt_spoken"], "bin iki yüz otuz dört virgül elli")
+        self.assertEqual(usd["minPayment_spoken"], "sıfır virgül elli")
+        self.assertEqual(usd["totalDebt_spoken"], "eksi on iki")
         self.assertEqual(eur, {"statementPaymentStatus": "NO_DEBT", "statementDebt": 0.0, "minPayment": None})
         self.assertNotIn("minPayment_spoken", eur)                                  # null: nothing invented
         self.assertNotIn("debtGBP", d)                                              # missing block stays missing
@@ -223,12 +223,14 @@ class Spoken(unittest.TestCase):
         d = run(ok_env({"debtGBP": {"minPayment": 0.01, "totalDebt": 3.0},
                         "fee": {"value": "12.50", "currency": "EUR"},
                         "limitInfo": {"creditLimit": "1250,50 TL"}, "charge": "€3", "price": "12 XYZ"}))["data"]
-        self.assertEqual(d["debtGBP"]["minPayment_spoken"], "bir peni")
-        self.assertEqual(d["debtGBP"]["totalDebt_spoken"], "üç sterlin")
-        self.assertEqual(d["fee"]["value_spoken"], "on iki avro elli sent")
-        self.assertEqual(d["limitInfo"]["creditLimit_spoken"], "bin iki yüz elli lira elli kuruş")
-        self.assertEqual(d["charge_spoken"], "üç avro")
+        self.assertEqual(d["debtGBP"]["minPayment_spoken"], "sıfır virgül sıfır bir")
+        self.assertEqual(d["debtGBP"]["totalDebt_spoken"], "üç")
+        self.assertEqual(d["fee"]["value_spoken"], "on iki virgül elli")
+        self.assertEqual(d["limitInfo"]["creditLimit_spoken"], "bin iki yüz elli virgül elli")
+        self.assertEqual(d["charge_spoken"], "üç")
         self.assertNotIn("price_spoken", d)       # letters that are no currency: not an amount
+        for w in ("lira", "kuruş", "dolar", "sent", "avro", "sterlin", "peni"):
+            self.assertNotIn(w, json.dumps(d, ensure_ascii=False))   # never a currency name of its own
 
     def test_not_amounts(self):
         d = run(ok_env({"statementWeek": 3, "statementDay": 16, "validCardsCount": 2, "responseCode": 0,
@@ -244,14 +246,14 @@ class Spoken(unittest.TestCase):
         d = run(ok_env(dict(DEBT, now="2026-10-12T10:30:00Z")), lang="en")["data"]
         self.assertEqual(d["statementDate_spoken"], "Monday 5 October 2026")
         self.assertEqual(d["now_spoken"], "Monday 12 October 2026 at 10:30")
-        self.assertEqual(d["debtUSD"]["statementDebt_spoken"], "one thousand two hundred thirty-four dollars and fifty cents")
-        self.assertEqual(d["debtUSD"]["minPayment_spoken"], "fifty cents")
-        self.assertEqual(d["debtUSD"]["totalDebt_spoken"], "minus twelve dollars")
-        self.assertEqual(d["debtTL"]["statementDebt_spoken"], "five thousand Turkish lira and thirteen kuruş")
+        self.assertEqual(d["debtUSD"]["statementDebt_spoken"], "one thousand two hundred thirty-four point fifty")
+        self.assertEqual(d["debtUSD"]["minPayment_spoken"], "zero point fifty")
+        self.assertEqual(d["debtUSD"]["totalDebt_spoken"], "minus twelve")
+        self.assertEqual(d["debtTL"]["statementDebt_spoken"], "five thousand point thirteen")
         self.assertNotIn("statementDebt_spoken", d["debtEUR"])
         d = run(ok_env({"debtGBP": {"a": 1.01, "b": 2.02}, "amount": 7.05}), lang="en")["data"]
-        self.assertEqual(d["debtGBP"]["a_spoken"], "one pound and one penny")
-        self.assertEqual(d["debtGBP"]["b_spoken"], "two pounds and two pence")
+        self.assertEqual(d["debtGBP"]["a_spoken"], "one point zero one")
+        self.assertEqual(d["debtGBP"]["b_spoken"], "two point zero two")
         self.assertEqual(d["amount_spoken"], "seven point zero five")
 
     def test_language_sources(self):
@@ -265,15 +267,15 @@ class Spoken(unittest.TestCase):
                          "Monday 12 October 2026")   # the generator's language wins; non-Turkish -> English words
 
     def test_number_words(self):
-        cases = {1000: "bin lira", 1001000: "bir milyon bin lira", 100: "yüz lira", 110: "yüz on lira",
-                 2000000000: "iki milyar lira", 999999: "dokuz yüz doksan dokuz bin dokuz yüz doksan dokuz lira",
-                 1: "bir lira", 0.99: "doksan dokuz kuruş"}
+        cases = {1000: "bin", 1001000: "bir milyon bin", 100: "yüz", 110: "yüz on",
+                 2000000000: "iki milyar", 999999: "dokuz yüz doksan dokuz bin dokuz yüz doksan dokuz",
+                 1: "bir", 0.99: "sıfır virgül doksan dokuz"}
         d = run(ok_env({"debtTL": dict(("a%d" % i, v) for i, v in enumerate(cases))}))["data"]["debtTL"]
         for i, (v, want) in enumerate(cases.items()):
             self.assertEqual(d["a%d_spoken" % i], want, v)
         d = run(ok_env({"debtUSD": {"a": 1000000.0, "b": 115.0, "c": 21.0}}), lang="en")["data"]["debtUSD"]
         self.assertEqual((d["a_spoken"], d["b_spoken"], d["c_spoken"]),
-                         ("one million dollars", "one hundred fifteen dollars", "twenty-one dollars"))
+                         ("one million", "one hundred fifteen", "twenty-one"))
 
     def test_fast_on_big_answers(self):
         big = {"items": [dict(DEBT) for _ in range(500)], "deep": DEBT}
