@@ -89,7 +89,7 @@ DEFAULT_OPTIONS = {
     "static_entry": True,          # negotiate's first message (one sentence per product + the first payment question)
                                    # is built by prepare_account and spoken as a fixed line (tts), when the policy fixes
                                    # its content (static_entry); the slowest regular turn (median 3.4 s, p90 10.7 s)
-    "static_greeting": False,      # an opening the brief describes ('say you are X and that the call is recorded') is built
+    "static_greeting": True,       # an opening the brief describes ('say you are X and that the call is recorded') is built
                                    # as a fixed line (tts, no model call: 250new, 96 calls ended before the first model
                                    # sentence); English only, no word forbidden before verification, else the model.
                                    # Off until tests/test_generate.py test_static_opening is updated (owner: orchestrator)
