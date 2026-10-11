@@ -1,0 +1,7 @@
+{
+  "not_found": {"error": "not found"},
+  "routes": [
+    {"method": "POST", "path": "/example", "rules": [{"match": {"id": "1"}, "status": 200, "body": {"ok": true}}],
+     "default": {"status": 404, "body": {"error": "unknown id"}}}
+  ]
+}

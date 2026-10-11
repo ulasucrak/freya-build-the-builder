@@ -167,6 +167,12 @@ def _read_bytes(data, name):
         if low.endswith(".docx"):
             return _read_docx(data)
         if low.endswith(".pdf"):
+            try:                                     # real text when pypdf is installed (flow drawings, documents)
+                import io
+                from pypdf import PdfReader
+                return "\n".join((pg.extract_text() or "") for pg in PdfReader(io.BytesIO(data)).pages)
+            except Exception:
+                pass
             # stdlib cannot read PDF text reliably; keep the printable strings
             strings = re.findall(rb"[\x20-\x7e]{4,}", data)
             return "(PDF, printable strings only)\n" + "\n".join(s.decode("ascii") for s in strings[:5000])

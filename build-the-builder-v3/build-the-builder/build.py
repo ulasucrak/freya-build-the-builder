@@ -28,7 +28,8 @@ from builder.pipeline import Builder  # noqa: E402
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Brief(s) + tool API file -> Freya phone agent (saved, exported, traced).")
     ap.add_argument("briefs", nargs="+", help="brief files, or a folder of brief material (later files override earlier)")
-    ap.add_argument("--openapi", required=True, help="the bank's tool API file (openapi.json)")
+    ap.add_argument("--openapi", help="the bank's tool API file (openapi.json); without it: document mode (services read from the documents)")
+    ap.add_argument("--mock-url", default=os.environ.get("MOCK_URL", ""), help="document mode: base URL of the bank's services the agent calls")
     ap.add_argument("--slot", help="label of the workflow in the state file (default: first brief's file name)")
     ap.add_argument("--budget-min", type=float, default=28.0, help="hard wall clock for the whole run, minutes (default 28)")
     ap.add_argument("--no-test", action="store_true", help="skip the self-test and repair")
@@ -41,6 +42,13 @@ def main(argv=None):
     ap.add_argument("--no-prompts", action="store_true", help="keep the generator's prompts (no LLM prompt stage)")
     ap.add_argument("--seed", type=int)
     a = ap.parse_args(argv)
+    if not a.openapi:
+        from builder import docmode
+        kit = pathlib.Path(__file__).resolve().parent
+        res = docmode.build(a.briefs, a.mock_url, a.slot or "final", a.out_dir or str(kit / "out"), a.trace_dir or str(kit / "traces"),
+                            a.state_file or str(kit / ".freya-agents.json"), budget_min=a.budget_min)
+        print(json.dumps(res, indent=1, default=str))
+        return 0 if res["status"] == "ok" else 1
     b = Builder(a.briefs, a.openapi, slot=a.slot, budget_min=a.budget_min, no_test=a.no_test, best_of=a.best_of,
                 out_dir=a.out_dir, trace_dir=a.trace_dir, state_file=a.state_file, max_cases=a.max_cases,
                 repair_rounds=a.repair_rounds, no_prompts=a.no_prompts, seed=a.seed)
