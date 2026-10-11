@@ -121,14 +121,14 @@ def spec_key(sid, spec): return sid + ":" + hashlib.sha1(json.dumps(spec, sort_k
 
 def persona_ids(scenarios, specs, store=STORE, create=None):
     """{scenario id: persona id}. A persona is created (in batches of 100) only when its text is new or changed."""
-    store = pathlib.Path(store); ids = json.load(open(store)) if store.exists() else {}
+    store = pathlib.Path(store); ids = json.loads(store.read_text()) if store.exists() else {}
     key = {s["id"]: spec_key(s["id"], specs[s["id"]]) for s in scenarios}
     new = [s for s in scenarios if key[s["id"]] not in ids]
     if new:
         made = rc.create_personas_batched([specs[s["id"]] for s in new], create=create)
-        fresh = json.load(open(store)) if store.exists() else {}
+        fresh = json.loads(store.read_text()) if store.exists() else {}      # keep what another run wrote meanwhile
         fresh.update(ids); fresh.update({key[s["id"]]: p["id"] for s, p in zip(new, made)}); ids = fresh
-        store.parent.mkdir(parents=True, exist_ok=True); json.dump(ids, open(store, "w"), indent=1)
+        store.parent.mkdir(parents=True, exist_ok=True); store.write_text(json.dumps(ids, indent=1))
     return {s["id"]: ids[key[s["id"]]] for s in scenarios}
 
 
@@ -293,7 +293,7 @@ def parse_args(argv=None):
 
 def main(argv=None):
     a = parse_args(argv)
-    try: scenarios = select(json.load(open(a.cases)), a.only)
+    try: scenarios = select(json.loads(pathlib.Path(a.cases).read_text()), a.only)
     except ValueError as e: raise SystemExit(str(e))
     if not scenarios: raise SystemExit("no scenarios selected")
     specs = {s["id"]: persona_spec(s, a.language, a.raw_persona) for s in scenarios}
@@ -327,10 +327,10 @@ def main(argv=None):
     if missing: print("WARNING: variables not seen in the call's variable table:", "; ".join(f"{k}: {','.join(v)}" for k, v in missing.items()))
     out = pathlib.Path(a.out) if a.out else ROOT / "results" / f"scenarios-{time.strftime('%Y%m%d-%H%M%S')}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
-    json.dump({"agent_id": a.agent_id, "cases": a.cases, "language": a.language, "simulation_id": sim_id, "iteration_id": it_id, "status": status,
-               "seconds": round(total_s), "passed": n, "total": len(final), "runs": a.reps, "by_family": by_family(final),
-               "failed": [f["id"] for f in final if not f["pass"]], "final": final, "rows": reps[-1], "all_rows": reps},
-              open(out, "w"), indent=1, ensure_ascii=False)
+    out.write_text(json.dumps({"agent_id": a.agent_id, "cases": a.cases, "language": a.language, "simulation_id": sim_id, "iteration_id": it_id,
+                               "status": status, "seconds": round(total_s), "passed": n, "total": len(final), "runs": a.reps, "by_family": by_family(final),
+                               "failed": [f["id"] for f in final if not f["pass"]], "final": final, "rows": reps[-1], "all_rows": reps},
+                              indent=1, ensure_ascii=False))
     print(f"Last simulation {sim_id}, status {status}, {total_s:.0f} s. Results: {out}" + (f", transcripts: {a.tx_dir}" if a.tx_dir else ""))
 
 if __name__ == "__main__": main()
