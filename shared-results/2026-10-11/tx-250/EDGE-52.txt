@@ -1,0 +1,50 @@
+#### EDGE-52  call 4ff8a9e9-6413-40a7-9e61-f60b9ff04cef  ended=assistant-ended-call
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node greet_verify]
+A: I am a digital assistant calling from Freya Bank, and this call is recorded. Am I speaking with Ms Rossi?
+U: Yes, this is Elena Rossi.
+A: What is your date of birth?
+U: The eighth of January nineteen ninety-one.
+   >> verify_identity {"body": {"field": "date_of_birth", "answer": "1991-01-08", "customer_id": "c_c1312096-22d"}}
+   << verify_identity {"ok": true, "verified": true, "wrong_answers_left": 3, "all_verified": false, "what_to_do_next": "Correct. Now ask the next security question: Ask for the last four digits of the phone number on file. (field 'phone_last4')."}
+A: What are the last four digits of the phone number on file?
+U: six six zero four.
+   >> verify_identity {"body": {"field": "phone_last4", "answer": "6604", "customer_id": "c_c1312096-22d"}}
+   << verify_identity {"ok": true, "verified": true, "wrong_answers_left": 3, "all_verified": true, "what_to_do_next": "All security answers are correct. The customer is verified."}
+   [node load_account]
+   >> api_call {"body": {"customer_id": "c_c1312096-22d"}}
+   << api_call {"ok": true, "products": [{"product_id": "p1", "type": "credit_card", "card_last4": "6604", "past_due": 300, "days_late": 4, "minimum_payment": 90}, {"product_id": "p2", "type": "personal_loan", "past_due": 900, "days_late": 20, "instalment_amount": 300}]}
+   [node prepare_account]
+   >> code_exec {}
+   << code_exec null
+   [node negotiate]
+A: I am calling from the collections team about some late payments. You have a credit card ending 6604 that is 4 days late with a past-due amount of 300.00. Also, your personal loan is 20 days late with a past-due amount of 900.00.
+ Can you make this payment today?
+U: I lost my job and I cannot pay anything.
+A: I am sorry to hear that. I can connect you with our customer support team to help you with this. Would you like me to do that?
+U: No, I do not want that.
+   >> add_note {"body": {"reason": "hardship", "product_id": "p2", "customer_id": "c_c1312096-22d"}}
+   >> add_note {"body": {"reason": "hardship", "product_id": "p1", "customer_id": "c_c1312096-22d"}}
+   << add_note {"ok": true, "what_to_do_next": "Note sent for p1. Now send the notes, one add_note call per message, before closing: product p2 with its reason. Then close the call."}
+   << add_note {"ok": true, "what_to_do_next": "Note sent for p1. Now send the notes, one add_note call per message, before closing: product p2 with its reason. Then close the call."}
+A: Thank you for your time. Goodbye.
+   [node close_check]
+   >> code_exec {}
+   << code_exec null
+   [node wrap_up]
+A: One moment, please.
+A: One moment, please.
+   >> add_note {"body": {"reason": "hardship", "product_id": "p2", "customer_id": "c_c1312096-22d"}}
+   << add_note {"ok": true, "what_to_do_next": "Note sent for p2. All notes are sent. Then thank the customer, say goodbye and call close_call with outcome 'no_promise' and reason 'hardship', all in the same message."}
+A: Thank you for your time. Goodbye.
+   [node finish]
+   >> code_exec {}
+   << code_exec null
+   [node close_api]
+   >> api_call {"body": {"reason": "hardship", "outcome": "no_promise", "customer_id": "c_c1312096-22d"}}
+   << api_call {"ok": true}
+   [node end_closed]
+   >> end_call {"message_mode": "none"}
+   << end_call null

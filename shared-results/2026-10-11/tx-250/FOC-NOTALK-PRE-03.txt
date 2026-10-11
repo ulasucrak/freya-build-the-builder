@@ -1,0 +1,24 @@
+#### FOC-NOTALK-PRE-03  call 83b499bb-10e4-4b61-a17f-0e1466d995e3  ended=assistant-ended-call
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node greet_verify]
+A: I am a digital assistant calling from Freya Bank, and this call is recorded. Am I speaking with Mr Park?
+U: Yes, this is Owen Park.
+A: What is your date of birth?
+U: I don't want to talk.
+A: I understand. May I ask why you don't want to talk, or can I help you with something first?
+U: I said I don't want to talk.
+A: Thank you for your time. Goodbye.
+   [node close_check]
+   >> code_exec {}
+   << code_exec null
+   [node finish]
+   >> code_exec {}
+   << code_exec null
+   [node close_api]
+   >> api_call {"body": {"reason": "declined", "outcome": "not_verified", "customer_id": "c_d696f74d-9ec"}}
+   << api_call {"ok": true}
+   [node end_closed]
+   >> end_call {"message_mode": "none"}
+   << end_call null

@@ -1,0 +1,58 @@
+[build 05:44:07] stage extract (1680 s left)
+[extract] round 1 done in 58s
+[extract] replicates disagree on: triggers -> resolve call
+[extract] extraction done in 97s
+[build 05:45:44] stage extract: ok (96.7 s) 1 warnings: resolved triggers; evidence: ["If they accept, call `transfer_to_agent` with queue `support` and close as `transferred` / `support`. If they decline, close as `no_promise` / `hardship`....
+[build 05:45:44] stage validate (1583 s left)
+[build 05:45:44] stage validate: ok (0.0 s) 
+[build 05:45:44] stage generate (1583 s left)
+[build 05:45:44] stage generate: ok (0.1 s) 12 nodes
+[build 05:45:44] stage prompts (1583 s left)
+[build 05:46:11] stage prompts: ok (26.8 s) 9 edits kept (greet_verify, negotiate, system_prompt); 0 dropped
+[build 05:46:11] stage dry_run (1556 s left)
+[build 05:46:12] stage dry_run: ok (1.2 s) generated + LLM prompts
+[build 05:46:12] stage save (1555 s left)
+[build 05:46:16] stage save: ok (3.8 s) generated + LLM prompts -> de73a6cb-72ff-4745-b6ee-ffc44b0522ba
+[build 05:46:16] stage casegen (1551 s left)
+[build 05:46:34] stage casegen: ok (18.3 s) 10 cases
+[build 05:46:34] stage self-test v1 (1533 s left)
+PASS SELF-01 easy   Happy path     | verify > verify > get_account > promise > close_call
+PASS SELF-02 medium Identity       | verify > verify > verify > close_call
+PASS SELF-03 medium Third party    | schedule_callback > close_call
+PASS SELF-04 hard   Dates          | verify > verify > get_account > promise > close_call
+PASS SELF-05 medium Amounts        | verify > verify > get_account > promise > close_call
+PASS SELF-06 hard   Multi-product  | verify > verify > get_account > promise > promise > close_call
+PASS SELF-07 hard   Tool failure   | verify > verify > get_account > promise > promise > close_call
+PASS SELF-08 medium Hardship       | verify > verify > get_account > transfer_to_agent > close_call
+PASS SELF-09 medium Restructuring request | verify > verify > get_account > transfer_to_agent > close_call
+PASS SELF-10 medium Human request  | verify > verify > get_account > transfer_to_agent > close_call
+[build 05:49:16] stage self-test v1: ok (161.4 s) 10/10
+[build 05:49:16] trace: /Users/meteserpil/Desktop/freya-build-the-builder/build-the-builder-v3/build-the-builder/traces/brief-a-opt-20261011T024407Z.txt
+
+slowest agent turn per call: median 8 s, worst 13 s. Failed calls where the customer hung up: 0.
+{
+ "status": "ok",
+ "error": "",
+ "saved": {
+  "workflow_id": "de73a6cb-72ff-4745-b6ee-ffc44b0522ba",
+  "agent_id": "7c4f99c6-130d-4d99-82b2-4f37a5388d36",
+  "version": 4
+ },
+ "export": "/Users/meteserpil/Desktop/freya-build-the-builder/build-the-builder-v3/build-the-builder/out/brief-a-opt.workflow.json",
+ "trace": "/Users/meteserpil/Desktop/freya-build-the-builder/build-the-builder-v3/build-the-builder/traces/brief-a-opt-20261011T024407Z.txt",
+ "best": {
+  "passed": 10,
+  "total": 10,
+  "label": "v1"
+ },
+ "stages": {
+  "extract": 96.7,
+  "validate": 0.0,
+  "generate": 0.1,
+  "prompts": 26.8,
+  "dry_run": 1.2,
+  "save": 3.8,
+  "casegen": 18.3,
+  "self-test v1": 161.4
+ }
+}

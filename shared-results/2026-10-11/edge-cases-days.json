@@ -1,0 +1,4519 @@
+[
+ {
+  "id": "DAY1016-01-today",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-10-16T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Pays the full amount today. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 420.0,
+     "date": "2026-10-16"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 16 October 2026",
+   "promise for today"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "DAY1016-01-tomorrow",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-10-16T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Can pay the full amount tomorrow. If the agent offers another day instead, accepts it. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 420.0,
+     "date": "2026-10-19"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 16 October 2026",
+   "tomorrow is 2026-10-17, not a business day: the next business day is offered"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "DAY1016-01-next-fri",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-10-16T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Can pay the full amount 'next Friday'. If the agent offers another day instead, accepts it. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 420.0,
+     "date": "2026-10-23"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 16 October 2026",
+   "'next Friday' is the Friday of the following week"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "DAY1016-01-too-late",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-10-16T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Says they can pay in about five weeks. Accepts the latest date the agent can offer. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 420.0,
+     "date": "2026-11-04"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 16 October 2026",
+   "the agent offers its latest date, 2026-11-04"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "DAY1016-01-first-offer",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-10-16T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Says no to paying today. Accepts the agent's first offer. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 420.0,
+     "date": "2026-10-23"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 16 October 2026",
+   "attempt 1: the full amount on Friday 2026-10-23"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "DAY1016-10-today",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Grace",
+   "last_name": "Lin",
+   "title": "Ms",
+   "now": "2026-10-16T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1989-02-23",
+   "phone_last4": "9904"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7740",
+    "past_due": 365.0,
+    "days_late": 8,
+    "minimum_payment": 109.5
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Pays the full amount today. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 365.0,
+     "date": "2026-10-16"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 16 October 2026",
+   "promise for today"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 1
+   }
+  ],
+  "base_id": "PUB-10"
+ },
+ {
+  "id": "DAY1016-10-tomorrow",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Grace",
+   "last_name": "Lin",
+   "title": "Ms",
+   "now": "2026-10-16T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1989-02-23",
+   "phone_last4": "9904"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7740",
+    "past_due": 365.0,
+    "days_late": 8,
+    "minimum_payment": 109.5
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Can pay the full amount tomorrow. If the agent offers another day instead, accepts it. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 365.0,
+     "date": "2026-10-19"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 16 October 2026",
+   "tomorrow is 2026-10-17, not a business day: the next business day is offered"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 1
+   }
+  ],
+  "base_id": "PUB-10"
+ },
+ {
+  "id": "DAY1016-10-next-fri",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Grace",
+   "last_name": "Lin",
+   "title": "Ms",
+   "now": "2026-10-16T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1989-02-23",
+   "phone_last4": "9904"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7740",
+    "past_due": 365.0,
+    "days_late": 8,
+    "minimum_payment": 109.5
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Can pay the full amount 'next Friday'. If the agent offers another day instead, accepts it. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 365.0,
+     "date": "2026-10-23"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 16 October 2026",
+   "'next Friday' is the Friday of the following week"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 1
+   }
+  ],
+  "base_id": "PUB-10"
+ },
+ {
+  "id": "DAY1016-10-too-late",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Grace",
+   "last_name": "Lin",
+   "title": "Ms",
+   "now": "2026-10-16T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1989-02-23",
+   "phone_last4": "9904"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7740",
+    "past_due": 365.0,
+    "days_late": 8,
+    "minimum_payment": 109.5
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Says they can pay in about five weeks. Accepts the latest date the agent can offer. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 365.0,
+     "date": "2026-10-28"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 16 October 2026",
+   "the agent offers its latest date, 2026-10-28"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 1
+   }
+  ],
+  "base_id": "PUB-10"
+ },
+ {
+  "id": "DAY1016-10-second-offer",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Grace",
+   "last_name": "Lin",
+   "title": "Ms",
+   "now": "2026-10-16T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1989-02-23",
+   "phone_last4": "9904"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7740",
+    "past_due": 365.0,
+    "days_late": 8,
+    "minimum_payment": 109.5
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Says no to paying today. Says no to the first offer. Accepts the second offer. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 109.5,
+     "date": "2026-10-28"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 16 October 2026",
+   "attempt 1: 365 on 2026-10-23",
+   "attempt 2: 109.50 on 2026-10-28"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 1
+   }
+  ],
+  "base_id": "PUB-10"
+ },
+ {
+  "id": "DAY1019-01-today",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-10-19T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Pays the full amount today. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 420.0,
+     "date": "2026-10-19"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Monday 19 October 2026",
+   "promise for today"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "DAY1019-01-tomorrow",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-10-19T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Can pay the full amount tomorrow. If the agent offers another day instead, accepts it. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 420.0,
+     "date": "2026-10-20"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Monday 19 October 2026",
+   "tomorrow is 2026-10-20"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "DAY1019-01-next-fri",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-10-19T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Can pay the full amount 'next Friday'. If the agent offers another day instead, accepts it. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 420.0,
+     "date": "2026-10-30"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Monday 19 October 2026",
+   "'next Friday' is the Friday of the following week"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "DAY1019-01-too-late",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-10-19T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Says they can pay in about five weeks. Accepts the latest date the agent can offer. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 420.0,
+     "date": "2026-11-05"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Monday 19 October 2026",
+   "the agent offers its latest date, 2026-11-05"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "DAY1019-01-first-offer",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-10-19T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Says no to paying today. Accepts the agent's first offer. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 420.0,
+     "date": "2026-10-23"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Monday 19 October 2026",
+   "attempt 1: the full amount on Friday 2026-10-23"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "DAY1019-10-today",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Grace",
+   "last_name": "Lin",
+   "title": "Ms",
+   "now": "2026-10-19T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1989-02-23",
+   "phone_last4": "9904"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7740",
+    "past_due": 365.0,
+    "days_late": 8,
+    "minimum_payment": 109.5
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Pays the full amount today. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 365.0,
+     "date": "2026-10-19"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Monday 19 October 2026",
+   "promise for today"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 1
+   }
+  ],
+  "base_id": "PUB-10"
+ },
+ {
+  "id": "DAY1019-10-tomorrow",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Grace",
+   "last_name": "Lin",
+   "title": "Ms",
+   "now": "2026-10-19T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1989-02-23",
+   "phone_last4": "9904"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7740",
+    "past_due": 365.0,
+    "days_late": 8,
+    "minimum_payment": 109.5
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Can pay the full amount tomorrow. If the agent offers another day instead, accepts it. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 365.0,
+     "date": "2026-10-20"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Monday 19 October 2026",
+   "tomorrow is 2026-10-20"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 1
+   }
+  ],
+  "base_id": "PUB-10"
+ },
+ {
+  "id": "DAY1019-10-next-fri",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Grace",
+   "last_name": "Lin",
+   "title": "Ms",
+   "now": "2026-10-19T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1989-02-23",
+   "phone_last4": "9904"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7740",
+    "past_due": 365.0,
+    "days_late": 8,
+    "minimum_payment": 109.5
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Can pay the full amount 'next Friday'. If the agent offers another day instead, accepts it. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 365.0,
+     "date": "2026-10-29"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Monday 19 October 2026",
+   "'next Friday' is the Friday of the following week"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 1
+   }
+  ],
+  "base_id": "PUB-10"
+ },
+ {
+  "id": "DAY1019-10-too-late",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Grace",
+   "last_name": "Lin",
+   "title": "Ms",
+   "now": "2026-10-19T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1989-02-23",
+   "phone_last4": "9904"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7740",
+    "past_due": 365.0,
+    "days_late": 8,
+    "minimum_payment": 109.5
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Says they can pay in about five weeks. Accepts the latest date the agent can offer. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 365.0,
+     "date": "2026-10-29"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Monday 19 October 2026",
+   "the agent offers its latest date, 2026-10-29"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 1
+   }
+  ],
+  "base_id": "PUB-10"
+ },
+ {
+  "id": "DAY1019-10-second-offer",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Grace",
+   "last_name": "Lin",
+   "title": "Ms",
+   "now": "2026-10-19T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1989-02-23",
+   "phone_last4": "9904"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7740",
+    "past_due": 365.0,
+    "days_late": 8,
+    "minimum_payment": 109.5
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Says no to paying today. Says no to the first offer. Accepts the second offer. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 109.5,
+     "date": "2026-10-29"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Monday 19 October 2026",
+   "attempt 1: 365 on 2026-10-23",
+   "attempt 2: 109.50 on 2026-10-29"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 1
+   }
+  ],
+  "base_id": "PUB-10"
+ },
+ {
+  "id": "DAY1023-01-today",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-10-23T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Pays the full amount today. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 420.0,
+     "date": "2026-10-23"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 23 October 2026",
+   "promise for today"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "DAY1023-01-tomorrow",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-10-23T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Can pay the full amount tomorrow. If the agent offers another day instead, accepts it. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 420.0,
+     "date": "2026-10-27"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 23 October 2026",
+   "tomorrow is 2026-10-24, not a business day: the next business day is offered"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "DAY1023-01-next-fri",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-10-23T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Can pay the full amount 'next Friday'. If the agent offers another day instead, accepts it. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 420.0,
+     "date": "2026-10-30"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 23 October 2026",
+   "'next Friday' is the Friday of the following week"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "DAY1023-01-too-late",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-10-23T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Says they can pay in about five weeks. Accepts the latest date the agent can offer. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 420.0,
+     "date": "2026-11-12"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 23 October 2026",
+   "the agent offers its latest date, 2026-11-12"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "DAY1023-01-first-offer",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-10-23T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Says no to paying today. Accepts the agent's first offer. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 420.0,
+     "date": "2026-10-30"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 23 October 2026",
+   "attempt 1: the full amount on Friday 2026-10-30"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "DAY1023-10-today",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Grace",
+   "last_name": "Lin",
+   "title": "Ms",
+   "now": "2026-10-23T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1989-02-23",
+   "phone_last4": "9904"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7740",
+    "past_due": 365.0,
+    "days_late": 8,
+    "minimum_payment": 109.5
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Pays the full amount today. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 365.0,
+     "date": "2026-10-23"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 23 October 2026",
+   "promise for today"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 1
+   }
+  ],
+  "base_id": "PUB-10"
+ },
+ {
+  "id": "DAY1023-10-tomorrow",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Grace",
+   "last_name": "Lin",
+   "title": "Ms",
+   "now": "2026-10-23T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1989-02-23",
+   "phone_last4": "9904"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7740",
+    "past_due": 365.0,
+    "days_late": 8,
+    "minimum_payment": 109.5
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Can pay the full amount tomorrow. If the agent offers another day instead, accepts it. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 365.0,
+     "date": "2026-10-27"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 23 October 2026",
+   "tomorrow is 2026-10-24, not a business day: the next business day is offered"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 1
+   }
+  ],
+  "base_id": "PUB-10"
+ },
+ {
+  "id": "DAY1023-10-next-fri",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Grace",
+   "last_name": "Lin",
+   "title": "Ms",
+   "now": "2026-10-23T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1989-02-23",
+   "phone_last4": "9904"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7740",
+    "past_due": 365.0,
+    "days_late": 8,
+    "minimum_payment": 109.5
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Can pay the full amount 'next Friday'. If the agent offers another day instead, accepts it. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 365.0,
+     "date": "2026-10-30"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 23 October 2026",
+   "'next Friday' is the Friday of the following week"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 1
+   }
+  ],
+  "base_id": "PUB-10"
+ },
+ {
+  "id": "DAY1023-10-too-late",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Grace",
+   "last_name": "Lin",
+   "title": "Ms",
+   "now": "2026-10-23T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1989-02-23",
+   "phone_last4": "9904"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7740",
+    "past_due": 365.0,
+    "days_late": 8,
+    "minimum_payment": 109.5
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Says they can pay in about five weeks. Accepts the latest date the agent can offer. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 365.0,
+     "date": "2026-11-04"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 23 October 2026",
+   "the agent offers its latest date, 2026-11-04"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 1
+   }
+  ],
+  "base_id": "PUB-10"
+ },
+ {
+  "id": "DAY1023-10-second-offer",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Grace",
+   "last_name": "Lin",
+   "title": "Ms",
+   "now": "2026-10-23T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1989-02-23",
+   "phone_last4": "9904"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7740",
+    "past_due": 365.0,
+    "days_late": 8,
+    "minimum_payment": 109.5
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Says no to paying today. Says no to the first offer. Accepts the second offer. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 109.5,
+     "date": "2026-11-04"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 23 October 2026",
+   "attempt 1: 365 on 2026-10-30",
+   "attempt 2: 109.50 on 2026-11-04"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 1
+   }
+  ],
+  "base_id": "PUB-10"
+ },
+ {
+  "id": "DAY1110-01-today",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-11-10T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Pays the full amount today. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 420.0,
+     "date": "2026-11-10"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Tuesday 10 November 2026",
+   "promise for today"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "DAY1110-01-tomorrow",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-11-10T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Can pay the full amount tomorrow. If the agent offers another day instead, accepts it. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 420.0,
+     "date": "2026-11-12"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Tuesday 10 November 2026",
+   "tomorrow is 2026-11-11, not a business day: the next business day is offered"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "DAY1110-01-next-fri",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-11-10T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Can pay the full amount 'next Friday'. If the agent offers another day instead, accepts it. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 420.0,
+     "date": "2026-11-20"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Tuesday 10 November 2026",
+   "'next Friday' is the Friday of the following week"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "DAY1110-01-too-late",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-11-10T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Says they can pay in about five weeks. Accepts the latest date the agent can offer. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 420.0,
+     "date": "2026-11-30"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Tuesday 10 November 2026",
+   "the agent offers its latest date, 2026-11-30"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "DAY1110-01-first-offer",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-11-10T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Says no to paying today. Accepts the agent's first offer. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 420.0,
+     "date": "2026-11-13"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Tuesday 10 November 2026",
+   "attempt 1: the full amount on Friday 2026-11-13"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "DAY1110-10-today",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Grace",
+   "last_name": "Lin",
+   "title": "Ms",
+   "now": "2026-11-10T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1989-02-23",
+   "phone_last4": "9904"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7740",
+    "past_due": 365.0,
+    "days_late": 8,
+    "minimum_payment": 109.5
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Pays the full amount today. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 365.0,
+     "date": "2026-11-10"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Tuesday 10 November 2026",
+   "promise for today"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 1
+   }
+  ],
+  "base_id": "PUB-10"
+ },
+ {
+  "id": "DAY1110-10-tomorrow",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Grace",
+   "last_name": "Lin",
+   "title": "Ms",
+   "now": "2026-11-10T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1989-02-23",
+   "phone_last4": "9904"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7740",
+    "past_due": 365.0,
+    "days_late": 8,
+    "minimum_payment": 109.5
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Can pay the full amount tomorrow. If the agent offers another day instead, accepts it. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 365.0,
+     "date": "2026-11-12"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Tuesday 10 November 2026",
+   "tomorrow is 2026-11-11, not a business day: the next business day is offered"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 1
+   }
+  ],
+  "base_id": "PUB-10"
+ },
+ {
+  "id": "DAY1110-10-next-fri",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Grace",
+   "last_name": "Lin",
+   "title": "Ms",
+   "now": "2026-11-10T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1989-02-23",
+   "phone_last4": "9904"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7740",
+    "past_due": 365.0,
+    "days_late": 8,
+    "minimum_payment": 109.5
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Can pay the full amount 'next Friday'. If the agent offers another day instead, accepts it. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 365.0,
+     "date": "2026-11-20"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Tuesday 10 November 2026",
+   "'next Friday' is the Friday of the following week"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 1
+   }
+  ],
+  "base_id": "PUB-10"
+ },
+ {
+  "id": "DAY1110-10-too-late",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Grace",
+   "last_name": "Lin",
+   "title": "Ms",
+   "now": "2026-11-10T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1989-02-23",
+   "phone_last4": "9904"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7740",
+    "past_due": 365.0,
+    "days_late": 8,
+    "minimum_payment": 109.5
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Says they can pay in about five weeks. Accepts the latest date the agent can offer. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 365.0,
+     "date": "2026-11-20"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Tuesday 10 November 2026",
+   "the agent offers its latest date, 2026-11-20"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 1
+   }
+  ],
+  "base_id": "PUB-10"
+ },
+ {
+  "id": "DAY1110-10-second-offer",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Grace",
+   "last_name": "Lin",
+   "title": "Ms",
+   "now": "2026-11-10T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1989-02-23",
+   "phone_last4": "9904"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7740",
+    "past_due": 365.0,
+    "days_late": 8,
+    "minimum_payment": 109.5
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Says no to paying today. Says no to the first offer. Accepts the second offer. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 109.5,
+     "date": "2026-11-20"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Tuesday 10 November 2026",
+   "attempt 1: 365 on 2026-11-13",
+   "attempt 2: 109.50 on 2026-11-20"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 1
+   }
+  ],
+  "base_id": "PUB-10"
+ },
+ {
+  "id": "DAY1224-01-today",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-12-24T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Pays the full amount today. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 420.0,
+     "date": "2026-12-24"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Thursday 24 December 2026",
+   "promise for today"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "DAY1224-01-tomorrow",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-12-24T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Can pay the full amount tomorrow. If the agent offers another day instead, accepts it. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 420.0,
+     "date": "2026-12-28"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Thursday 24 December 2026",
+   "tomorrow is 2026-12-25, not a business day: the next business day is offered"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "DAY1224-01-next-fri",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-12-24T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Can pay the full amount 'next Friday'. If the agent offers another day instead, accepts it. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 420.0,
+     "date": "2027-01-04"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Thursday 24 December 2026",
+   "'next Friday' is the Friday of the following week"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "DAY1224-01-too-late",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-12-24T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Says they can pay in about five weeks. Accepts the latest date the agent can offer. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 420.0,
+     "date": "2027-01-13"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Thursday 24 December 2026",
+   "the agent offers its latest date, 2027-01-13"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "DAY1224-01-first-offer",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-12-24T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Says no to paying today. Accepts the agent's first offer. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 420.0,
+     "date": "2026-12-31"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Thursday 24 December 2026",
+   "attempt 1: the full amount on Thursday 2026-12-31"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "DAY1224-10-today",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Grace",
+   "last_name": "Lin",
+   "title": "Ms",
+   "now": "2026-12-24T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1989-02-23",
+   "phone_last4": "9904"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7740",
+    "past_due": 365.0,
+    "days_late": 8,
+    "minimum_payment": 109.5
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Pays the full amount today. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 365.0,
+     "date": "2026-12-24"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Thursday 24 December 2026",
+   "promise for today"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 1
+   }
+  ],
+  "base_id": "PUB-10"
+ },
+ {
+  "id": "DAY1224-10-tomorrow",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Grace",
+   "last_name": "Lin",
+   "title": "Ms",
+   "now": "2026-12-24T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1989-02-23",
+   "phone_last4": "9904"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7740",
+    "past_due": 365.0,
+    "days_late": 8,
+    "minimum_payment": 109.5
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Can pay the full amount tomorrow. If the agent offers another day instead, accepts it. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 365.0,
+     "date": "2026-12-28"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Thursday 24 December 2026",
+   "tomorrow is 2026-12-25, not a business day: the next business day is offered"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 1
+   }
+  ],
+  "base_id": "PUB-10"
+ },
+ {
+  "id": "DAY1224-10-next-fri",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Grace",
+   "last_name": "Lin",
+   "title": "Ms",
+   "now": "2026-12-24T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1989-02-23",
+   "phone_last4": "9904"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7740",
+    "past_due": 365.0,
+    "days_late": 8,
+    "minimum_payment": 109.5
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Can pay the full amount 'next Friday'. If the agent offers another day instead, accepts it. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 365.0,
+     "date": "2027-01-04"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Thursday 24 December 2026",
+   "'next Friday' is the Friday of the following week"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 1
+   }
+  ],
+  "base_id": "PUB-10"
+ },
+ {
+  "id": "DAY1224-10-too-late",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Grace",
+   "last_name": "Lin",
+   "title": "Ms",
+   "now": "2026-12-24T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1989-02-23",
+   "phone_last4": "9904"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7740",
+    "past_due": 365.0,
+    "days_late": 8,
+    "minimum_payment": 109.5
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Says they can pay in about five weeks. Accepts the latest date the agent can offer. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 365.0,
+     "date": "2027-01-06"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Thursday 24 December 2026",
+   "the agent offers its latest date, 2027-01-06"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 1
+   }
+  ],
+  "base_id": "PUB-10"
+ },
+ {
+  "id": "DAY1224-10-second-offer",
+  "brief": "A",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Grace",
+   "last_name": "Lin",
+   "title": "Ms",
+   "now": "2026-12-24T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1989-02-23",
+   "phone_last4": "9904"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7740",
+    "past_due": 365.0,
+    "days_late": 8,
+    "minimum_payment": 109.5
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Says no to paying today. Says no to the first offer. Accepts the second offer. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 109.5,
+     "date": "2027-01-06"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Thursday 24 December 2026",
+   "attempt 1: 365 on 2026-12-31",
+   "attempt 2: 109.50 on 2027-01-06"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 1
+   }
+  ],
+  "base_id": "PUB-10"
+ },
+ {
+  "id": "DAY1016-12-all-today",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Marcus",
+   "last_name": "Bell",
+   "title": "Mr",
+   "now": "2026-10-16T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1983-10-19",
+   "phone_last4": "4410"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "9015",
+    "past_due": 510.0,
+    "days_late": 16,
+    "minimum_payment": 153.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 1320.0,
+    "days_late": 16,
+    "instalment_amount": 440.0
+   },
+   {
+    "type": "car_loan",
+    "past_due": 140.0,
+    "days_late": 7,
+    "instalment_amount": 46.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Can pay all of them in full today. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 510.0,
+     "date": "2026-10-16"
+    },
+    {
+     "product_id": "p2",
+     "amount": 1320.0,
+     "date": "2026-10-16"
+    },
+    {
+     "product_id": "p3",
+     "amount": 140.0,
+     "date": "2026-10-16"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 16 October 2026",
+   "all products stated before asking",
+   "one read-back"
+  ],
+  "base_id": "PUB-12"
+ },
+ {
+  "id": "DAY1016-12-next-fri",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Marcus",
+   "last_name": "Bell",
+   "title": "Mr",
+   "now": "2026-10-16T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1983-10-19",
+   "phone_last4": "4410"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "9015",
+    "past_due": 510.0,
+    "days_late": 16,
+    "minimum_payment": 153.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 1320.0,
+    "days_late": 16,
+    "instalment_amount": 440.0
+   },
+   {
+    "type": "car_loan",
+    "past_due": 140.0,
+    "days_late": 7,
+    "instalment_amount": 46.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Wants to pay all of them in full 'next Friday'. Accepts any day the agent says it must use instead for a product. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 510.0,
+     "date": "2026-10-23"
+    },
+    {
+     "product_id": "p2",
+     "amount": 1320.0,
+     "date": "2026-10-23"
+    },
+    {
+     "product_id": "p3",
+     "amount": 140.0,
+     "date": "2026-10-23"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 16 October 2026",
+   "'next Friday' is the Friday of the following week"
+  ],
+  "base_id": "PUB-12"
+ },
+ {
+  "id": "DAY1016-12-first-only",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Marcus",
+   "last_name": "Bell",
+   "title": "Mr",
+   "now": "2026-10-16T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1983-10-19",
+   "phone_last4": "4410"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "9015",
+    "past_due": 510.0,
+    "days_late": 16,
+    "minimum_payment": 153.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 1320.0,
+    "days_late": 16,
+    "instalment_amount": 440.0
+   },
+   {
+    "type": "car_loan",
+    "past_due": 140.0,
+    "days_late": 7,
+    "instalment_amount": 46.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Pays the first product in full today. Flatly refuses to pay the others, whatever is offered. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 510.0,
+     "date": "2026-10-16"
+    }
+   ],
+   "notes": [
+    {
+     "product_id": "p2",
+     "reason": "refused"
+    },
+    {
+     "product_id": "p3",
+     "reason": "refused"
+    }
+   ],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 16 October 2026",
+   "a refused note for each other product"
+  ],
+  "base_id": "PUB-12"
+ },
+ {
+  "id": "DAY1016-13-all-today",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Elena",
+   "last_name": "Rossi",
+   "title": "Ms",
+   "now": "2026-10-16T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1991-01-08",
+   "phone_last4": "6604"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "6604",
+    "past_due": 300.0,
+    "days_late": 4,
+    "minimum_payment": 90.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 900.0,
+    "days_late": 20,
+    "instalment_amount": 300.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Can pay all of them in full today. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 300.0,
+     "date": "2026-10-16"
+    },
+    {
+     "product_id": "p2",
+     "amount": 900.0,
+     "date": "2026-10-16"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 16 October 2026",
+   "all products stated before asking",
+   "one read-back"
+  ],
+  "base_id": "PUB-13"
+ },
+ {
+  "id": "DAY1016-13-next-fri",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Elena",
+   "last_name": "Rossi",
+   "title": "Ms",
+   "now": "2026-10-16T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1991-01-08",
+   "phone_last4": "6604"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "6604",
+    "past_due": 300.0,
+    "days_late": 4,
+    "minimum_payment": 90.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 900.0,
+    "days_late": 20,
+    "instalment_amount": 300.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Wants to pay all of them in full 'next Friday'. Accepts any day the agent says it must use instead for a product. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 300.0,
+     "date": "2026-10-23"
+    },
+    {
+     "product_id": "p2",
+     "amount": 900.0,
+     "date": "2026-10-23"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 16 October 2026",
+   "'next Friday' is the Friday of the following week"
+  ],
+  "base_id": "PUB-13"
+ },
+ {
+  "id": "DAY1016-13-first-only",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Elena",
+   "last_name": "Rossi",
+   "title": "Ms",
+   "now": "2026-10-16T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1991-01-08",
+   "phone_last4": "6604"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "6604",
+    "past_due": 300.0,
+    "days_late": 4,
+    "minimum_payment": 90.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 900.0,
+    "days_late": 20,
+    "instalment_amount": 300.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Pays the first product in full today. Flatly refuses to pay the others, whatever is offered. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 300.0,
+     "date": "2026-10-16"
+    }
+   ],
+   "notes": [
+    {
+     "product_id": "p2",
+     "reason": "refused"
+    }
+   ],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 16 October 2026",
+   "a refused note for each other product"
+  ],
+  "base_id": "PUB-13"
+ },
+ {
+  "id": "DAY1019-12-all-today",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Marcus",
+   "last_name": "Bell",
+   "title": "Mr",
+   "now": "2026-10-19T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1983-10-19",
+   "phone_last4": "4410"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "9015",
+    "past_due": 510.0,
+    "days_late": 16,
+    "minimum_payment": 153.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 1320.0,
+    "days_late": 16,
+    "instalment_amount": 440.0
+   },
+   {
+    "type": "car_loan",
+    "past_due": 140.0,
+    "days_late": 7,
+    "instalment_amount": 46.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Can pay all of them in full today. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 510.0,
+     "date": "2026-10-19"
+    },
+    {
+     "product_id": "p2",
+     "amount": 1320.0,
+     "date": "2026-10-19"
+    },
+    {
+     "product_id": "p3",
+     "amount": 140.0,
+     "date": "2026-10-19"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Monday 19 October 2026",
+   "all products stated before asking",
+   "one read-back"
+  ],
+  "base_id": "PUB-12"
+ },
+ {
+  "id": "DAY1019-12-next-fri",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Marcus",
+   "last_name": "Bell",
+   "title": "Mr",
+   "now": "2026-10-19T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1983-10-19",
+   "phone_last4": "4410"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "9015",
+    "past_due": 510.0,
+    "days_late": 16,
+    "minimum_payment": 153.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 1320.0,
+    "days_late": 16,
+    "instalment_amount": 440.0
+   },
+   {
+    "type": "car_loan",
+    "past_due": 140.0,
+    "days_late": 7,
+    "instalment_amount": 46.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Wants to pay all of them in full 'next Friday'. Accepts any day the agent says it must use instead for a product. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 510.0,
+     "date": "2026-10-29"
+    },
+    {
+     "product_id": "p2",
+     "amount": 1320.0,
+     "date": "2026-10-29"
+    },
+    {
+     "product_id": "p3",
+     "amount": 140.0,
+     "date": "2026-10-30"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Monday 19 October 2026",
+   "'next Friday' is the Friday of the following week",
+   "p1, p2 recorded on its own latest date or next business day, said in the read-back"
+  ],
+  "base_id": "PUB-12"
+ },
+ {
+  "id": "DAY1019-12-first-only",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Marcus",
+   "last_name": "Bell",
+   "title": "Mr",
+   "now": "2026-10-19T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1983-10-19",
+   "phone_last4": "4410"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "9015",
+    "past_due": 510.0,
+    "days_late": 16,
+    "minimum_payment": 153.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 1320.0,
+    "days_late": 16,
+    "instalment_amount": 440.0
+   },
+   {
+    "type": "car_loan",
+    "past_due": 140.0,
+    "days_late": 7,
+    "instalment_amount": 46.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Pays the first product in full today. Flatly refuses to pay the others, whatever is offered. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 510.0,
+     "date": "2026-10-19"
+    }
+   ],
+   "notes": [
+    {
+     "product_id": "p2",
+     "reason": "refused"
+    },
+    {
+     "product_id": "p3",
+     "reason": "refused"
+    }
+   ],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Monday 19 October 2026",
+   "a refused note for each other product"
+  ],
+  "base_id": "PUB-12"
+ },
+ {
+  "id": "DAY1019-13-all-today",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Elena",
+   "last_name": "Rossi",
+   "title": "Ms",
+   "now": "2026-10-19T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1991-01-08",
+   "phone_last4": "6604"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "6604",
+    "past_due": 300.0,
+    "days_late": 4,
+    "minimum_payment": 90.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 900.0,
+    "days_late": 20,
+    "instalment_amount": 300.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Can pay all of them in full today. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 300.0,
+     "date": "2026-10-19"
+    },
+    {
+     "product_id": "p2",
+     "amount": 900.0,
+     "date": "2026-10-19"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Monday 19 October 2026",
+   "all products stated before asking",
+   "one read-back"
+  ],
+  "base_id": "PUB-13"
+ },
+ {
+  "id": "DAY1019-13-next-fri",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Elena",
+   "last_name": "Rossi",
+   "title": "Ms",
+   "now": "2026-10-19T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1991-01-08",
+   "phone_last4": "6604"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "6604",
+    "past_due": 300.0,
+    "days_late": 4,
+    "minimum_payment": 90.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 900.0,
+    "days_late": 20,
+    "instalment_amount": 300.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Wants to pay all of them in full 'next Friday'. Accepts any day the agent says it must use instead for a product. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 300.0,
+     "date": "2026-10-30"
+    },
+    {
+     "product_id": "p2",
+     "amount": 900.0,
+     "date": "2026-10-29"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Monday 19 October 2026",
+   "'next Friday' is the Friday of the following week",
+   "p2 recorded on its own latest date or next business day, said in the read-back"
+  ],
+  "base_id": "PUB-13"
+ },
+ {
+  "id": "DAY1019-13-first-only",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Elena",
+   "last_name": "Rossi",
+   "title": "Ms",
+   "now": "2026-10-19T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1991-01-08",
+   "phone_last4": "6604"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "6604",
+    "past_due": 300.0,
+    "days_late": 4,
+    "minimum_payment": 90.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 900.0,
+    "days_late": 20,
+    "instalment_amount": 300.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Pays the first product in full today. Flatly refuses to pay the others, whatever is offered. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 300.0,
+     "date": "2026-10-19"
+    }
+   ],
+   "notes": [
+    {
+     "product_id": "p2",
+     "reason": "refused"
+    }
+   ],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Monday 19 October 2026",
+   "a refused note for each other product"
+  ],
+  "base_id": "PUB-13"
+ },
+ {
+  "id": "DAY1023-12-all-today",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Marcus",
+   "last_name": "Bell",
+   "title": "Mr",
+   "now": "2026-10-23T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1983-10-19",
+   "phone_last4": "4410"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "9015",
+    "past_due": 510.0,
+    "days_late": 16,
+    "minimum_payment": 153.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 1320.0,
+    "days_late": 16,
+    "instalment_amount": 440.0
+   },
+   {
+    "type": "car_loan",
+    "past_due": 140.0,
+    "days_late": 7,
+    "instalment_amount": 46.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Can pay all of them in full today. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 510.0,
+     "date": "2026-10-23"
+    },
+    {
+     "product_id": "p2",
+     "amount": 1320.0,
+     "date": "2026-10-23"
+    },
+    {
+     "product_id": "p3",
+     "amount": 140.0,
+     "date": "2026-10-23"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 23 October 2026",
+   "all products stated before asking",
+   "one read-back"
+  ],
+  "base_id": "PUB-12"
+ },
+ {
+  "id": "DAY1023-12-next-fri",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Marcus",
+   "last_name": "Bell",
+   "title": "Mr",
+   "now": "2026-10-23T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1983-10-19",
+   "phone_last4": "4410"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "9015",
+    "past_due": 510.0,
+    "days_late": 16,
+    "minimum_payment": 153.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 1320.0,
+    "days_late": 16,
+    "instalment_amount": 440.0
+   },
+   {
+    "type": "car_loan",
+    "past_due": 140.0,
+    "days_late": 7,
+    "instalment_amount": 46.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Wants to pay all of them in full 'next Friday'. Accepts any day the agent says it must use instead for a product. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 510.0,
+     "date": "2026-10-30"
+    },
+    {
+     "product_id": "p2",
+     "amount": 1320.0,
+     "date": "2026-10-30"
+    },
+    {
+     "product_id": "p3",
+     "amount": 140.0,
+     "date": "2026-10-30"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 23 October 2026",
+   "'next Friday' is the Friday of the following week"
+  ],
+  "base_id": "PUB-12"
+ },
+ {
+  "id": "DAY1023-12-first-only",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Marcus",
+   "last_name": "Bell",
+   "title": "Mr",
+   "now": "2026-10-23T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1983-10-19",
+   "phone_last4": "4410"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "9015",
+    "past_due": 510.0,
+    "days_late": 16,
+    "minimum_payment": 153.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 1320.0,
+    "days_late": 16,
+    "instalment_amount": 440.0
+   },
+   {
+    "type": "car_loan",
+    "past_due": 140.0,
+    "days_late": 7,
+    "instalment_amount": 46.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Pays the first product in full today. Flatly refuses to pay the others, whatever is offered. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 510.0,
+     "date": "2026-10-23"
+    }
+   ],
+   "notes": [
+    {
+     "product_id": "p2",
+     "reason": "refused"
+    },
+    {
+     "product_id": "p3",
+     "reason": "refused"
+    }
+   ],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 23 October 2026",
+   "a refused note for each other product"
+  ],
+  "base_id": "PUB-12"
+ },
+ {
+  "id": "DAY1023-13-all-today",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Elena",
+   "last_name": "Rossi",
+   "title": "Ms",
+   "now": "2026-10-23T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1991-01-08",
+   "phone_last4": "6604"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "6604",
+    "past_due": 300.0,
+    "days_late": 4,
+    "minimum_payment": 90.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 900.0,
+    "days_late": 20,
+    "instalment_amount": 300.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Can pay all of them in full today. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 300.0,
+     "date": "2026-10-23"
+    },
+    {
+     "product_id": "p2",
+     "amount": 900.0,
+     "date": "2026-10-23"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 23 October 2026",
+   "all products stated before asking",
+   "one read-back"
+  ],
+  "base_id": "PUB-13"
+ },
+ {
+  "id": "DAY1023-13-next-fri",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Elena",
+   "last_name": "Rossi",
+   "title": "Ms",
+   "now": "2026-10-23T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1991-01-08",
+   "phone_last4": "6604"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "6604",
+    "past_due": 300.0,
+    "days_late": 4,
+    "minimum_payment": 90.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 900.0,
+    "days_late": 20,
+    "instalment_amount": 300.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Wants to pay all of them in full 'next Friday'. Accepts any day the agent says it must use instead for a product. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 300.0,
+     "date": "2026-10-30"
+    },
+    {
+     "product_id": "p2",
+     "amount": 900.0,
+     "date": "2026-10-30"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 23 October 2026",
+   "'next Friday' is the Friday of the following week"
+  ],
+  "base_id": "PUB-13"
+ },
+ {
+  "id": "DAY1023-13-first-only",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Elena",
+   "last_name": "Rossi",
+   "title": "Ms",
+   "now": "2026-10-23T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1991-01-08",
+   "phone_last4": "6604"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "6604",
+    "past_due": 300.0,
+    "days_late": 4,
+    "minimum_payment": 90.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 900.0,
+    "days_late": 20,
+    "instalment_amount": 300.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Pays the first product in full today. Flatly refuses to pay the others, whatever is offered. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 300.0,
+     "date": "2026-10-23"
+    }
+   ],
+   "notes": [
+    {
+     "product_id": "p2",
+     "reason": "refused"
+    }
+   ],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Friday 23 October 2026",
+   "a refused note for each other product"
+  ],
+  "base_id": "PUB-13"
+ },
+ {
+  "id": "DAY1110-12-all-today",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Marcus",
+   "last_name": "Bell",
+   "title": "Mr",
+   "now": "2026-11-10T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1983-10-19",
+   "phone_last4": "4410"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "9015",
+    "past_due": 510.0,
+    "days_late": 16,
+    "minimum_payment": 153.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 1320.0,
+    "days_late": 16,
+    "instalment_amount": 440.0
+   },
+   {
+    "type": "car_loan",
+    "past_due": 140.0,
+    "days_late": 7,
+    "instalment_amount": 46.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Can pay all of them in full today. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 510.0,
+     "date": "2026-11-10"
+    },
+    {
+     "product_id": "p2",
+     "amount": 1320.0,
+     "date": "2026-11-10"
+    },
+    {
+     "product_id": "p3",
+     "amount": 140.0,
+     "date": "2026-11-10"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Tuesday 10 November 2026",
+   "all products stated before asking",
+   "one read-back"
+  ],
+  "base_id": "PUB-12"
+ },
+ {
+  "id": "DAY1110-12-next-fri",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Marcus",
+   "last_name": "Bell",
+   "title": "Mr",
+   "now": "2026-11-10T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1983-10-19",
+   "phone_last4": "4410"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "9015",
+    "past_due": 510.0,
+    "days_late": 16,
+    "minimum_payment": 153.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 1320.0,
+    "days_late": 16,
+    "instalment_amount": 440.0
+   },
+   {
+    "type": "car_loan",
+    "past_due": 140.0,
+    "days_late": 7,
+    "instalment_amount": 46.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Wants to pay all of them in full 'next Friday'. Accepts any day the agent says it must use instead for a product. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 510.0,
+     "date": "2026-11-20"
+    },
+    {
+     "product_id": "p2",
+     "amount": 1320.0,
+     "date": "2026-11-20"
+    },
+    {
+     "product_id": "p3",
+     "amount": 140.0,
+     "date": "2026-11-20"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Tuesday 10 November 2026",
+   "'next Friday' is the Friday of the following week"
+  ],
+  "base_id": "PUB-12"
+ },
+ {
+  "id": "DAY1110-12-first-only",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Marcus",
+   "last_name": "Bell",
+   "title": "Mr",
+   "now": "2026-11-10T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1983-10-19",
+   "phone_last4": "4410"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "9015",
+    "past_due": 510.0,
+    "days_late": 16,
+    "minimum_payment": 153.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 1320.0,
+    "days_late": 16,
+    "instalment_amount": 440.0
+   },
+   {
+    "type": "car_loan",
+    "past_due": 140.0,
+    "days_late": 7,
+    "instalment_amount": 46.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Pays the first product in full today. Flatly refuses to pay the others, whatever is offered. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 510.0,
+     "date": "2026-11-10"
+    }
+   ],
+   "notes": [
+    {
+     "product_id": "p2",
+     "reason": "refused"
+    },
+    {
+     "product_id": "p3",
+     "reason": "refused"
+    }
+   ],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Tuesday 10 November 2026",
+   "a refused note for each other product"
+  ],
+  "base_id": "PUB-12"
+ },
+ {
+  "id": "DAY1110-13-all-today",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Elena",
+   "last_name": "Rossi",
+   "title": "Ms",
+   "now": "2026-11-10T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1991-01-08",
+   "phone_last4": "6604"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "6604",
+    "past_due": 300.0,
+    "days_late": 4,
+    "minimum_payment": 90.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 900.0,
+    "days_late": 20,
+    "instalment_amount": 300.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Can pay all of them in full today. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 300.0,
+     "date": "2026-11-10"
+    },
+    {
+     "product_id": "p2",
+     "amount": 900.0,
+     "date": "2026-11-10"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Tuesday 10 November 2026",
+   "all products stated before asking",
+   "one read-back"
+  ],
+  "base_id": "PUB-13"
+ },
+ {
+  "id": "DAY1110-13-next-fri",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Elena",
+   "last_name": "Rossi",
+   "title": "Ms",
+   "now": "2026-11-10T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1991-01-08",
+   "phone_last4": "6604"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "6604",
+    "past_due": 300.0,
+    "days_late": 4,
+    "minimum_payment": 90.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 900.0,
+    "days_late": 20,
+    "instalment_amount": 300.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Wants to pay all of them in full 'next Friday'. Accepts any day the agent says it must use instead for a product. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 300.0,
+     "date": "2026-11-20"
+    },
+    {
+     "product_id": "p2",
+     "amount": 900.0,
+     "date": "2026-11-20"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Tuesday 10 November 2026",
+   "'next Friday' is the Friday of the following week"
+  ],
+  "base_id": "PUB-13"
+ },
+ {
+  "id": "DAY1110-13-first-only",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Elena",
+   "last_name": "Rossi",
+   "title": "Ms",
+   "now": "2026-11-10T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1991-01-08",
+   "phone_last4": "6604"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "6604",
+    "past_due": 300.0,
+    "days_late": 4,
+    "minimum_payment": 90.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 900.0,
+    "days_late": 20,
+    "instalment_amount": 300.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Pays the first product in full today. Flatly refuses to pay the others, whatever is offered. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 300.0,
+     "date": "2026-11-10"
+    }
+   ],
+   "notes": [
+    {
+     "product_id": "p2",
+     "reason": "refused"
+    }
+   ],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Tuesday 10 November 2026",
+   "a refused note for each other product"
+  ],
+  "base_id": "PUB-13"
+ },
+ {
+  "id": "DAY1224-12-all-today",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Marcus",
+   "last_name": "Bell",
+   "title": "Mr",
+   "now": "2026-12-24T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1983-10-19",
+   "phone_last4": "4410"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "9015",
+    "past_due": 510.0,
+    "days_late": 16,
+    "minimum_payment": 153.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 1320.0,
+    "days_late": 16,
+    "instalment_amount": 440.0
+   },
+   {
+    "type": "car_loan",
+    "past_due": 140.0,
+    "days_late": 7,
+    "instalment_amount": 46.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Can pay all of them in full today. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 510.0,
+     "date": "2026-12-24"
+    },
+    {
+     "product_id": "p2",
+     "amount": 1320.0,
+     "date": "2026-12-24"
+    },
+    {
+     "product_id": "p3",
+     "amount": 140.0,
+     "date": "2026-12-24"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Thursday 24 December 2026",
+   "all products stated before asking",
+   "one read-back"
+  ],
+  "base_id": "PUB-12"
+ },
+ {
+  "id": "DAY1224-12-next-fri",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Marcus",
+   "last_name": "Bell",
+   "title": "Mr",
+   "now": "2026-12-24T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1983-10-19",
+   "phone_last4": "4410"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "9015",
+    "past_due": 510.0,
+    "days_late": 16,
+    "minimum_payment": 153.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 1320.0,
+    "days_late": 16,
+    "instalment_amount": 440.0
+   },
+   {
+    "type": "car_loan",
+    "past_due": 140.0,
+    "days_late": 7,
+    "instalment_amount": 46.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Wants to pay all of them in full 'next Friday'. Accepts any day the agent says it must use instead for a product. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 510.0,
+     "date": "2027-01-04"
+    },
+    {
+     "product_id": "p2",
+     "amount": 1320.0,
+     "date": "2027-01-04"
+    },
+    {
+     "product_id": "p3",
+     "amount": 140.0,
+     "date": "2027-01-04"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Thursday 24 December 2026",
+   "'next Friday' is the Friday of the following week"
+  ],
+  "base_id": "PUB-12"
+ },
+ {
+  "id": "DAY1224-12-first-only",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Marcus",
+   "last_name": "Bell",
+   "title": "Mr",
+   "now": "2026-12-24T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1983-10-19",
+   "phone_last4": "4410"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "9015",
+    "past_due": 510.0,
+    "days_late": 16,
+    "minimum_payment": 153.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 1320.0,
+    "days_late": 16,
+    "instalment_amount": 440.0
+   },
+   {
+    "type": "car_loan",
+    "past_due": 140.0,
+    "days_late": 7,
+    "instalment_amount": 46.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Pays the first product in full today. Flatly refuses to pay the others, whatever is offered. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 510.0,
+     "date": "2026-12-24"
+    }
+   ],
+   "notes": [
+    {
+     "product_id": "p2",
+     "reason": "refused"
+    },
+    {
+     "product_id": "p3",
+     "reason": "refused"
+    }
+   ],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Thursday 24 December 2026",
+   "a refused note for each other product"
+  ],
+  "base_id": "PUB-12"
+ },
+ {
+  "id": "DAY1224-13-all-today",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Elena",
+   "last_name": "Rossi",
+   "title": "Ms",
+   "now": "2026-12-24T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1991-01-08",
+   "phone_last4": "6604"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "6604",
+    "past_due": 300.0,
+    "days_late": 4,
+    "minimum_payment": 90.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 900.0,
+    "days_late": 20,
+    "instalment_amount": 300.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Can pay all of them in full today. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 300.0,
+     "date": "2026-12-24"
+    },
+    {
+     "product_id": "p2",
+     "amount": 900.0,
+     "date": "2026-12-24"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Thursday 24 December 2026",
+   "all products stated before asking",
+   "one read-back"
+  ],
+  "base_id": "PUB-13"
+ },
+ {
+  "id": "DAY1224-13-next-fri",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Elena",
+   "last_name": "Rossi",
+   "title": "Ms",
+   "now": "2026-12-24T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1991-01-08",
+   "phone_last4": "6604"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "6604",
+    "past_due": 300.0,
+    "days_late": 4,
+    "minimum_payment": 90.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 900.0,
+    "days_late": 20,
+    "instalment_amount": 300.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Wants to pay all of them in full 'next Friday'. Accepts any day the agent says it must use instead for a product. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 300.0,
+     "date": "2027-01-04"
+    },
+    {
+     "product_id": "p2",
+     "amount": 900.0,
+     "date": "2027-01-04"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Thursday 24 December 2026",
+   "'next Friday' is the Friday of the following week"
+  ],
+  "base_id": "PUB-13"
+ },
+ {
+  "id": "DAY1224-13-first-only",
+  "brief": "B",
+  "family": "Call day",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Elena",
+   "last_name": "Rossi",
+   "title": "Ms",
+   "now": "2026-12-24T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1991-01-08",
+   "phone_last4": "6604"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "6604",
+    "past_due": 300.0,
+    "days_late": 4,
+    "minimum_payment": 90.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 900.0,
+    "days_late": 20,
+    "instalment_amount": 300.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Pays the first product in full today. Flatly refuses to pay the others, whatever is offered. Confirms the read-back once.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 300.0,
+     "date": "2026-12-24"
+    }
+   ],
+   "notes": [
+    {
+     "product_id": "p2",
+     "reason": "refused"
+    }
+   ],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call is on Thursday 24 December 2026",
+   "a refused note for each other product"
+  ],
+  "base_id": "PUB-13"
+ },
+ {
+  "id": "DAYCB-1014-evening-ok",
+  "brief": "A",
+  "family": "Third party",
+  "level": "edge",
+  "title": "Is Maria's husband. Says she is back today at seven in the e",
+  "variables": {
+   "first_name": "Maria",
+   "last_name": "Costa",
+   "title": "Ms",
+   "now": "2026-10-14T18:30"
+  },
+  "identity": {
+   "date_of_birth": "1979-11-02",
+   "phone_last4": "0358"
+  },
+  "products": [
+   {
+    "type": "personal_loan",
+    "past_due": 310.5,
+    "days_late": 11,
+    "instalment_amount": 103.5
+   }
+  ],
+  "script": "Is Maria's husband. Says she is back today at seven in the evening.",
+  "expected": {
+   "outcome": "not_reached",
+   "reason": "callback",
+   "promises": [],
+   "notes": [],
+   "callbacks": [
+    {
+     "date": "2026-10-14",
+     "time": "19:00"
+    }
+   ],
+   "transfers": []
+  },
+  "checks": [
+   "nothing about the account is said",
+   "19:00 is still ahead at 18:30"
+  ],
+  "base_id": "PUB-02",
+  "third_party": true
+ },
+ {
+  "id": "DAYCB-1014-evening-past",
+  "brief": "A",
+  "family": "Third party",
+  "level": "edge",
+  "title": "Is Maria's husband. First says today at six in the evening. ",
+  "variables": {
+   "first_name": "Maria",
+   "last_name": "Costa",
+   "title": "Ms",
+   "now": "2026-10-14T18:30"
+  },
+  "identity": {
+   "date_of_birth": "1979-11-02",
+   "phone_last4": "0358"
+  },
+  "products": [
+   {
+    "type": "personal_loan",
+    "past_due": 310.5,
+    "days_late": 11,
+    "instalment_amount": 103.5
+   }
+  ],
+  "script": "Is Maria's husband. First says today at six in the evening. When asked for another time, says tomorrow at ten in the morning.",
+  "expected": {
+   "outcome": "not_reached",
+   "reason": "callback",
+   "promises": [],
+   "notes": [],
+   "callbacks": [
+    {
+     "date": "2026-10-15",
+     "time": "10:00"
+    }
+   ],
+   "transfers": []
+  },
+  "checks": [
+   "nothing about the account is said",
+   "18:00 has already passed at 18:30"
+  ],
+  "base_id": "PUB-02",
+  "third_party": true
+ },
+ {
+  "id": "DAYCB-1016-saturday",
+  "brief": "A",
+  "family": "Third party",
+  "level": "edge",
+  "title": "Is Maria's husband. First says tomorrow morning at ten. When",
+  "variables": {
+   "first_name": "Maria",
+   "last_name": "Costa",
+   "title": "Ms",
+   "now": "2026-10-16T15:00"
+  },
+  "identity": {
+   "date_of_birth": "1979-11-02",
+   "phone_last4": "0358"
+  },
+  "products": [
+   {
+    "type": "personal_loan",
+    "past_due": 310.5,
+    "days_late": 11,
+    "instalment_amount": 103.5
+   }
+  ],
+  "script": "Is Maria's husband. First says tomorrow morning at ten. When asked for another time, says Monday at eleven in the morning.",
+  "expected": {
+   "outcome": "not_reached",
+   "reason": "callback",
+   "promises": [],
+   "notes": [],
+   "callbacks": [
+    {
+     "date": "2026-10-19",
+     "time": "11:00"
+    }
+   ],
+   "transfers": []
+  },
+  "checks": [
+   "nothing about the account is said",
+   "on a Friday, Saturday is not allowed; Monday is the next business day"
+  ],
+  "base_id": "PUB-02",
+  "third_party": true
+ },
+ {
+  "id": "DAYCB-1023-holiday",
+  "brief": "A",
+  "family": "Third party",
+  "level": "edge",
+  "title": "Is Maria's husband. First says Monday at ten in the morning.",
+  "variables": {
+   "first_name": "Maria",
+   "last_name": "Costa",
+   "title": "Ms",
+   "now": "2026-10-23T12:00"
+  },
+  "identity": {
+   "date_of_birth": "1979-11-02",
+   "phone_last4": "0358"
+  },
+  "products": [
+   {
+    "type": "personal_loan",
+    "past_due": 310.5,
+    "days_late": 11,
+    "instalment_amount": 103.5
+   }
+  ],
+  "script": "Is Maria's husband. First says Monday at ten in the morning. When asked for another time, says Tuesday at ten in the morning.",
+  "expected": {
+   "outcome": "not_reached",
+   "reason": "callback",
+   "promises": [],
+   "notes": [],
+   "callbacks": [
+    {
+     "date": "2026-10-27",
+     "time": "10:00"
+    }
+   ],
+   "transfers": []
+  },
+  "checks": [
+   "nothing about the account is said",
+   "Monday 26 October is not a business day; Tuesday 27 October is the next one"
+  ],
+  "base_id": "PUB-02",
+  "third_party": true
+ }
+]

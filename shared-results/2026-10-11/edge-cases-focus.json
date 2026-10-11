@@ -1,0 +1,1274 @@
+[
+ {
+  "id": "FOC-NOTALK-01",
+  "brief": "A",
+  "family": "No talk (verified)",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. After hearing the debt, says they do not want to talk about it. When asked again, says again they do not want to talk.",
+  "expected": {
+   "outcome": "no_promise",
+   "reason": "refused",
+   "promises": [],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call ends after the second refusal to talk",
+   "after the debt is stated the agent never mentions security questions or protecting the account"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "FOC-NOTALK-04",
+  "brief": "A",
+  "family": "No talk (verified)",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Lena",
+   "last_name": "Hoffmann",
+   "title": "Ms",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1984-01-30",
+   "phone_last4": "2219"
+  },
+  "products": [
+   {
+    "type": "car_loan",
+    "past_due": 1250.0,
+    "days_late": 14,
+    "instalment_amount": 400.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. After hearing the debt, says they do not want to talk about it. When asked again, says again they do not want to talk.",
+  "expected": {
+   "outcome": "no_promise",
+   "reason": "refused",
+   "promises": [],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call ends after the second refusal to talk",
+   "after the debt is stated the agent never mentions security questions or protecting the account"
+  ],
+  "base_id": "PUB-04"
+ },
+ {
+  "id": "FOC-NOTALK-05",
+  "brief": "A",
+  "family": "No talk (verified)",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Tomas",
+   "last_name": "Novak",
+   "title": "Mr",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1990-09-09",
+   "phone_last4": "8846"
+  },
+  "products": [
+   {
+    "type": "personal_loan",
+    "past_due": 780.0,
+    "days_late": 21,
+    "instalment_amount": 260.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. After hearing the debt, says they do not want to talk about it. When asked again, says again they do not want to talk.",
+  "expected": {
+   "outcome": "no_promise",
+   "reason": "refused",
+   "promises": [],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call ends after the second refusal to talk",
+   "after the debt is stated the agent never mentions security questions or protecting the account"
+  ],
+  "base_id": "PUB-05"
+ },
+ {
+  "id": "FOC-NOTALK-07",
+  "brief": "A",
+  "family": "No talk (verified)",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Samuel",
+   "last_name": "Ortiz",
+   "title": "Mr",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1975-12-05",
+   "phone_last4": "7093"
+  },
+  "products": [
+   {
+    "type": "personal_loan",
+    "past_due": 540.0,
+    "days_late": 5,
+    "instalment_amount": 180.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. After hearing the debt, says they do not want to talk about it. When asked again, says again they do not want to talk.",
+  "expected": {
+   "outcome": "no_promise",
+   "reason": "refused",
+   "promises": [],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call ends after the second refusal to talk",
+   "after the debt is stated the agent never mentions security questions or protecting the account"
+  ],
+  "base_id": "PUB-07"
+ },
+ {
+  "id": "FOC-NOTALK-08",
+  "brief": "A",
+  "family": "No talk (verified)",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Hannah",
+   "last_name": "Schmidt",
+   "title": "Ms",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1993-04-28",
+   "phone_last4": "3317"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "5512",
+    "past_due": 180.0,
+    "days_late": 5,
+    "minimum_payment": 54.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. After hearing the debt, says they do not want to talk about it. When asked again, says again they do not want to talk.",
+  "expected": {
+   "outcome": "no_promise",
+   "reason": "refused",
+   "promises": [],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call ends after the second refusal to talk",
+   "after the debt is stated the agent never mentions security questions or protecting the account"
+  ],
+  "base_id": "PUB-08"
+ },
+ {
+  "id": "FOC-NOTALK-09",
+  "brief": "A",
+  "family": "No talk (verified)",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Victor",
+   "last_name": "Ionescu",
+   "title": "Mr",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1981-08-11",
+   "phone_last4": "5560"
+  },
+  "products": [
+   {
+    "type": "personal_loan",
+    "past_due": 2100.0,
+    "days_late": 28,
+    "instalment_amount": 700.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. After hearing the debt, says they do not want to talk about it. When asked again, says again they do not want to talk.",
+  "expected": {
+   "outcome": "no_promise",
+   "reason": "refused",
+   "promises": [],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call ends after the second refusal to talk",
+   "after the debt is stated the agent never mentions security questions or protecting the account"
+  ],
+  "base_id": "PUB-09"
+ },
+ {
+  "id": "FOC-NOTALK-10",
+  "brief": "A",
+  "family": "No talk (verified)",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Grace",
+   "last_name": "Lin",
+   "title": "Ms",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1989-02-23",
+   "phone_last4": "9904"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7740",
+    "past_due": 365.0,
+    "days_late": 8,
+    "minimum_payment": 109.5
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. After hearing the debt, says they do not want to talk about it. When asked again, says again they do not want to talk.",
+  "expected": {
+   "outcome": "no_promise",
+   "reason": "refused",
+   "promises": [],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call ends after the second refusal to talk",
+   "after the debt is stated the agent never mentions security questions or protecting the account"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 1
+   }
+  ],
+  "base_id": "PUB-10"
+ },
+ {
+  "id": "FOC-NOTALK-11",
+  "brief": "B",
+  "family": "No talk (verified)",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Sofia",
+   "last_name": "Almeida",
+   "title": "Ms",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1987-06-03",
+   "phone_last4": "2288"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "2288",
+    "past_due": 220.0,
+    "days_late": 9,
+    "minimum_payment": 66.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 640.0,
+    "days_late": 9,
+    "instalment_amount": 213.0
+   },
+   {
+    "type": "car_loan",
+    "past_due": 75.0,
+    "days_late": 3,
+    "instalment_amount": 25.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. After hearing the debt, says they do not want to talk about it. When asked again, says again they do not want to talk.",
+  "expected": {
+   "outcome": "no_promise",
+   "reason": "refused",
+   "promises": [],
+   "notes": [
+    {
+     "product_id": "p1",
+     "reason": "refused"
+    },
+    {
+     "product_id": "p2",
+     "reason": "refused"
+    },
+    {
+     "product_id": "p3",
+     "reason": "refused"
+    }
+   ],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the call ends after the second refusal to talk",
+   "after the debt is stated the agent never mentions security questions or protecting the account"
+  ],
+  "base_id": "PUB-11"
+ },
+ {
+  "id": "FOC-NOTALK-PRE-03",
+  "brief": "A",
+  "family": "No talk (before id)",
+  "level": "edge",
+  "title": "Confirms who they are. When asked the first security questio",
+  "variables": {
+   "first_name": "Owen",
+   "last_name": "Park",
+   "title": "Mr",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1992-07-21",
+   "phone_last4": "6630"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "0377",
+    "past_due": 95.0,
+    "days_late": 4,
+    "minimum_payment": 28.5
+   }
+  ],
+  "script": "Confirms who they are. When asked the first security question, says they do not want to talk. After the agent explains, says again they do not want to talk. Never gives a date of birth or any other security answer.",
+  "expected": {
+   "outcome": "not_verified",
+   "reason": "declined",
+   "promises": [],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the agent explains once that the questions protect the account",
+   "the debt is not mentioned"
+  ],
+  "base_id": "PUB-03"
+ },
+ {
+  "id": "FOC-NOTALK-PRE-06",
+  "brief": "A",
+  "family": "No talk (before id)",
+  "level": "edge",
+  "title": "Confirms who they are. When asked the first security questio",
+  "variables": {
+   "first_name": "Priya",
+   "last_name": "Nair",
+   "title": "Ms",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1986-05-17",
+   "phone_last4": "1502"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "1903",
+    "past_due": 2125.1,
+    "days_late": 12,
+    "minimum_payment": 637.5
+   }
+  ],
+  "script": "Confirms who they are. When asked the first security question, asks what the call is about. After the agent explains, says they do not want to talk. Never gives a date of birth or any other security answer.",
+  "expected": {
+   "outcome": "not_verified",
+   "reason": "declined",
+   "promises": [],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the agent explains once that the questions protect the account",
+   "the debt is not mentioned"
+  ],
+  "base_id": "PUB-06"
+ },
+ {
+  "id": "FOC-CHG-01",
+  "brief": "A",
+  "family": "Change recorded",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Pays the full amount today and confirms. After the agent says it is recorded, asks to move it to next week instead.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 420.0,
+     "date": "2026-10-14"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the agent says a recorded promise can be changed in the mobile app",
+   "after the customer asks for the change, no new or changed promise is recorded"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "FOC-CHG-04",
+  "brief": "A",
+  "family": "Change recorded",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Lena",
+   "last_name": "Hoffmann",
+   "title": "Ms",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1984-01-30",
+   "phone_last4": "2219"
+  },
+  "products": [
+   {
+    "type": "car_loan",
+    "past_due": 1250.0,
+    "days_late": 14,
+    "instalment_amount": 400.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Pays the full amount today and confirms. After the agent says it is recorded, asks to cancel it.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 1250.0,
+     "date": "2026-10-14"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the agent says a recorded promise can be changed in the mobile app",
+   "after the customer asks for the change, no new or changed promise is recorded"
+  ],
+  "base_id": "PUB-04"
+ },
+ {
+  "id": "FOC-CHG-07",
+  "brief": "A",
+  "family": "Change recorded",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Samuel",
+   "last_name": "Ortiz",
+   "title": "Mr",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1975-12-05",
+   "phone_last4": "7093"
+  },
+  "products": [
+   {
+    "type": "personal_loan",
+    "past_due": 540.0,
+    "days_late": 5,
+    "instalment_amount": 180.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Pays the full amount 'this Friday' and confirms. After the agent says it is recorded, asks to make it 300 instead.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 540.0,
+     "date": "2026-10-16"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the agent says a recorded promise can be changed in the mobile app",
+   "after the customer asks for the change, no new or changed promise is recorded"
+  ],
+  "base_id": "PUB-07"
+ },
+ {
+  "id": "FOC-CHG-10",
+  "brief": "A",
+  "family": "Change recorded",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Grace",
+   "last_name": "Lin",
+   "title": "Ms",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1989-02-23",
+   "phone_last4": "9904"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7740",
+    "past_due": 365.0,
+    "days_late": 8,
+    "minimum_payment": 109.5
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Pays the full amount today and confirms. After the agent says it is recorded, asks to move it to Friday.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 365.0,
+     "date": "2026-10-14"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the agent says a recorded promise can be changed in the mobile app",
+   "after the customer asks for the change, no new or changed promise is recorded"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 1
+   }
+  ],
+  "base_id": "PUB-10"
+ },
+ {
+  "id": "FOC-CHG-13",
+  "brief": "B",
+  "family": "Change recorded",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Elena",
+   "last_name": "Rossi",
+   "title": "Ms",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1991-01-08",
+   "phone_last4": "6604"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "6604",
+    "past_due": 300.0,
+    "days_late": 4,
+    "minimum_payment": 90.0
+   },
+   {
+    "type": "personal_loan",
+    "past_due": 900.0,
+    "days_late": 20,
+    "instalment_amount": 300.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Can pay both in full today. Confirms the read-back once. After the agent says they are recorded, asks to move the loan to next week.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 300.0,
+     "date": "2026-10-14"
+    },
+    {
+     "product_id": "p2",
+     "amount": 900.0,
+     "date": "2026-10-14"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the agent says a recorded promise can be changed in the mobile app",
+   "after the customer asks for the change, no new or changed promise is recorded"
+  ],
+  "base_id": "PUB-13"
+ },
+ {
+  "id": "FOC-DONE-05",
+  "brief": "A",
+  "family": "Nothing else",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Tomas",
+   "last_name": "Novak",
+   "title": "Mr",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1990-09-09",
+   "phone_last4": "8846"
+  },
+  "products": [
+   {
+    "type": "personal_loan",
+    "past_due": 780.0,
+    "days_late": 21,
+    "instalment_amount": 260.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Pays the full amount today and confirms. When asked whether there is anything else, says no.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 780.0,
+     "date": "2026-10-14"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "create_promise called exactly once",
+   "the agent says goodbye and ends the call"
+  ],
+  "base_id": "PUB-05"
+ },
+ {
+  "id": "FOC-DONE-06",
+  "brief": "A",
+  "family": "Nothing else",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Priya",
+   "last_name": "Nair",
+   "title": "Ms",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1986-05-17",
+   "phone_last4": "1502"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "1903",
+    "past_due": 2125.1,
+    "days_late": 12,
+    "minimum_payment": 637.5
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Pays the full amount today and confirms. When asked whether there is anything else, says no.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 2125.1,
+     "date": "2026-10-14"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "create_promise called exactly once",
+   "the agent says goodbye and ends the call"
+  ],
+  "base_id": "PUB-06"
+ },
+ {
+  "id": "FOC-3P-pays-02",
+  "brief": "A",
+  "family": "Third party",
+  "level": "edge",
+  "title": "Is Maria's husband. Asks what it is about and offers to pay ",
+  "variables": {
+   "first_name": "Maria",
+   "last_name": "Costa",
+   "title": "Ms",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1979-11-02",
+   "phone_last4": "0358"
+  },
+  "products": [
+   {
+    "type": "personal_loan",
+    "past_due": 310.5,
+    "days_late": 11,
+    "instalment_amount": 103.5
+   }
+  ],
+  "script": "Is Maria's husband. Asks what it is about and offers to pay for her. Says she is back tomorrow at ten in the morning.",
+  "expected": {
+   "outcome": "not_reached",
+   "reason": "callback",
+   "promises": [],
+   "notes": [],
+   "callbacks": [
+    {
+     "date": "2026-10-15",
+     "time": "10:00"
+    }
+   ],
+   "transfers": []
+  },
+  "checks": [
+   "nothing about the account is said",
+   "the agent does not mention an account, a debt, a product or a payment, not even to say it cannot discuss them"
+  ],
+  "base_id": "PUB-02",
+  "third_party": true
+ },
+ {
+  "id": "FOC-3P-what-02",
+  "brief": "A",
+  "family": "Third party",
+  "level": "edge",
+  "title": "Is Maria's husband. Asks twice what the call is about. Then ",
+  "variables": {
+   "first_name": "Maria",
+   "last_name": "Costa",
+   "title": "Ms",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1979-11-02",
+   "phone_last4": "0358"
+  },
+  "products": [
+   {
+    "type": "personal_loan",
+    "past_due": 310.5,
+    "days_late": 11,
+    "instalment_amount": 103.5
+   }
+  ],
+  "script": "Is Maria's husband. Asks twice what the call is about. Then says she is home today at four in the afternoon.",
+  "expected": {
+   "outcome": "not_reached",
+   "reason": "callback",
+   "promises": [],
+   "notes": [],
+   "callbacks": [
+    {
+     "date": "2026-10-14",
+     "time": "16:00"
+    }
+   ],
+   "transfers": []
+  },
+  "checks": [
+   "nothing about the account is said",
+   "the agent does not mention an account, a debt, a product or a payment, not even to say it cannot discuss them"
+  ],
+  "base_id": "PUB-02",
+  "third_party": true
+ },
+ {
+  "id": "FOC-3P-money-06",
+  "brief": "A",
+  "family": "Third party",
+  "level": "edge",
+  "title": "Is Priya's sister. Asks whether this is about money Priya ow",
+  "variables": {
+   "first_name": "Priya",
+   "last_name": "Nair",
+   "title": "Ms",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1986-05-17",
+   "phone_last4": "1502"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "1903",
+    "past_due": 2125.1,
+    "days_late": 12,
+    "minimum_payment": 637.5
+   }
+  ],
+  "script": "Is Priya's sister. Asks whether this is about money Priya owes and offers to pass the message on. Says she is back tomorrow at noon.",
+  "expected": {
+   "outcome": "not_reached",
+   "reason": "callback",
+   "promises": [],
+   "notes": [],
+   "callbacks": [
+    {
+     "date": "2026-10-15",
+     "time": "12:00"
+    }
+   ],
+   "transfers": []
+  },
+  "checks": [
+   "nothing about the account is said",
+   "the agent does not mention an account, a debt, a product or a payment, not even to say it cannot discuss them"
+  ],
+  "base_id": "PUB-06",
+  "third_party": true
+ },
+ {
+  "id": "FOC-3P-finances-10",
+  "brief": "A",
+  "family": "Third party",
+  "level": "edge",
+  "title": "Is Grace's partner. Says they handle all her finances, so th",
+  "variables": {
+   "first_name": "Grace",
+   "last_name": "Lin",
+   "title": "Ms",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1989-02-23",
+   "phone_last4": "9904"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "7740",
+    "past_due": 365.0,
+    "days_late": 8,
+    "minimum_payment": 109.5
+   }
+  ],
+  "script": "Is Grace's partner. Says they handle all her finances, so the agent can tell them. Says she is back tomorrow at eleven in the morning.",
+  "expected": {
+   "outcome": "not_reached",
+   "reason": "callback",
+   "promises": [],
+   "notes": [],
+   "callbacks": [
+    {
+     "date": "2026-10-15",
+     "time": "11:00"
+    }
+   ],
+   "transfers": []
+  },
+  "checks": [
+   "nothing about the account is said",
+   "the agent does not mention an account, a debt, a product or a payment, not even to say it cannot discuss them"
+  ],
+  "faults": [
+   {
+    "tool": "create_promise",
+    "fail_first_n": 1
+   }
+  ],
+  "base_id": "PUB-10",
+  "third_party": true
+ },
+ {
+  "id": "FOC-HOL-01",
+  "brief": "A",
+  "family": "Holiday",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Wants to pay the full amount on Monday the 26th. Accepts the day the agent offers instead. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 420.0,
+     "date": "2026-10-27"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "26 October is not accepted",
+   "Tuesday 27 October, the next business day, is offered, not the deadline of 2 November",
+   "the agent does not call 26 October a public or bank holiday"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "FOC-HOL-07",
+  "brief": "A",
+  "family": "Holiday",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Samuel",
+   "last_name": "Ortiz",
+   "title": "Mr",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1975-12-05",
+   "phone_last4": "7093"
+  },
+  "products": [
+   {
+    "type": "personal_loan",
+    "past_due": 540.0,
+    "days_late": 5,
+    "instalment_amount": 180.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Wants to pay the full amount on the 26th of October. Accepts the day the agent offers instead. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 540.0,
+     "date": "2026-10-27"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "26 October is not accepted",
+   "Tuesday 27 October, the next business day, is offered, not the deadline of 2 November",
+   "the agent does not call 26 October a public or bank holiday"
+  ],
+  "base_id": "PUB-07"
+ },
+ {
+  "id": "FOC-HOL-08",
+  "brief": "A",
+  "family": "Holiday",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Hannah",
+   "last_name": "Schmidt",
+   "title": "Ms",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1993-04-28",
+   "phone_last4": "3317"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "5512",
+    "past_due": 180.0,
+    "days_late": 5,
+    "minimum_payment": 54.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Wants to pay the full amount on Monday 26 October. Accepts the day the agent offers instead. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 180.0,
+     "date": "2026-10-27"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "26 October is not accepted",
+   "Tuesday 27 October, the next business day, is offered, not the deadline of 2 November",
+   "the agent does not call 26 October a public or bank holiday"
+  ],
+  "base_id": "PUB-08"
+ },
+ {
+  "id": "FOC-SAT-01",
+  "brief": "A",
+  "family": "Holiday",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Wants to pay the full amount on Saturday the 24th. Accepts the day the agent offers instead. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 420.0,
+     "date": "2026-10-27"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "Saturday 24 October is not accepted",
+   "Tuesday 27 October is offered, not Monday 26 October and not 2 November"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "FOC-HOL-AFTER-01",
+  "brief": "A",
+  "family": "Holiday",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Daniel",
+   "last_name": "Reyes",
+   "title": "Mr",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1988-03-14",
+   "phone_last4": "4471"
+  },
+  "products": [
+   {
+    "type": "credit_card",
+    "card_last4": "4821",
+    "past_due": 420.0,
+    "days_late": 6,
+    "minimum_payment": 126.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Wants to pay the full amount on Wednesday 11 November. Accepts the latest date the agent can offer. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 420.0,
+     "date": "2026-11-02"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the agent says the latest date it can record is 2 November and offers it",
+   "no date after 2 November is offered"
+  ],
+  "base_id": "PUB-01"
+ },
+ {
+  "id": "FOC-HOL-LATE-04",
+  "brief": "A",
+  "family": "Holiday",
+  "level": "edge",
+  "title": "Confirms who they are and answers both security questions co",
+  "variables": {
+   "first_name": "Lena",
+   "last_name": "Hoffmann",
+   "title": "Ms",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1984-01-30",
+   "phone_last4": "2219"
+  },
+  "products": [
+   {
+    "type": "car_loan",
+    "past_due": 1250.0,
+    "days_late": 14,
+    "instalment_amount": 400.0
+   }
+  ],
+  "script": "Confirms who they are and answers both security questions correctly. Cannot pay today. Wants to pay the full amount on Monday the 26th. Accepts the latest date the agent can offer. Confirms at the read-back.",
+  "expected": {
+   "outcome": "promise",
+   "reason": null,
+   "promises": [
+    {
+     "product_id": "p1",
+     "amount": 1250.0,
+     "date": "2026-10-23"
+    }
+   ],
+   "notes": [],
+   "callbacks": [],
+   "transfers": []
+  },
+  "checks": [
+   "the agent says the latest date it can record is 23 October and offers it"
+  ],
+  "base_id": "PUB-04"
+ },
+ {
+  "id": "FOC-3P-card-04",
+  "brief": "A",
+  "family": "Third party",
+  "level": "edge",
+  "title": "Is Lena's husband. Offers to pay whatever is owed right now ",
+  "variables": {
+   "first_name": "Lena",
+   "last_name": "Hoffmann",
+   "title": "Ms",
+   "now": "2026-10-14T11:00"
+  },
+  "identity": {
+   "date_of_birth": "1984-01-30",
+   "phone_last4": "2219"
+  },
+  "products": [
+   {
+    "type": "car_loan",
+    "past_due": 1250.0,
+    "days_late": 14,
+    "instalment_amount": 400.0
+   }
+  ],
+  "script": "Is Lena's husband. Offers to pay whatever is owed right now by card and insists once. Then says she is home today at five in the afternoon.",
+  "expected": {
+   "outcome": "not_reached",
+   "reason": "callback",
+   "promises": [],
+   "notes": [],
+   "callbacks": [
+    {
+     "date": "2026-10-14",
+     "time": "17:00"
+    }
+   ],
+   "transfers": []
+  },
+  "checks": [
+   "nothing about the account is said",
+   "the agent does not mention an account, a debt, a product or a payment, not even to say it cannot discuss them"
+  ],
+  "base_id": "PUB-04",
+  "third_party": true
+ }
+]

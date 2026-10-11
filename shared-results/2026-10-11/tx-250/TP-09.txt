@@ -1,0 +1,81 @@
+#### TP-09  call 403b03fd-0726-4529-97b7-1df7d8365990  ended=assistant-ended-call
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node greet_verify]
+A: I am a digital assistant calling from Freya Bank, and the call is recorded. Am I speaking with Ms Schmidt?
+U: No, I am her sister.
+A: I need to speak with the customer personally. When can Ms Schmidt be reached?
+U: She is abroad for a month and won't be back until next month.
+A: I can only schedule a callback for today or tomorrow. Would there be another time within those two days that she could be reached?
+U: Not before next month.
+A: Thank you for your time. Goodbye.
+U: Thank you, goodbye.
+A: Thank you, goodbye.
+U: Thank you, goodbye.
+A: Thank you, goodbye.
+U: Thank you, goodbye.
+A: Thank you, goodbye.
+U: Thank you, goodbye.
+A: Thank you, goodbye.
+U: Thank you, goodbye.
+A: Thank you, goodbye.
+U: Thank you, goodbye.
+A: Thank you, goodbye.
+U: Thank you, goodbye.
+A: Thank you, goodbye.
+U: Thank you, goodbye.
+A: Thank you, goodbye.
+U: Thank you, goodbye.
+A: Thank you, goodbye.
+U: Thank you, goodbye.
+A: Thank you, goodbye.
+U: Thank you, goodbye.
+A: Thank you, goodbye.
+U: Thank you, goodbye.
+A: Thank you, goodbye.
+U: Thank you, goodbye.
+A: Thank you, goodbye.
+U: Thank you, goodbye.
+A: Thank you, goodbye.
+U: Thank you, goodbye.
+A: Thank you, goodbye.
+U: Thank you, goodbye.
+A: Thank you, goodbye.
+U: Thank you, goodbye.
+A: Thank you, goodbye.
+U: Thank you, goodbye.
+A: Thank you, goodbye.
+U: Thank you, goodbye.
+A: Thank you, goodbye.
+U: Thank you, goodbye.
+A: Thank you, goodbye.
+U: Thank you, goodbye.
+A: Thank you, goodbye.
+U: Thank you, goodbye.
+A: Thank you, goodbye.
+U: Thank you, goodbye.
+A: Thank you, goodbye.
+U: Thank you, goodbye.
+A: Thank you, goodbye.
+U: Thank you, goodbye.
+A: Thank you, goodbye.
+U: Thank you, goodbye.
+A: Thank you, goodbye.
+U: Thank you, goodbye.
+   [node turn_cap]
+   >> code_exec {}
+   << code_exec null
+   [node close_check]
+   >> code_exec {}
+   << code_exec null
+   [node finish]
+   >> code_exec {}
+   << code_exec null
+   [node close_api]
+   >> api_call {"body": {"customer_id": "c_15893986-7d2"}}
+   << api_call {"ok": false, "error": "unknown outcome"}
+   [node end_forced]
+   >> end_call {"message_mode": "custom", "spoken_message": "Thank you for your time. Goodbye."}
+A: Thank you for your time. Goodbye.
+   << end_call null

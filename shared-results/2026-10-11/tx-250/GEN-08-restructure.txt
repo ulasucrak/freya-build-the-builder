@@ -1,0 +1,32 @@
+#### GEN-08-restructure  call 17820ade-d56c-4dab-b2e6-15411da07054  ended=assistant-ended-call
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node greet_verify]
+A: I am a digital assistant calling from Freya Bank, and this call is recorded. Am I speaking with Ms Schmidt?
+U: Yes, this is Hannah Schmidt.
+A: What is your date of birth?
+U: Twenty eighth of April.
+   >> verify_identity {"body": {"field": "date_of_birth", "answer": "2026-04-28", "customer_id": "c_5490d5af-458"}}
+   << verify_identity {"ok": true, "verified": false, "wrong_answers_left": 2, "all_verified": false, "what_to_do_next": "Wrong answer (2 wrong answer(s) left in total). Do not say what the right answer is. Ask the same question once more, following the rules."}
+A: I'm sorry, that is not the date of birth we have on file. Could you please tell me your date of birth again, including the year?
+U: Twenty eighth of April.
+   >> verify_identity {"body": {"field": "date_of_birth", "answer": "2026-04-28", "customer_id": "c_5490d5af-458"}}
+   << verify_identity {"ok": true, "verified": false, "wrong_answers_left": 1, "all_verified": false, "what_to_do_next": "Wrong answer (1 wrong answer(s) left in total). Do not say what the right answer is. Ask the same question once more, following the rules."}
+A: I'm sorry, that is still not matching our records. Could you please provide your full date of birth, including the year?
+U: Twenty eighth of April.
+   >> verify_identity {"body": {"field": "date_of_birth", "answer": "2026-04-28", "customer_id": "c_5490d5af-458"}}
+   << verify_identity {"ok": true, "verified": false, "wrong_answers_left": 0, "all_verified": false, "what_to_do_next": "Wrong answer. The identity check has FAILED: no attempts are left. Ask nothing more and say nothing about the account. Tell the customer to use the mobile app or a branch. Then thank the customer, say goodbye and call close_call with outcome 'not_verified' and reason 'failed', all in the same messag
+A: I'm sorry, but we cannot verify your identity. Please use the mobile app or visit a branch. Thank you for your time, goodbye.
+   [node close_check]
+   >> code_exec {}
+   << code_exec null
+   [node finish]
+   >> code_exec {}
+   << code_exec null
+   [node close_api]
+   >> api_call {"body": {"reason": "failed", "outcome": "not_verified", "customer_id": "c_5490d5af-458"}}
+   << api_call {"ok": true}
+   [node end_closed]
+   >> end_call {"message_mode": "none"}
+   << end_call null

@@ -1,0 +1,48 @@
+#### GEN-01-too-much  call 8da19789-bdb4-450d-97cc-bee4ebb2fea9  ended=assistant-ended-call
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node greet_verify]
+A: I am a digital assistant calling from Freya Bank, and this call is recorded. Am I speaking with Mr Reyes?
+U: Yes, this is Daniel Reyes.
+A: What is your date of birth?
+U: 14 March 1988.
+   >> verify_identity {"body": {"field": "date_of_birth", "answer": "1988-03-14", "customer_id": "c_19c01f7e-c7f"}}
+   << verify_identity {"ok": true, "verified": true, "wrong_answers_left": 3, "all_verified": false, "what_to_do_next": "Correct. Now ask the next security question: Ask for the last four digits of the phone number on file. (field 'phone_last4')."}
+A: What are the last four digits of the phone number on file?
+U: 4471.
+   >> verify_identity {"body": {"field": "phone_last4", "answer": "4471", "customer_id": "c_19c01f7e-c7f"}}
+   << verify_identity {"ok": true, "verified": true, "wrong_answers_left": 3, "all_verified": true, "what_to_do_next": "All security answers are correct. The customer is verified."}
+   [node load_account]
+   >> api_call {"body": {"customer_id": "c_19c01f7e-c7f"}}
+   << api_call {"ok": true, "products": [{"product_id": "p1", "type": "credit_card", "card_last4": "4821", "past_due": 420, "days_late": 6, "minimum_payment": 126}]}
+   [node prepare_account]
+   >> code_exec {}
+   << code_exec null
+   [node negotiate]
+A: I am calling from the collections team about a late payment. You have a credit card ending 4821 with a past-due amount of 420.00, which is 6 days late.
+ Can you make this payment today?
+U: The full amount is too much for me right now.
+A: I understand. I can record a payment of 126.00 instead, though the rest will stay overdue.
+ Can you make this payment on Friday 16 October 2026?
+U: Yes, I can do that.
+A: To be clear, I will record a payment of 126.00 for your credit card ending 4821 on Friday 16 October 2026. Do you confirm?
+U: Yes, I confirm.
+   >> create_promise {"body": {"date": "2026-10-16", "amount": 126.0, "product_id": "p1", "customer_id": "c_19c01f7e-c7f"}}
+   << create_promise {"ok": true, "promise_id": "pr1", "what_to_do_next": "Recorded: the promise for p1 is saved (126.00 on Friday 16 October 2026 (2026-10-16); use this weekday and date when you speak). Tell the customer it is recorded and say: \"You will receive a text message confirming this promise.\" All products are handled. Do not say goodbye yet: ask whether there is anything else and wait for the answer. If t
+A: Your promise is recorded. You will receive a text message confirming this promise.
+ Is there anything else I can help you with?
+U: No, that is all.
+A: Thank you for your time, Mr Reyes. Goodbye!
+   [node close_check]
+   >> code_exec {}
+   << code_exec null
+   [node finish]
+   >> code_exec {}
+   << code_exec null
+   [node close_api]
+   >> api_call {"body": {"outcome": "promise", "customer_id": "c_19c01f7e-c7f"}}
+   << api_call {"ok": true}
+   [node end_closed]
+   >> end_call {"message_mode": "none"}
+   << end_call null

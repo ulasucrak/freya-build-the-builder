@@ -1,0 +1,99 @@
+PASS EDGE-20 edge   Third party    | close_call
+PASS EDGE-27 edge   Identity       | verify > verify > get_account > promise > close_call
+PASS EDGE-28 edge   Identity       | verify > verify > get_account > promise > close_call
+PASS EDGE-42 edge   Amounts        | verify > verify > get_account > close_call
+PASS EDGE-51 edge   Multi-product  | verify > verify > get_account > add_note > add_note > close_call
+PASS EDGE-52 edge   Multi-product  | verify > verify > get_account > add_note > add_note > close_call
+PASS GEN-01-too-much edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-07-today edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-07-holiday edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-07-too-much edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-05-too-much edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-04-too-much edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-08-restructure edge   Generated      | verify > verify > get_account > transfer_to_agent > close_call
+PASS GEN-08-human edge   Generated      | verify > verify > get_account > transfer_to_agent > close_call
+FAIL GEN-09-no-talk edge   Generated      | verify > verify > get_account > close_call
+       - conversation: The success criterion required the call to end after the second refusal to talk. In this conversation, the user avoided or refused the payment request four times: Message 7 (1st refusal), Message 9 (2nd refusal), Message 11 (3rd refusal), and Mes
+PASS GEN-11-refuses-all edge   Multi-product  | verify > verify > get_account > add_note > add_note > add_note > close_call
+PASS FOC-NOTALK-04 edge   No talk (verified) | verify > verify > get_account > close_call
+PASS FOC-NOTALK-PRE-03 edge   No talk (before id) | close_call
+PASS FOC-HOL-01 edge   Holiday        | verify > verify > verify > get_account > promise > close_call
+FAIL MIX-09 edge   Mid-call change | verify > verify > get_account > close_call
+       - conversation: The agent failed both success criteria. First, after the non-answer in Message 7, the agent made two offers (Message 8 and Message 10) instead of the 'exactly one' required by the instructions. Second, the offer made in Message 10 was refused in 
+PASS AD-09 edge   Amounts and dates | verify > verify > get_account > promise > close_call
+PASS MP-09 edge   Multi-product  | verify > verify > get_account > promise > promise > add_note > close_call
+PASS MP-14 edge   Multi-product  | verify > verify > get_account > promise > promise > promise > close_call
+PASS TP-09 edge   Third party    | close_call
+FAIL ID-07 edge   Identity       | verify > verify > get_account > promise > promise > close_call
+       - conversation: The success criterion 'the agent asks only for the year' was not met. The agent asked for the full 'date of birth' in [Message 2] (which includes day and month) rather than restricting the request to the year. Furthermore, the agent asked for the
+PASS GEN-03-holiday edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-03-too-much edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-06-too-much edge   Generated      | verify > verify > get_account > promise > close_call
+
+slowest agent turn per call: median 5 s, worst 21 s. Failed calls where the customer hung up: 0.
+-- run 1 of 2: 25 / 28 passed, 340 s
+
+PASS EDGE-20 edge   Third party    | close_call
+PASS EDGE-27 edge   Identity       | verify > verify > get_account > promise > close_call
+PASS EDGE-28 edge   Identity       | verify > verify > get_account > promise > close_call
+PASS EDGE-42 edge   Amounts        | verify > verify > get_account > close_call
+PASS EDGE-51 edge   Multi-product  | verify > verify > get_account > add_note > add_note > close_call
+PASS EDGE-52 edge   Multi-product  | verify > verify > get_account > add_note > add_note > close_call
+PASS GEN-01-too-much edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-07-today edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-07-holiday edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-07-too-much edge   Generated      | verify > verify > verify > get_account > promise > close_call
+PASS GEN-05-too-much edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-04-too-much edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-08-restructure edge   Generated      | verify > verify > get_account > transfer_to_agent > close_call
+PASS GEN-08-human edge   Generated      | verify > verify > get_account > transfer_to_agent > close_call
+PASS GEN-09-no-talk edge   Generated      | verify > verify > get_account > close_call
+PASS GEN-11-refuses-all edge   Multi-product  | verify > verify > get_account > add_note > add_note > add_note > close_call
+PASS FOC-NOTALK-04 edge   No talk (verified) | verify > verify > get_account > close_call
+PASS FOC-NOTALK-PRE-03 edge   No talk (before id) | close_call
+PASS FOC-HOL-01 edge   Holiday        | verify > verify > get_account > promise > close_call
+FAIL MIX-09 edge   Mid-call change | verify > verify > get_account > close_call
+       - conversation: The agent failed to meet both success criteria. First, after the user gave a non-committal answer (Message 7), the agent was required to make exactly one offer for the full amount on Friday, October 16th. While the agent did make this offer (Mess
+PASS AD-09 edge   Amounts and dates | verify > verify > get_account > promise > close_call
+PASS MP-09 edge   Multi-product  | verify > verify > get_account > promise > promise > add_note > close_call
+PASS MP-14 edge   Multi-product  | verify > verify > get_account > promise > promise > promise > close_call
+PASS TP-09 edge   Third party    | close_call
+FAIL ID-07 edge   Identity       | verify > verify > get_account > promise > promise > close_call
+       - conversation: The agent failed to meet the success criterion because it asked for the full date of birth in Message 2 ('What is your date of birth?'), which includes the day and month. The criterion explicitly requires that the agent ask only for the year. Whi
+PASS GEN-03-holiday edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-03-too-much edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-06-too-much edge   Generated      | verify > verify > get_account > promise > close_call
+
+slowest agent turn per call: median 4 s, worst 24 s. Failed calls where the customer hung up: 0.
+-- run 2 of 2: 26 / 28 passed, 347 s
+
+PASS EDGE-20 2/2
+PASS EDGE-27 2/2
+PASS EDGE-28 2/2
+PASS EDGE-42 2/2
+PASS EDGE-51 2/2
+PASS EDGE-52 2/2
+PASS GEN-01-too-much 2/2
+PASS GEN-07-today 2/2
+PASS GEN-07-holiday 2/2
+PASS GEN-07-too-much 2/2
+PASS GEN-05-too-much 2/2
+PASS GEN-04-too-much 2/2
+PASS GEN-08-restructure 2/2
+PASS GEN-08-human 2/2
+FAIL GEN-09-no-talk 1/2
+PASS GEN-11-refuses-all 2/2
+PASS FOC-NOTALK-04 2/2
+PASS FOC-NOTALK-PRE-03 2/2
+PASS FOC-HOL-01 2/2
+FAIL MIX-09 0/2
+PASS AD-09 2/2
+PASS MP-09 2/2
+PASS MP-14 2/2
+PASS TP-09 2/2
+FAIL ID-07 0/2
+PASS GEN-03-holiday 2/2
+PASS GEN-03-too-much 2/2
+PASS GEN-06-too-much 2/2
+
+25 / 28 passed (bank records and conversation checks), a customer counts with 2 of 2 runs. Last simulation 9fcc4a1b-803a-4605-818b-66bac112caa3, status completed, 687 s.

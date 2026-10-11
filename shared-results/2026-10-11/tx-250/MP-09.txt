@@ -1,0 +1,59 @@
+#### MP-09  call 7a7869fe-71ce-46a7-ad59-c0d697f508bc  ended=assistant-ended-call
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node greet_verify]
+A: I am a digital assistant calling from Freya Bank, and this call is recorded. Am I speaking with Ms Almeida?
+U: Yes, this is Sofia Almeida.
+A: What is your date of birth?
+U: Third June nineteen eighty seven.
+   >> verify_identity {"body": {"field": "date_of_birth", "answer": "1987-06-03", "customer_id": "c_6956a75f-25c"}}
+   << verify_identity {"ok": true, "verified": true, "wrong_answers_left": 3, "all_verified": false, "what_to_do_next": "Correct. Now ask the next security question: Ask for the last four digits of the phone number on file. (field 'phone_last4')."}
+A: What are the last four digits of the phone number on file?
+U: Two two eight eight.
+   >> verify_identity {"body": {"field": "phone_last4", "answer": "2288", "customer_id": "c_6956a75f-25c"}}
+   << verify_identity {"ok": true, "verified": true, "wrong_answers_left": 3, "all_verified": true, "what_to_do_next": "All security answers are correct. The customer is verified."}
+   [node load_account]
+   >> api_call {"body": {"customer_id": "c_6956a75f-25c"}}
+   << api_call {"ok": true, "products": [{"product_id": "p1", "type": "credit_card", "card_last4": "2288", "past_due": 220, "days_late": 9, "minimum_payment": 66}, {"product_id": "p2", "type": "personal_loan", "past_due": 640, "days_late": 9, "instalment_amount": 213}, {"product_id": "p3", "type": "car_loan", "past_due": 75, "days_late": 3, "instalment_amount": 25}]}
+   [node prepare_account]
+   >> code_exec {}
+   << code_exec null
+   [node negotiate]
+A: I am calling from the collections team about some late payments. You have a credit card ending 2288 that is 220.00 past due and 9 days late. Your personal loan is 640.00 past due and 9 days late, and your car loan is 75.00 past due and 3 days late.
+ Can you make this payment today?
+U: I will pay the two hundred dollars, sorry I mean two hundred and twenty dollars for the credit card and seventy-five dollars for the car loan today. I am not paying the personal loan.
+   >> check_offer {"amount": "220.00", "date": "2026-10-14", "product_id": "p1"}
+   >> check_offer {"amount": "75.00", "date": "2026-10-14", "product_id": "p3"}
+   << check_offer {"ok": true, "code": "ok", "date": "Wednesday 14 October 2026 (2026-10-14)", "amount": "220.00", "suggest_date": "", "suggest_amount": null, "what_to_do_next": "Valid for p1: 220.00 and Wednesday 14 October 2026 (2026-10-14). Use it in the read-back."}
+   << check_offer {"ok": true, "code": "ok", "date": "Wednesday 14 October 2026 (2026-10-14)", "amount": "75.00", "suggest_date": "", "suggest_amount": null, "what_to_do_next": "Valid for p3: 75.00 and Wednesday 14 October 2026 (2026-10-14). Use it in the read-back."}
+A: For the personal loan, can you pay the full 640.00 by Friday 16 October 2026?
+ For the others, I have a promise for the credit card ending 2288 for 220.00 today, and the car loan for 75.00 today.
+U: I am not paying the personal loan. I confirm the payments for the credit card and the car loan for today.
+   >> create_promise {"body": {"date": "2026-10-14", "amount": 220.0, "product_id": "p1", "customer_id": "c_6956a75f-25c"}}
+   >> create_promise {"body": {"date": "2026-10-14", "amount": 75.0, "product_id": "p3", "customer_id": "c_6956a75f-25c"}}
+   >> add_note {"body": {"reason": "refused", "product_id": "p2", "customer_id": "c_6956a75f-25c"}}
+   << create_promise {"ok": true, "promise_id": "pr1", "what_to_do_next": "Recorded: the promise for p3 is saved (75.00 on Wednesday 14 October 2026 (2026-10-14); use this weekday and date when you speak). Tell the customer it is recorded and say: \"You will receive a text message confirming this promise.\" Products still open: p1 (credit card ending 2288), p2 (personal loan). If the customer already confirmed a promi
+   << create_promise {"ok": true, "promise_id": "pr2", "what_to_do_next": "Recorded: the promise for p3 is saved (75.00 on Wednesday 14 October 2026 (2026-10-14); use this weekday and date when you speak). Tell the customer it is recorded and say: \"You will receive a text message confirming this promise.\" Products still open: p1 (credit card ending 2288), p2 (personal loan). If the customer already confirmed a promi
+   << add_note {"ok": true, "what_to_do_next": "Note sent for p2. Now send the notes, one add_note call per message, before closing: product p1 with its reason; product p3 with its reason. Then close the call."}
+A: Your promises have been recorded. You will receive a text message confirming this promise.
+ Thank you for your time. Goodbye.
+   [node close_check]
+   >> code_exec {}
+   << code_exec null
+   [node wrap_up]
+A: One moment, please.
+A: One moment, please.
+   >> add_note {"body": {"reason": "refused", "product_id": "p1", "customer_id": "c_6956a75f-25c"}}
+   << add_note {"ok": true, "what_to_do_next": "Note sent for p1. All notes are sent. Then thank the customer, say goodbye and call close_call with outcome 'promise', all in the same message."}
+A: One moment, please.
+A: One moment, please.
+   [node finish]
+   >> code_exec {}
+   << code_exec null
+   [node close_api]
+   >> api_call {"body": {"outcome": "promise", "customer_id": "c_6956a75f-25c"}}
+   << api_call {"ok": true}
+   [node end_closed]
+   >> end_call {"message_mode": "none"}
+   << end_call null

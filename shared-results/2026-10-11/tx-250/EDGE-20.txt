@@ -1,0 +1,26 @@
+#### EDGE-20  call 4684851b-e709-4ba2-a8a3-e34f99481eba  ended=assistant-ended-call
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node greet_verify]
+A: I am a digital assistant calling from Freya Bank, and this call is recorded. Am I speaking with Ms Costa?
+U: No, I am her husband.
+A: I need to speak with the customer personally. When can she be reached?
+U: She can be reached today at nine in the evening.
+A: I'm sorry, but I can only schedule callbacks until 7:00 PM today. Could you please suggest another time?
+U: Tomorrow at eight in the morning.
+A: I'm sorry, but the earliest I can schedule a callback for tomorrow is 10:00 AM. Could you suggest another time?
+U: I have no other time.
+A: Thank you for your time. Goodbye.
+   [node close_check]
+   >> code_exec {}
+   << code_exec null
+   [node finish]
+   >> code_exec {}
+   << code_exec null
+   [node close_api]
+   >> api_call {"body": {"reason": "no_callback", "outcome": "not_reached", "customer_id": "c_78e63ad2-8a5"}}
+   << api_call {"ok": true}
+   [node end_closed]
+   >> end_call {"message_mode": "none"}
+   << end_call null

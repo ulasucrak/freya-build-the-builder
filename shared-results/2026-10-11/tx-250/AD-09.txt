@@ -1,0 +1,56 @@
+#### AD-09  call 43ca33ee-3e00-4a53-8fb3-657aed47ae33  ended=assistant-ended-call
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node greet_verify]
+A: I am a digital assistant calling from Freya Bank, and this call is recorded. Am I speaking with Ms Schmidt?
+U: Yes, that's me. I've been so busy at work today with all these emails piling up.
+A: What is your date of birth?
+U: I just got stuck in the worst traffic on the way home. My date of birth is the twenty-eighth of April, nineteen ninety-three.
+   >> verify_identity {"body": {"field": "date_of_birth", "answer": "1993-04-28", "customer_id": "c_68138a76-aee"}}
+   << verify_identity {"ok": true, "verified": true, "wrong_answers_left": 3, "all_verified": false, "what_to_do_next": "Correct. Now ask the next security question: Ask for the last four digits of the phone number on file. (field 'phone_last4')."}
+A: What are the last four digits of the phone number on file?
+U: I've been running around all day trying to get things done before the weekend. The last four digits are three three one seven.
+   >> verify_identity {"body": {"field": "phone_last4", "answer": "3317", "customer_id": "c_68138a76-aee"}}
+   << verify_identity {"ok": true, "verified": true, "wrong_answers_left": 3, "all_verified": true, "what_to_do_next": "All security answers are correct. The customer is verified."}
+   [node load_account]
+   >> api_call {"body": {"customer_id": "c_68138a76-aee"}}
+   << api_call {"ok": true, "products": [{"product_id": "p1", "type": "credit_card", "card_last4": "5512", "past_due": 180, "days_late": 5, "minimum_payment": 54}]}
+   [node prepare_account]
+   >> code_exec {}
+   << code_exec null
+   [node negotiate]
+A: I am calling from the collections team about a late payment. You have a credit card ending 5512 with a past-due amount of 180.00, which is 5 days late.
+ Can you make this payment today?
+U: I have had such a long day at the office and I
+A: I understand you've had a long day. Would you be able to make the payment of 180.00 this Friday, 16 October 2026?
+U: I really need a coffee because I have been staring at
+A: I understand you've had a tiring day. Can you make the payment of 180.00 this Friday, 16 October 2026?
+U: My boss has been giving me so much extra work lately
+A: I understand you've been under a lot of pressure at work. As a reminder, the past-due amount for your credit card ending 5512 is 180.00.
+ Can you make this payment by this Friday, 16 October 2026?
+U: I've been so overwhelmed with these deadlines and
+A: I understand it's been overwhelming. Since I haven't heard if you can pay, would you be able to pay the 180.00 by this Friday, 16 October 2026?
+U: I have been so stressed with all
+A: I understand you're feeling stressed. Since you haven't been able to provide a date, would you be able to pay the 180.00 by this Friday, 16 October 2026?
+U: I'm just so exhausted from these back-to-
+A: I understand you're exhausted. I'm sorry, but I must ask again if you can pay the 180.00 by this Friday, 16 October 2026?
+U: I've been trying to stay on top of
+A: I understand you're trying your best. Since I haven't received a confirmation, can you pay the 180.00 by this Friday, 16 October 2026?
+U: I have been so busy preparing for my cousin'
+A: I understand you've been very busy. Can you make the payment of 180.00 this Friday, 16 October 2026?
+U: I've been so stressed out with all these deadlines
+A: I understand you're feeling stressed. Since you're unable to commit to a payment, I will have to end the call.
+ Thank you for your time, and goodbye.
+   [node close_check]
+   >> code_exec {}
+   << code_exec null
+   [node finish]
+   >> code_exec {}
+   << code_exec null
+   [node close_api]
+   >> api_call {"body": {"reason": "refused", "outcome": "no_promise", "customer_id": "c_68138a76-aee"}}
+   << api_call {"ok": true}
+   [node end_closed]
+   >> end_call {"message_mode": "none"}
+   << end_call null

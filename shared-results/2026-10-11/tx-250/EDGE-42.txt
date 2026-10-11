@@ -1,0 +1,46 @@
+#### EDGE-42  call 197c9e5c-f41e-4059-8746-c9d5352bfe57  ended=assistant-ended-call
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node greet_verify]
+A: I am a digital assistant calling from Freya Bank, and this call is recorded. Am I speaking with Mr Reyes?
+U: Yes, this is Daniel Reyes.
+A: What is your date of birth?
+U: Why do you need that?
+A: These questions protect your account. What is your date of birth?
+U: 14 March 1988.
+   >> verify_identity {"body": {"field": "date_of_birth", "answer": "1988-03-14", "customer_id": "c_e0a1a274-88d"}}
+   << verify_identity {"ok": true, "verified": true, "wrong_answers_left": 3, "all_verified": false, "what_to_do_next": "Correct. Now ask the next security question: Ask for the last four digits of the phone number on file. (field 'phone_last4')."}
+A: What are the last four digits of the phone number on file?
+U: 4471.
+   >> verify_identity {"body": {"field": "phone_last4", "answer": "4471", "customer_id": "c_e0a1a274-88d"}}
+   << verify_identity {"ok": true, "verified": true, "wrong_answers_left": 3, "all_verified": true, "what_to_do_next": "All security answers are correct. The customer is verified."}
+   [node load_account]
+   >> api_call {"body": {"customer_id": "c_e0a1a274-88d"}}
+   << api_call {"ok": true, "products": [{"product_id": "p1", "type": "credit_card", "card_last4": "4821", "past_due": 420, "days_late": 6, "minimum_payment": 126}]}
+   [node prepare_account]
+   >> code_exec {}
+   << code_exec null
+   [node negotiate]
+A: I am calling from the collections team about a late payment. You have a credit card ending 4821 with a past-due amount of 420.00, which is 6 days late.
+ Can you make this payment today?
+U: Which account is this about? 
+That full amount is too much.
+A: This is about your credit card ending 4821. I can record a payment of 126.00 instead, but the rest will stay overdue.
+ Would that work for you?
+U: No, I can't do that amount either.
+A: I understand. Could you make a payment of 126.00 on Friday 16 October 2026?
+U: No, I can't do that.
+A: Thank you for your time. Goodbye.
+   [node close_check]
+   >> code_exec {}
+   << code_exec null
+   [node finish]
+   >> code_exec {}
+   << code_exec null
+   [node close_api]
+   >> api_call {"body": {"reason": "refused", "outcome": "no_promise", "customer_id": "c_e0a1a274-88d"}}
+   << api_call {"ok": true}
+   [node end_closed]
+   >> end_call {"message_mode": "none"}
+   << end_call null

@@ -1,0 +1,55 @@
+[build 05:49:16] stage extract (1680 s left)
+[extract] round 1 done in 69s
+[extract] replicates disagree on: bands, triggers -> resolve call
+[extract] extraction done in 110s
+[build 05:51:06] stage extract: ok (110.3 s) 3 warnings: resolved bands; evidence: ["| 1 - 29 | Amber | 10th working day after today | 1 |", "The Amber deadline becomes the **8th working day after today** (was the 10th). Red is unchanged.", "...
+[build 05:51:06] stage validate (1570 s left)
+[build 05:51:13] stage validate: ok (7.1 s) 
+[build 05:51:13] stage generate (1563 s left)
+[build 05:51:13] stage generate: ok (0.1 s) 12 nodes
+[build 05:51:13] stage prompts (1562 s left)
+[build 05:51:47] stage prompts: ok (33.4 s) 19 edits kept (greet_verify, negotiate, system_prompt); 0 dropped
+[build 05:51:47] stage dry_run (1529 s left)
+[build 05:51:48] stage dry_run: ok (1.0 s) generated + LLM prompts
+[build 05:51:48] stage save (1528 s left)
+[build 05:51:50] stage save: ok (2.5 s) generated + LLM prompts -> 593e6140-117f-40f5-92a4-4b03dc27e07e
+[build 05:51:50] stage casegen (1525 s left)
+[build 05:52:16] stage casegen: ok (25.4 s) 10 cases
+[build 05:52:16] stage self-test v1 (1500 s left)
+FAIL SELF-01 easy   Happy path     | verify > verify > close_call
+       - outcome ('IDF', None), expected ('PTP', None)
+       - promises [], expected [('p1', 1365.0, '2026-10-14')]
+       - conversation: The identity verification process failed twice, and the agent correctly ended the call as per the system instructions for identity failure (IDF). Consequently, the agent did not verify the caller's identity, nor did they record or read back a pay
+PASS SELF-02 medium Identity       | verify > verify > close_call
+FAIL SELF-03 medium Third party    | close_call
+       - outcome ('NCB', None), expected ('CBK', None)
+       - callbacks [], expected [{'date': '2026-10-20', 'time': '10:00'}]
+       - conversation: The agent failed to arrange the callback for the requested time. Although the agent attempted to use the schedule_callback tool, the function call resulted in an error, and the agent explicitly informed the user in messages 4 and 6 that they coul
+FAIL SELF-04 hard   Dates          | verify > verify > close_call
+       - outcome ('IDF', None), expected ('PTP', None)
+       - promises [], expected [('p1', 1020.0, '2026-10-28')]
+       - conversation: The call failed to meet any of the success criteria related to payment promises. The conversation ended prematurely because the customer failed the identity verification process (birth year check). Consequently, the agent never discussed payment 
+FAIL SELF-05 medium Amounts        | verify > verify > close_call
+       - outcome ('IDF', None), expected ('PTP', None)
+       - promises [], expected [('p1', 144.0, '2026-10-29')]
+       - conversation: The conversation ended during the identity verification stage because the user failed to provide the correct birth year (Message 3 and Message 5). According to the system events, the identity check failed, and the assistant was instructed to term
+FAIL SELF-06 hard   Multi-product  | verify > verify > close_call
+       - outcome ('IDF', None), expected ('PTP', None)
+       - promises [], expected [('p1', 1330.0, '2026-10-28'), ('p2', 1305.0, '2026-10-28'), ('p3', 330.0, '2026-10-28')]
+       - conversation: The success criteria were not met because the identity verification failed, preventing the agent from discussing account details or recording any promises. Specifically: - No promise was recorded for the credit card ending 4984. - No promise was 
+FAIL SELF-07 hard   Tool failure   | verify > verify > close_call
+       - outcome ('IDF', None), expected ('PTP', None)
+       - promises [], expected [('p1', 895.0, '2026-10-29')]
+       - conversation: The conversation failed to meet the success criteria because the user failed the identity verification process. The agent followed security protocols by ending the call after the user provided an incorrect birth year twice, but this meant the age
+FAIL SELF-08 medium Hardship accepts transfer | verify > verify > close_call
+       - outcome ('IDF', None), expected ('TRF', 'ARREARS_SUPPORT')
+       - transfers [], expected [{'queue': 'ARREARS_SUPPORT'}]
+       - conversation: The conversation failed the identity verification stage because the customer provided incorrect birth years in [Message 3] and [Message 5]. Following the system's instructions for a failed ID check, the agent terminated the call in [Message 6]. A
+FAIL SELF-09 medium Plan request   | verify > verify > close_call
+       - outcome ('IDF', None), expected ('TRF', 'PAYMENT_ARRANGEMENTS')
+       - notes [], expected [('p1', 'N-PL')]
+       - transfers [], expected [{'queue': 'PAYMENT_ARRANGEMENTS'}]
+       - conversation: The agent did not offer to connect the customer to the appropriate team for a repayment plan. While the agent correctly avoided recording a payment promise or setting up a plan itself, the conversation was terminated early because the customer fa
+FAIL SELF-10 medium Person request | verify > verify > close_call
+[build 05:57:27] stage self-test v1: ok (311.5 s) 1/10
+[build 05:57:27] stage repair_1 (1189 s left)

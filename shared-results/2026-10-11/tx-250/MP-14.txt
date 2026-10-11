@@ -1,0 +1,59 @@
+#### MP-14  call 170e65aa-a258-4732-b003-50b5f599def4  ended=assistant-ended-call
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node greet_verify]
+A: I am a digital assistant calling from Freya Bank, and this call is recorded. Am I speaking with Mr Bell?
+U: Yes, this is Marcus Bell.
+A: What is your date of birth?
+U: The nineteenth of October nineteen eighty-three.
+   >> verify_identity {"body": {"field": "date_of_birth", "answer": "1983-10-19", "customer_id": "c_3399578e-f37"}}
+   << verify_identity {"ok": true, "verified": true, "wrong_answers_left": 3, "all_verified": false, "what_to_do_next": "Correct. Now ask the next security question: Ask for the last four digits of the phone number on file. (field 'phone_last4')."}
+A: What are the last four digits of the phone number on file?
+U: Four four one zero.
+   >> verify_identity {"body": {"field": "phone_last4", "answer": "4410", "customer_id": "c_3399578e-f37"}}
+   << verify_identity {"ok": true, "verified": true, "wrong_answers_left": 3, "all_verified": true, "what_to_do_next": "All security answers are correct. The customer is verified."}
+   [node load_account]
+   >> api_call {"body": {"customer_id": "c_3399578e-f37"}}
+   << api_call {"ok": true, "products": [{"product_id": "p1", "type": "credit_card", "card_last4": "9015", "past_due": 510, "days_late": 16, "minimum_payment": 153}, {"product_id": "p2", "type": "personal_loan", "past_due": 1320, "days_late": 16, "instalment_amount": 440}, {"product_id": "p3", "type": "car_loan", "past_due": 140, "days_late": 7, "instalment_amount": 46}]}
+   [node prepare_account]
+   >> code_exec {}
+   << code_exec null
+   [node negotiate]
+A: I am calling from the collections team about some late payments. You have a credit card ending 9015 that is 510.00 past due and 16 days late. Your personal loan is 1320.00 past due and 16 days late, and your car loan is 140.00 past due and 7 days late.
+ Can you make this payment today?
+U: I cannot pay today. I want to pay all three on Monday the twenty-sixth.
+   >> check_offer {"amount": "510.00", "date": "Monday the twenty-sixth", "product_id": "p1"}
+   >> check_offer {"amount": "1320.00", "date": "Monday the twenty-sixth", "product_id": "p2"}
+   >> check_offer {"amount": "140.00", "date": "Monday the twenty-sixth", "product_id": "p3"}
+   << check_offer {"ok": false, "code": "after_deadline", "date": "Monday 6 September 2027 (2027-09-06)", "amount": "1320.00", "suggest_date": "Friday 23 October 2026 (2026-10-23)", "suggest_amount": null, "what_to_do_next": "This day is after the latest date that can be recorded. Say the latest date you can record is Friday 23 October 2026 (2026-10-23) and offer it."}
+   << check_offer {"ok": false, "code": "after_deadline", "date": "Monday 6 September 2027 (2027-09-06)", "amount": "510.00", "suggest_date": "Friday 23 October 2026 (2026-10-23)", "suggest_amount": null, "what_to_do_next": "This day is after the latest date that can be recorded. Say the latest date you can record is Friday 23 October 2026 (2026-10-23) and offer it."}
+   << check_offer {"ok": false, "code": "after_deadline", "date": "Monday 6 September 2027 (2027-09-06)", "amount": "140.00", "suggest_date": "Monday 2 November 2026 (2026-11-02)", "suggest_amount": null, "what_to_do_next": "This day is after the latest date that can be recorded. Say the latest date you can record is Monday 2 November 2026 (2026-11-02) and offer it."}
+A: For your credit card and personal loan, the latest date I can record is Friday 23 October 2026. For your car loan, the latest date is Monday 2 November 2026.
+ Would you like to pay on these dates instead?
+U: I accept those dates instead.
+A: For your credit card ending 9015, that is 510.00 on Friday 23 October 2026. For your personal loan, that is 1320.00 on Friday 23 October 2026. For your car loan, that is 140.00 on Monday 2 November 2026.
+ Do you confirm?
+U: Yes, I confirm.
+   >> create_promise {"body": {"date": "2026-10-23", "amount": 510.0, "product_id": "p1", "customer_id": "c_3399578e-f37"}}
+   << create_promise {"ok": true, "promise_id": "pr1", "what_to_do_next": "Recorded: the promise for p1 is saved (510.00 on Friday 23 October 2026 (2026-10-23); use this weekday and date when you speak). Tell the customer it is recorded and say: \"You will receive a text message confirming this promise.\" Products still open: p2 (personal loan), p3 (car loan). If the customer already confirmed a promise for one of the
+   >> create_promise {"body": {"date": "2026-10-23", "amount": 1320.0, "product_id": "p2", "customer_id": "c_3399578e-f37"}}
+   << create_promise {"ok": true, "promise_id": "pr2", "what_to_do_next": "Recorded: the promise for p2 is saved (1320.00 on Friday 23 October 2026 (2026-10-23); use this weekday and date when you speak). Tell the customer it is recorded and say: \"You will receive a text message confirming this promise.\" Products still open: p3 (car loan). If the customer already confirmed a promise for one of them, call create_prom
+   >> create_promise {"body": {"date": "2026-11-02", "amount": 140.0, "product_id": "p3", "customer_id": "c_3399578e-f37"}}
+   << create_promise {"ok": true, "promise_id": "pr3", "what_to_do_next": "Recorded: the promise for p3 is saved (140.00 on Monday 2 November 2026 (2026-11-02); use this weekday and date when you speak). Tell the customer it is recorded and say: \"You will receive a text message confirming this promise.\" All products are handled. Do not say goodbye yet: ask whether there is anything else and wait for the answer. If t
+A: Your promises have been recorded. You will receive a text message confirming this promise.
+ Is there anything else I can help you with?
+U: No, thank you.
+A: Thank you for your time. Goodbye!
+   [node close_check]
+   >> code_exec {}
+   << code_exec null
+   [node finish]
+   >> code_exec {}
+   << code_exec null
+   [node close_api]
+   >> api_call {"body": {"outcome": "promise", "customer_id": "c_3399578e-f37"}}
+   << api_call {"ok": true}
+   [node end_closed]
+   >> end_call {"message_mode": "none"}
+   << end_call null

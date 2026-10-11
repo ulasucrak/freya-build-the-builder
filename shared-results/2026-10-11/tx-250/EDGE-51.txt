@@ -1,0 +1,49 @@
+#### EDGE-51  call c762e1c5-1cd0-4a68-ad7f-781d772849a2  ended=assistant-ended-call
+   [node setup]
+   >> code_exec {}
+   << code_exec null
+   [node greet_verify]
+A: I am a digital assistant calling from Freya Bank, and this call is recorded. Am I speaking with Ms Rossi?
+U: Yes, this is Elena Rossi.
+A: What is your date of birth?
+U: 8 January 1991.
+   >> verify_identity {"body": {"field": "date_of_birth", "answer": "1991-01-08", "customer_id": "c_f755770c-2be"}}
+   << verify_identity {"ok": true, "verified": true, "wrong_answers_left": 3, "all_verified": false, "what_to_do_next": "Correct. Now ask the next security question: Ask for the last four digits of the phone number on file. (field 'phone_last4')."}
+A: What are the last four digits of the phone number on file?
+U: 6604.
+   >> verify_identity {"body": {"field": "phone_last4", "answer": "6604", "customer_id": "c_f755770c-2be"}}
+   << verify_identity {"ok": true, "verified": true, "wrong_answers_left": 3, "all_verified": true, "what_to_do_next": "All security answers are correct. The customer is verified."}
+   [node load_account]
+   >> api_call {"body": {"customer_id": "c_f755770c-2be"}}
+   << api_call {"ok": true, "products": [{"product_id": "p1", "type": "credit_card", "card_last4": "6604", "past_due": 300, "days_late": 4, "minimum_payment": 90}, {"product_id": "p2", "type": "personal_loan", "past_due": 900, "days_late": 20, "instalment_amount": 300}]}
+   [node prepare_account]
+   >> code_exec {}
+   << code_exec null
+   [node negotiate]
+A: I am calling from the collections team about some late payments. You have a credit card ending 6604 that is 300.00 past due and 4 days late. You also have a personal loan that is 900.00 past due and 20 days late.
+ Can you make this payment today?
+U: I already paid both of them yesterday.
+A: Payments can take one business day to appear. Thank you for letting me know.
+ Thank you for your time, goodbye.
+   >> add_note {"body": {"reason": "paid", "product_id": "p1", "customer_id": "c_f755770c-2be"}}
+   >> add_note {"body": {"reason": "paid", "product_id": "p2", "customer_id": "c_f755770c-2be"}}
+   << add_note {"ok": true, "what_to_do_next": "Note sent for p2. Now send the notes, one add_note call per message, before closing: product p1 with its reason. Then close the call."}
+   << add_note {"ok": true, "what_to_do_next": "Note sent for p2. Now send the notes, one add_note call per message, before closing: product p1 with its reason. Then close the call."}
+   [node close_check]
+   >> code_exec {}
+   << code_exec null
+   [node wrap_up]
+A: One moment, please.
+   >> add_note {"body": {"reason": "paid", "product_id": "p1", "customer_id": "c_f755770c-2be"}}
+   << add_note {"ok": true, "what_to_do_next": "Note sent for p1. All notes are sent. Then thank the customer, say goodbye and call close_call with outcome 'paid', all in the same message."}
+A: One moment, please.
+A: One moment, please.
+   [node finish]
+   >> code_exec {}
+   << code_exec null
+   [node close_api]
+   >> api_call {"body": {"outcome": "paid", "customer_id": "c_f755770c-2be"}}
+   << api_call {"ok": true}
+   [node end_closed]
+   >> end_call {"message_mode": "none"}
+   << end_call null
