@@ -337,6 +337,22 @@ class GenericBuildTests(unittest.TestCase):
         self.assertEqual(len(f.casegen_calls), 1)
         self.assertNotIn("self-test skipped: generic", pathlib.Path(res["trace"]).read_text())
 
+    def test_real_generator_generic_path(self):
+        """With the generator's generic path (task G) present: the real generate_workflow builds the generic agent,
+        never the minimal fallback, and no self-test runs."""
+        from builder import generate
+        if not hasattr(generate, "generic_workflow"):
+            self.skipTest("generator has no generic path yet")
+        f = Fakes(self.clock, generic_policy())
+        deps = f.deps()
+        deps._given["generate"] = generate
+        f.deps = lambda: deps
+        b, res = self.build(f)
+        self.assertEqual(res["status"], "ok")
+        self.assertNotEqual(list(f.saved[0]["nodes"]), ["conversation"])
+        self.assertEqual(f.casegen_calls, [])
+        self.assertIn("generate: ok", pathlib.Path(res["trace"]).read_text())
+
     def test_trace_out_fixed_path(self):
         out = self.dir / "traces" / "final.log"
         f = Fakes(self.clock, generic_policy())

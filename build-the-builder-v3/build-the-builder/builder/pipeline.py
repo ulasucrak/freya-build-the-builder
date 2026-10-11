@@ -7,7 +7,13 @@
 
 Hard wall clock: every stage gets a sub-budget and nothing starts that cannot finish before the end; when time runs
 low the best version so far is what stays saved and exported. Every model call, every Freya change and every test
-run goes to the trace (builder/trace.py).
+run goes to the trace (builder/trace.py): <trace_dir>/<slot>-<UTC time>.txt (+ .json), or exactly `trace_out`
+(Builder argument, else the BUILD_TRACE_OUT environment variable) with its JSON twin next to it.
+
+Generic builds: when the tools (policy + tool API) lack a debt-collection role (policy_schema.is_generic) or the
+generator marks the workflow {"meta": {"generic": true}}, the generator builds a generic service agent; validation
+then needs no collection sections, the prompt stage still runs (unless {"meta": {"prompts_complete": true}}) and the
+self-test is skipped with a trace note (its cases and its test-mode bank only model collection agents).
 
 All external calls go through `Deps`, so tests replace them with fakes. Nothing here knows a brief.
 """
