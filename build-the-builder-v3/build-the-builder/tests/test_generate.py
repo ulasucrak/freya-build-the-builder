@@ -1155,3 +1155,145 @@ class Generalization(unittest.TestCase):
         for _ in range(20):
             y = int(C.identity_value({"answer_format": "digits", "tool_field": "birth_year", "ask": "year of birth"}, {}, r))
             self.assertTrue(1950 <= y <= 2000, y)
+
+
+class PromptBudget(unittest.TestCase):
+    """T02: per-turn prompt size (system prompt + step task; tool schemas listed separately), rule/trigger/tool text
+    deduplication, the hidden check_offer code and the goodbye safety net."""
+
+    # system prompt + task characters per fixture before T02 (commit 9dcc658): (greet, negotiate)
+    BEFORE = {"fixture-a": (4597, 4443), "fixture-x": (3749, 3658), "brief-a": (13896, 13669), "brief-b": (14296, 16093),
+              "brief-a-live": (15205, 14392), "s3-live": (14637, 15082), "s1-live": (16499, 16081)}
+
+    @staticmethod
+    def sizes(wf):
+        sp = len(wf["system_prompt"])
+        return (sp + len(wf["nodes"]["greet_verify"]["task_message"]), sp + len(wf["nodes"]["negotiate"]["task_message"]))
+
+    def test_prompt_size_upper_bounds(self):
+        tot_before = tot_after = 0
+        for name, (g0, n0) in self.BEFORE.items():
+            g, n = self.sizes(G.generate_workflow(raw(name)))
+            if len(raw(name).get("rules") or []) < 5:   # (almost) no rules list: the section texts are carried
+                self.assertLess(g, 0.90 * g0, name)
+                self.assertLess(n, 0.80 * n0, name)
+                continue
+            self.assertLess(g, 0.82 * g0, name)          # identity step: rules of the negotiation are gone
+            self.assertLess(n, 0.90 * n0, name)          # the negotiation keeps its own (verbatim) rules
+            tot_before += g0 + n0
+            tot_after += g + n
+        self.assertLess(tot_after, 0.80 * tot_before)
+        g, n = self.sizes(G.generate_workflow(raw("brief-b")))
+        self.assertLess(g, 10600)
+        self.assertLess(n, 14000)
+
+    def test_each_rule_once_per_turn(self):
+        for name in ALL:
+            p = S.normalise(raw(name))
+            wf = G.generate_workflow(raw(name))
+            sysp = wf["system_prompt"]
+            for node in ("greet_verify", "negotiate"):
+                text = sysp + "\n" + wf["nodes"][node]["task_message"]
+                for r in p["rules"]:
+                    self.assertLessEqual(text.count("[" + r["id"] + "] "), 1, (name, node, r["id"]))
+
+    def test_phases_of_moved_rules(self):
+        p = S.normalise(raw("brief-b"))
+        ph = G.rule_phases(p)
+        by = {r["text"][:40]: ph[r["id"]] for r in p["rules"]}
+        phase = lambda start: next(v for k, v in by.items() if k.startswith(start))
+        self.assertEqual(phase("`days_late`: 1 to 7"), "negotiate")            # an account field: no account before verification
+        self.assertEqual(phase("Outcome: `not_reached`"), "greet")              # pre-verification outcomes only
+        self.assertEqual(phase("Outcome: `promise`"), "negotiate")              # outcomes that need the account
+        self.assertEqual(phase("Outcome: `transferred`"), "all")                # a transfer can happen in both steps
+        self.assertEqual(phase("[overrides brief-a.34]"), "negotiate")          # an override inherits its rule's step
+        self.assertEqual(phase("A flat refusal or a non-answer"), "negotiate")
+        self.assertEqual(phase("If the customer mentions illness"), "all")
+
+    def test_trigger_lines_are_lean(self):
+        for name in ALL:
+            wf = G.generate_workflow(raw(name))
+            for node in ("greet_verify", "negotiate"):
+                task = wf["nodes"][node]["task_message"]
+                self.assertNotIn("follow its rule", task, name)
+                self.assertNotIn("Tools in this step", task, name)
+        p = S.normalise(raw("brief-b"))
+        wf = G.generate_workflow(raw("brief-b"))
+        greet, neg = wf["nodes"]["greet_verify"]["task_message"], wf["nodes"]["negotiate"]["task_message"]
+        for t in p["triggers"]:
+            if t["action"] == "say":
+                self.assertNotIn("- " + t["name"], greet + neg)     # only says something: its rule is in the prompt
+        self.assertIn("- already_paid: Note reason", neg)           # rule in the prompt: no second description
+        self.assertIn("- refuses_to_talk (", neg)                   # a "twice" situation keeps its description
+        self.assertNotIn("change_recorded_promise", greet)          # its rule is about a promise: negotiation only
+        self.assertEqual(neg.count("call transfer_to_agent with queue"), len([t for t in p["triggers"] if t["action"] == "transfer"]))
+        # a trigger that continues the conversation (a refusal uses an attempt) is not told to close at once
+        q = raw("brief-b")
+        q["triggers"] = list(q["triggers"]) + [{"name": "flat_refusal", "detect": "A flat refusal", "action": "continue",
+                                                "outcome": "no_promise", "reason": "refused", "notes": []}]
+        neg2 = G.generate_workflow(q)["nodes"]["negotiate"]["task_message"]
+        line = [x for x in neg2.splitlines() if x.startswith("- flat_refusal")][0]
+        self.assertNotIn("Close:", line)
+        self.assertIn("When it ends the call, the outcome is no_promise / refused", line)
+
+    def test_tool_texts_not_repeated(self):
+        wf = G.generate_workflow(raw("brief-b"))
+        for node in ("greet_verify", "negotiate", "wrap_up"):
+            for t in wf["nodes"][node]["tools"]:
+                props = t["function"]["parameters"]["properties"]
+                for f, leaf in list((props.get("body") or {}).get("properties", {}).items()) + list(props.items()):
+                    d = leaf.get("description") or ""
+                    words = d.split()
+                    self.assertFalse(any(words[i:i + 2] == words[i + 2:i + 4] for i in range(len(words) - 3)), (t["function"]["name"], f, d))
+        cb = tool(wf, "greet_verify", "schedule_callback")["function"]["parameters"]["properties"]["body"]["properties"]
+        self.assertEqual(cb["time"]["description"].count("HH:MM"), 1)
+
+    def test_check_offer_code_is_not_model_visible(self):
+        """docs/tools-and-code.md: a literal `default` is baked into the tool's base config and removed from the schema
+        the model sees; only the parameters without a default are model-filled."""
+        wf = G.generate_workflow(raw("brief-b"))
+        fn = tool(wf, "negotiate", "check_offer")["function"]
+        props = fn["parameters"]["properties"]
+        self.assertGreater(len(props["code"]["default"]), 1000)
+        self.assertNotIn("{{", props["code"]["default"])
+        self.assertNotIn("code", fn["parameters"]["required"])
+        self.assertEqual(sorted(k for k, v in props.items() if "default" not in v), ["amount", "date", "product_id"])
+
+    def test_goodbye_safety_net(self):
+        wf = G.generate_workflow(raw("brief-b"))
+        n = wf["nodes"]
+        self.assertEqual(G.lint_workflow(wf), [])
+        for k in ("greet_verify", "negotiate"):
+            tr = n[k]["transitions"]
+            self.assertEqual(tr[0]["target_node"], "close_check")          # the model's own close request comes first
+            gb = [t for t in tr if t["target_node"] == "goodbye_close"]
+            self.assertEqual(len(gb), 1, k)
+            self.assertEqual(gb[0]["condition"]["operator"], "matches_intent")
+            self.assertIn("previous message already said goodbye", gb[0]["condition"]["description"])
+            self.assertIs(tr[-1], gb[0])
+        self.assertEqual(n["goodbye_close"]["node_type"], "code")
+        self.assertEqual(n["goodbye_close"]["transitions"][-1]["target_node"], "close_check")
+        # verified, one promise recorded, nobody called close_call: closed from the facts
+        s = Sim(wf, customer_id="c1")
+        s.account([{"product_id": "p1", "type": "credit_card", "card_last4": "4821", "past_due": 300.0, "days_late": 4, "minimum_payment": 90.0}])
+        s.vs["w_id_state"] = "verified"
+        s.call("negotiate", "create_promise", {"product_id": "p1", "amount": 300, "date": "2026-10-16"})
+        run(code_of(n["goodbye_close"]), s.vs)
+        self.assertEqual(s.vs["w_goodbye_close"], "yes")
+        run(code_of(n["close_check"]), s.vs)
+        self.assertEqual(s.vs["w_close_route"], "finish")
+        self.assertEqual(s.finish()["outcome"], "promise")
+        # several products, a note missing: one wrap-up round first, as for a close request
+        s = Sim(wf, customer_id="c1")
+        s.account([{"product_id": "p1", "type": "credit_card", "card_last4": "4821", "past_due": 300.0, "days_late": 4, "minimum_payment": 90.0},
+                   {"product_id": "p2", "type": "personal_loan", "past_due": 500.0, "days_late": 9, "instalment_amount": 150.0}])
+        s.vs["w_id_state"] = "verified"
+        s.call("negotiate", "create_promise", {"product_id": "p1", "amount": 300, "date": "2026-10-16"})
+        run(code_of(n["goodbye_close"]), s.vs)
+        run(code_of(n["close_check"]), s.vs)
+        self.assertEqual(s.vs["w_close_route"], "wrap")
+        self.assertIn("p2", s.vs["w_wrap_todo"])
+        # the option switches it off
+        off = G.generate_workflow(raw("brief-b"), options={"goodbye_close": False})
+        self.assertNotIn("goodbye_close", off["nodes"])
+        self.assertNotIn("goodbye_close", json.dumps(off["nodes"]["negotiate"]["transitions"]))

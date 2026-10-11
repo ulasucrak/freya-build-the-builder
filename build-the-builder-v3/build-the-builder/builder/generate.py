@@ -16,6 +16,7 @@ Graph (every value comes from the policy; nothing here knows a brief):
          -> negotiate       debt statement, negotiation, read-back, promises, notes, triggers, closing
                             tools: create_promise, add_note, transfer_to_agent, close_call
       close_call result     -> end_closed (end_call)
+      goodbye without close -> goodbye_close (code) -> close_check -> finish -> close_api (routing intent; option goodbye_close)
       turn cap reached      -> force_close (code) -> close_api (api_request close_call) -> end_forced
     workflow tool final_close (end_of_call): safety-net close_call when none was sent (stopped otherwise).
 
@@ -68,7 +69,14 @@ DEFAULT_OPTIONS = {
     "negotiate_max_turns": 80,
     "timeout_ms": 12000,
     "check_tool": True,            # check_offer: code_exec tool that checks a customer's own date/amount before the read-back
+    "goodbye_close": True,         # both sides said goodbye but no close_call came: the engine closes (routing intent)
 }
+
+# Safety net (HANDOFF TP-09: a goodbye loop of ~50 turns without close_call). Judged by the routing model on the
+# conversation; it fires only after the agent's own goodbye, so a customer's early "bye" mid-call does not end it.
+GOODBYE_CLOSE = 'vset(vs, "w_goodbye_close", "yes")\n'   # code node: marks the call, then close_check
+GOODBYE_INTENT = ("The agent's previous message already said goodbye to end the call, and the user's last message only "
+                  "says goodbye, thanks or a similar farewell back, with no question, request or new information.")
 
 
 # ----------------------------------------------------------------------------------------------- code embedding
@@ -142,12 +150,12 @@ def _py_literal(text):
     return "'" + lit + "'"
 
 
-def build_code(body_name, rt, mode):
+def build_code(body_name, rt, mode, source=None):
     """Python source for a code node ('node'), pre-hook ('pre') or post-hook ('post').
 
     Everything runs inside one function so that helper functions see each other whatever globals/locals the
     sandbox uses; the call is wrapped in try/except so a snippet never raises."""
-    body = (CODEGEN / (body_name + ".py")).read_text()
+    body = source if source is not None else (CODEGEN / (body_name + ".py")).read_text()
     lib = _library()
     need = {n.id for n in ast.walk(ast.parse(body)) if isinstance(n, ast.Name)}
     defined = set()
@@ -372,7 +380,9 @@ def _field_desc(spec, extra=""):
     d = (spec.get("description") or "").strip()
     if spec.get("enum"):
         d = (d + " " if d else "") + "One of: " + ", ".join(spec["enum"]) + "."
-    if extra and extra.rstrip(".").lower() not in d.lower():
+    if extra and d and d.rstrip(".").lower() in extra.lower():
+        d = extra                       # the hint already says it all ("HH:MM" + "HH:MM, 24 h")
+    elif extra and extra.rstrip(".").lower() not in d.lower():
         d = (d + " " if d else "") + extra
     return d
 
@@ -441,14 +451,14 @@ def _code_tool(name, description, fields, body, rt):
         "parameters": {"type": "object", "properties": props, "required": [next(iter(fields))]}}}
 
 
-def _code_node(name, body, rt, target, on_enter=None):
+def _code_node(name, body, rt, target, on_enter=None, source=None):
     return {
         "name": name, "node_type": "code", "passthrough": True, "passthrough_default_transition": target,
         "on_enter": on_enter or {"type": "silent"}, "disable_inactivity_monitor": True,
         "pre_actions": [{"type": "function", "function": {
             "name": "code_exec", "handler": "__function__:code_exec",
             "parameters": {"type": "object", "properties": {
-                "code": {"type": "string", "default": build_code(body, rt, "node")},
+                "code": {"type": "string", "default": build_code(body, rt, "node", source)},
                 "timeout_ms": {"type": "number", "default": 10000}}}}}],
         "transitions": [{"target_node": target, "description": "always", "condition": {"operator": "always"}}],
     }
@@ -554,7 +564,8 @@ def _trigger_lines(p, cl, verified):
             tph = set()
         here = "negotiate" if verified else "greet"
         # the situation is described by its rule when that rule is in this prompt; the name is enough to point at it
-        line = t["name"] + ((" (" + (t["detect"] or "when it applies") + ")") if not (tph & {here, "all"}) else "") + ":"
+        twice = re.search(r"\btwice\b|\bsecond time\b|\btwo times\b", t["detect"] or "")
+        line = t["name"] + ((" (" + (t["detect"] or "when it applies") + ")") if twice or not (tph & {here, "all"}) else "") + ":"
         if t["say"]:
             line += " Say: \"" + t["say"] + "\"."
         if act == "transfer" and t["queue"]:
@@ -565,7 +576,7 @@ def _trigger_lines(p, cl, verified):
         elif t["outcome"]:
             pr_ = t["outcome"] + (" / " + t["reason"] if t["reason"] else "")
             line += (" Close: " + pr_ + ".") if act != "continue" else (" When it ends the call, the outcome is " + pr_ + ".")
-            if re.search(r"\btwice\b|\bsecond time\b|\btwo times\b", t["detect"] or ""):
+            if twice:
                 line += (" The first time: do not mention security; acknowledge it and make the current product's next offer." if verified else
                          " The first time: explain once, as the rules say, why the security questions are asked, and ask again.")
                 line += " The second time: close at once (thank, goodbye and close_call in that message)."
@@ -868,6 +879,10 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
     # pre-hook: a held-back close is not a send, and the engine does not retry, maxRetries 0)
     closed = {"target_node": "close_check", "description": "the model asked to close the call",
               "condition": _or(_eq("w_close_requested", "yes"))}
+    # both sides said goodbye and no close_call came: close_check / finish close from the recorded facts (a missing
+    # note still gets its one wrap-up round). Listed after the deterministic close request.
+    goodbye = [{"target_node": "goodbye_close", "description": "both sides said goodbye but close_call was not called",
+                "condition": {"operator": "matches_intent", "description": GOODBYE_INTENT}}] if opts["goodbye_close"] else []
 
     # --- nodes
     nodes = {}
@@ -895,7 +910,7 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
              "condition": _or(_eq(verify_tool + "_response.data." + names["verify_all"], "true"),
                               _eq(verify_tool + "_response.data." + names["verify_all"], "True"),
                               _eq("w_id_state", "verified"))},
-        ],
+        ] + goodbye,
     }
 
     account_tool = _api_tool(p, tn["account"], "Get the late products.", rt=rt, retries=2, timeout=to)
@@ -920,10 +935,12 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
         "task_message": task + (("\n\n" + extra) if extra else ""),
         "tools": neg_tools,
         "max_node_turns": opts["negotiate_max_turns"], "max_turn_transition": "turn_cap",
-        "transitions": [closed],
+        "transitions": [closed] + goodbye,
     }
 
     nodes["turn_cap"] = _code_node("turn_cap", "turn_cap", rt, "close_check")
+    if opts["goodbye_close"]:
+        nodes["goodbye_close"] = _code_node("goodbye_close", "goodbye_close", rt, "close_check", source=GOODBYE_CLOSE)
     close_check = _code_node("close_check", "close_check", rt, "finish")
     close_check["transitions"] = [
         {"target_node": "wrap_up", "description": "something is missing before the close",
