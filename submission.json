@@ -11,8 +11,8 @@
     }
   ],
   "repo": "https://github.com/ulasucrak/freya-build-the-builder",
-  "commit": "ad23ef3",
-  "run_command": "cd build-the-builder-v3/build-the-builder && pip install -r requirements.txt && BUILD_TRACE_OUT=traces/final-cloud.log python build.py \"{case_folder}\" --openapi ../../final-mock/openapi.json --slot final-cloud --budget-min 20",
+  "commit": "a1950c984441bb02f03375999d01cd602a54152b",
+  "run_command": "cd build-the-builder-v3/build-the-builder && pip install -r requirements.txt && BUILD_TRACE_OUT=traces/final.log python build.py \"{case_folder}\" --openapi ../../final-mock/openapi.json --slot final --budget-min 20",
   "workflow": "submission/final.workflow.json",
   "trace": "traces/final.log",
   "mock_url": "https://freya-statement-mock.ulasucrak.workers.dev"
