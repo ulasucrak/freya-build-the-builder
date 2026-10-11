@@ -4,7 +4,7 @@ BASE = sys.argv[2] if len(sys.argv) > 2 else "http://localhost:8799/voice/v1/"
 src = json.load(open(sys.argv[1]))
 def post(svc, data):
     req = urllib.request.Request(BASE + svc, data=json.dumps({"data": data, "call": {"ani": "x", "lang": "tr"}}).encode(),
-                                 headers={"Content-Type": "application/json"}, method="POST")
+                                 headers={"Content-Type": "application/json", "User-Agent": "Mozilla/5.0 (mock-verify)"}, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=40) as r: return r.status, json.load(r)
     except urllib.error.HTTPError as e: return e.code, json.loads(e.read() or b"{}")

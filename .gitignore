@@ -38,3 +38,10 @@ env.sh
 .personas.json
 .worktrees/
 .orchestra/
+
+.drive-stage/
+ops/.pending
+ops/.lock/
+ops/*.log
+final-mock/.mock_url
+final-mock/.wrangler/
