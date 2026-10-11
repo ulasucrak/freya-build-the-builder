@@ -484,7 +484,7 @@ class EdgeRegressions(unittest.TestCase):
     def test_phase_guards_in_prompts(self):
         for name in ALL:
             p = S.normalise(raw(name))
-            wf = G.generate_workflow(raw(name))
+            wf = G.generate_workflow(raw(name), options={"extract_signals": True})
             self.assertIn("security questions are over", wf["nodes"]["negotiate"]["task_message"], name)
             self.assertIn("never mention them or why they were asked", wf["nodes"]["negotiate"]["task_message"], name)
             neg = wf["nodes"]["negotiate"]["task_message"]
@@ -648,7 +648,7 @@ class LiveDateRegressions(unittest.TestCase):
             self.assertEqual(vs["w_today"], "2026-10-14")
             offers = json.loads(vs["w_products_json"])[0]["offers"]
             self.assertEqual((offers[0]["date"], offers[1]["date"]), ("2026-10-16", "2026-10-23"))     # PUB-06
-            self.assertIn("Attempt 1: amount 2125.10 (or 637.50", vs["w_account_facts"])   # v4: refusals counted in code
+            self.assertIn("Attempt 1 (a persuasion attempt: only after a refusal or a non-answer): amount 2125.10 (or 637.50", vs["w_account_facts"])   # default: no extraction, the full ladder text
             self.assertIn("on Friday 16 October 2026 (2026-10-16)", vs["w_account_facts"])
             wf, vs2 = self.facts(wall, loan)
             self.assertIn("Mon 26 Oct (holiday) -> Tuesday 27 October 2026 (2026-10-27)", vs2["w_account_facts"])  # PUB-07
@@ -1347,7 +1347,7 @@ class JudgeReasonFixes(unittest.TestCase):
     def test_offer_ladder_counted_from_the_policy(self):
         for name in ALL:
             p = S.normalise(raw(name))
-            neg = G.generate_workflow(raw(name))["nodes"]["negotiate"]["task_message"]
+            neg = G.generate_workflow(raw(name), options={"extract_signals": True})["nodes"]["negotiate"]["task_message"]
             line = [x for x in neg.splitlines() if x.startswith("Persuasion attempts")]
             self.assertEqual(len(line), 1, name)
             for b in p["bands"]:

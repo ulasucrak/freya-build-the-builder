@@ -78,9 +78,11 @@ DEFAULT_OPTIONS = {
     "goodbye_close": False,        # both sides said goodbye but no close_call came: the engine closes. Off: needs a
                                    # routing-model call (matches_intent) on every turn; no deterministic signal exists
     # v4 enforcement in code, no model-callable tool added:
-    "extract_signals": True,       # negotiate: the per-turn extraction labels the customer's last message (refusal,
+    "extract_signals": False,      # negotiate: the per-turn extraction labels the customer's last message (refusal,
                                    # too much, does not want to talk, dispute); a code node counts per product and
-                                   # writes the next offer, closes when the ladder or the 'twice' count is used up
+                                   # writes the next offer, closes when the ladder or the 'twice' count is used up.
+                                   # Off by default: the extraction is a model call before every negotiate reply
+                                   # (live v4: median 3 s, up to 12.5 s; callers hung up after ~60 s of silence)
     "enforce_callback": True,      # schedule_callback: after max_asks stopped tries the engine closes (no_callback)
 }
 
