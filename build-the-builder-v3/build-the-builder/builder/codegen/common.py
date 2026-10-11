@@ -240,10 +240,8 @@ def sent_ok(vs, tool, prefix, okf):
     """{product id: value} of requests a pre-hook marked as sent ('0': known failed), when the engine counted every
     request of `tool` as a success, none as a failure, and the last answer is ok (var_ok). Parallel tool calls can
     leave a post-hook unsure which product it answers; per-product marks and the counters survive. Else {}."""
-    sent = dict((k, v) for k, v in per_key(vs, prefix).items() if v != "0")
-    ok = int(num(vget(vs, tool + "_success_count", 0)))
-    bad = int(num(vget(vs, tool + "_failure_count", 0)))
-    return sent if sent and bad == 0 and ok >= len(sent) and var_ok(vs, tool, okf) else dict()
+    s = dict((k, v) for k, v in per_key(vs, prefix).items() if v != "0")
+    return s if s and cnt(vs, tool + "_failure_count") == 0 and cnt(vs, tool + "_success_count") >= len(s) and var_ok(vs, tool, okf) else dict()
 
 
 def in_flight(vs, prefix, done):
@@ -254,10 +252,7 @@ def in_flight(vs, prefix, done):
 
 def promised_of(vs):
     out = csv_list(vget(vs, "w_promised"))
-    for pid in list(per_key(vs, "w_promised_")) + list(sent_ok(vs, nm("promise_tool", "create_promise"), "w_cp_sent_", nm("promise_ok", "ok"))):
-        if pid not in out:
-            out.append(pid)
-    return out
+    return out + [k for k in dict(per_key(vs, "w_promised_"), **sent_ok(vs, nm("promise_tool", "create_promise"), "w_cp_sent_", nm("promise_ok", "ok"))) if k not in out]
 
 
 def notes_of(vs):

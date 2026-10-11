@@ -44,11 +44,14 @@ if E:
             d = p.get("days_late")
             a = money(p.get("full"))
             a = a[:-3] if a.endswith(".00") else a
+            # static tts: the shorter, the sooner it is spoken ('Your car loan is 12 days late, with 600 past due.');
+            # every fact the brief asks for stays (product, days late, past-due amount)
             s = nm_[0].upper() + nm_[1:]
             if d is not None:
                 s += " is " + str(d) + (" day " if d == 1 else " days ") + str(E.get("late") or "late")
             if a:
-                s += (", and the " if d is not None else ": the ") + str(E.get("noun") or "past-due amount") + " is " + a
+                s += (", with " if d is not None else " has ") + a + " " + (
+                    re.sub(r"\s+", " ", str(E.get("noun") or "past-due amount").replace("amount", "").replace("-", " ")).strip() or "past due")
             if d is None and not a:
                 s += " has a late payment"
             parts.append(s + ".")
