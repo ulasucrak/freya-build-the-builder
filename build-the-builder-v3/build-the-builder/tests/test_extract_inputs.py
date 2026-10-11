@@ -203,10 +203,13 @@ class DataFilesAndCap(unittest.TestCase):
             for i in range(5):
                 (d / ("doc%d.md" % i)).write_text(("Long document %d line.\n" % i) * 1800)   # ~37K chars each
             (d / "short.md").write_text("Short memo.\n")
-            docs = extract.read_documents([d])
+            whole = 5 * 1800 * len("Long document 0 line.\n") + len("Short memo.\n")
+            self.assertEqual(sum(len(t) for _, t in extract.read_documents([d])), whole)   # under the budget: no cut
+            with mock.patch.object(extract, "MAX_TOTAL_CHARS", 100000):
+                docs = extract.read_documents([d])
         total = sum(len(t) for _, t in docs)
-        self.assertLessEqual(total, extract.MAX_TOTAL_CHARS)
-        self.assertGreater(total, extract.MAX_TOTAL_CHARS - 2000)
+        self.assertLessEqual(total, 100000)
+        self.assertGreater(total, 100000 - 2000)
         self.assertEqual(dict(docs)["short.md"], "Short memo.\n")
         self.assertTrue(all("[cut:" in t for n, t in docs if n != "short.md"))
 
@@ -258,6 +261,19 @@ class FileNameDates(unittest.TestCase):
             self.assertIn('date="2031-01-15 00:00:00"', extract.documents_block(docs))
 
 
+def _stub_parts():
+    """(part 1, part 2) answers of a stub model."""
+    p1 = {"source": {"briefs": ["doc.md"]}, "language": "german",
+          "variables": [{"name": "caller_ref", "meaning": "ref", "example": "A-17"},
+                        {"name": "now", "meaning": "call time", "example": None}],
+          "clock": {"now_variable": "now"}, "calendar": {"weekend": [6, 7], "holidays": []},
+          "opening": {}, "third_party": {}, "identity": {"questions": [], "max_wrong": 0},
+          "products": {"max_count": 1}, "bands": [], "callback": {}}
+    p2 = {"amounts": {}, "dates": {}, "promise": {}, "triggers": [], "notes": {}, "outcomes": {"table": []},
+          "phrases": {"bye": "Auf Wiederhören."}}
+    return p1, p2
+
+
 class LanguageAndContract(unittest.TestCase):
     def test_contract_keys(self):
         self.assertIn("language", extract.TOP_KEYS)
@@ -282,19 +298,8 @@ class LanguageAndContract(unittest.TestCase):
             self.assertIn("phone agent", low)
         self.assertNotIn("outbound phone agent", extract.SYSTEM)
 
-    def _parts(self):
-        p1 = {"source": {"briefs": ["doc.md"]}, "language": "german",
-              "variables": [{"name": "caller_ref", "meaning": "ref", "example": "A-17"},
-                            {"name": "now", "meaning": "call time", "example": None}],
-              "clock": {"now_variable": "now"}, "calendar": {"weekend": [6, 7], "holidays": []},
-              "opening": {}, "third_party": {}, "identity": {"questions": [], "max_wrong": 0},
-              "products": {"max_count": 1}, "bands": [], "callback": {}}
-        p2 = {"amounts": {}, "dates": {}, "promise": {}, "triggers": [], "notes": {}, "outcomes": {"table": []},
-              "phrases": {"bye": "Auf Wiederhören."}}
-        return p1, p2
-
     def test_language_extracted_with_stub_llm(self):
-        p1, p2 = self._parts()
+        p1, p2 = _stub_parts()
         seen = {}
 
         def fake_ask_json(prompt, *, system=None, model=None, purpose, max_turns=1, timeout_s=0, retries=1,
@@ -329,22 +334,81 @@ class LanguageAndContract(unittest.TestCase):
         self.assertLessEqual(rules_deadline, t0 + 200)
 
     def test_language_missing_is_not_a_problem(self):
-        p1, p2 = self._parts()
+        p1, p2 = _stub_parts()
         del p1["language"]
         pol = extract.finalise([p1, p2, {"rules": []}], extract.parse_openapi(OPENAPI), [("doc.md", "x")], [])
         self.assertIsNone(pol["language"])
         self.assertEqual([p for p in extract.local_validate(pol) if "language" in p], [])
 
 
+class ChunkedRulesPass(unittest.TestCase):
+    def test_groups(self):
+        small = [("a.md", "x" * 100), ("b.md", "y" * 100)]
+        self.assertEqual(extract.rules_groups(small), [[0, 1]])
+        big = [("d%d.md" % i, "z" * n) for i, n in enumerate([30000, 5000, 40000, 20000, 30000, 25000])]
+        groups = extract.rules_groups(big)
+        self.assertEqual(len(groups), 3)
+        self.assertEqual(sum(groups, []), list(range(6)))          # every document once, in order
+        self.assertTrue(all(g for g in groups))
+        self.assertEqual(len(extract.rules_groups([("one.md", "z" * 500000)])), 1)
+
+    def run_flow(self, fail_part=None):
+        p1, p2 = _stub_parts()
+        calls = {}
+
+        def fake_ask_json(prompt, *, system=None, model=None, purpose, max_turns=1, timeout_s=0, retries=1,
+                          deadline=None):
+            calls[purpose] = prompt
+            if purpose.startswith("extract policy part 1"):
+                return copy.deepcopy(p1)
+            if purpose.startswith("extract policy part 2"):
+                return copy.deepcopy(p2)
+            if purpose.startswith("extract verbatim rules"):
+                k = int(purpose.split("(part ")[1][0])
+                if k == fail_part:
+                    raise llm.LLMError("timed out")
+                return {"rules": [{"id": "m%d.%d" % (k, j), "text": "Rule %d of part %d." % (j, k)}
+                                  for j in (1, 2)]}
+            raise AssertionError(purpose)
+
+        with tempfile.TemporaryDirectory() as d:
+            d = pathlib.Path(d)
+            for i in range(3):
+                (d / ("doc%d.md" % i)).write_text("1. Numbered rule of doc %d.\n2. Another.\n" % i)
+            with mock.patch.object(llm, "ask_json", side_effect=fake_ask_json), \
+                    mock.patch.object(extract, "RULES_CHUNK_CHARS", 20):
+                warnings = []
+                pol = extract.extract_policy([str(d)], OPENAPI, budget_s=200, warnings=warnings)
+        return pol, calls, warnings
+
+    def test_parts_in_parallel_and_in_order(self):
+        pol, calls, _w = self.run_flow()
+        parts = sorted(c for c in calls if c.startswith("extract verbatim rules"))
+        self.assertEqual(parts, ["extract verbatim rules (part %d of 3)" % k for k in (1, 2, 3)])
+        self.assertIn('List ONLY the rules found in these documents: "doc1.md"', calls[parts[1]])
+        self.assertIn('name="doc0.md"', calls[parts[1]])                   # all documents stay as context
+        self.assertEqual([r["id"] for r in pol["rules"]], ["m1.1", "m1.2", "m2.1", "m2.2", "m3.1", "m3.2"])
+
+    def test_failed_part_falls_back_to_numbered_rules(self):
+        pol, _calls, warnings = self.run_flow(fail_part=2)
+        self.assertEqual([r["id"] for r in pol["rules"]], ["m1.1", "m1.2", "doc1.1", "doc1.2", "m3.1", "m3.2"])
+        self.assertTrue(any("rules part 2 returned 0 rules" in w for w in warnings), warnings)
+
+
 @unittest.skipUnless(os.environ.get("EXTRACT_CASE_DIR"), "set EXTRACT_CASE_DIR to a case folder")
 class CaseFolder(unittest.TestCase):
     def test_case_folder_size_and_pdf(self):
-        docs = extract.read_documents([os.environ["EXTRACT_CASE_DIR"]])
-        self.assertLess(sum(len(t) for _, t in docs), 150000)
+        root = pathlib.Path(os.environ["EXTRACT_CASE_DIR"])
+        docs = extract.read_documents([root])
+        total = sum(len(t) for _, t in docs)
+        print("\ncase folder: %d documents, %d chars" % (len(docs), total))
+        self.assertLessEqual(total, extract.MAX_TOTAL_CHARS)
         for name, text in docs:
             self.assertLessEqual(len(text), extract.MAX_DOC_CHARS + 100, name)
             if name.lower().endswith(".pdf"):
                 self.assertTrue(text.startswith("(PDF text"), name)
+            if name.lower().endswith(extract.DATA_EXT) and (root / name).stat().st_size > extract.DATA_SUMMARY_BYTES:
+                self.assertIn("not shown: summary only", text, name)
 
 
 if __name__ == "__main__":

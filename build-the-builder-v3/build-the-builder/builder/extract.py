@@ -78,6 +78,8 @@ TOTAL_BUDGET_S = int(os.environ.get("EXTRACT_BUDGET_S", "225"))   # whole extrac
 ROUND1_SHARE = 0.62        # share of the budget for the parallel extraction round (incl. JSON repairs)
 MIN_RESOLVE_S = 30         # skip the resolve call when less time than this is left
 END_MARGIN_S = 5           # finish this long before the budget ends
+RULES_CHUNK_CHARS = 60000  # bigger inputs: the verbatim rules list is asked in parallel parts (by document)
+MAX_RULES_PARTS = 3
 
 
 class ExtractError(RuntimeError):
@@ -511,7 +513,7 @@ def _read_pdf(data):
 
 DATA_SUMMARY_BYTES = 32 * 1024   # json/csv data files bigger than this are summarised, never sent whole
 MAX_DOC_CHARS = 40000            # per-file cap on the text sent to the model; the rest is cut ("[cut]")
-MAX_TOTAL_CHARS = 148000         # whole input: the longest documents are cut further when the sum is larger
+MAX_TOTAL_CHARS = 250000         # whole input (safety net): the longest documents are cut further above this
 MIN_CUT_CHARS = 8000             # ... but never below this
 DATA_EXT = (".json", ".jsonl", ".ndjson", ".csv", ".tsv")
 
@@ -597,8 +599,8 @@ def _data_summary(data, name):
     except ValueError:
         return None
     path, recs = _records(value)
-    if not recs or len(recs) < 2:
-        return None
+    if not recs or len(recs) < 2 or len(json.dumps(recs, ensure_ascii=False)) < 0.5 * len(text):
+        return None  # not a record file (e.g. a spec or a config): read as text, capped
     keys = []
     for r in recs[:50]:
         for k in (r if isinstance(r, dict) else {}):
@@ -1077,10 +1079,16 @@ def part_prompt(keys, docs_text, tools, api_description):
         % (", ".join(keys), _contract_text(keys), _tools_for_prompt(tools), api_description, docs_text))
 
 
-def rules_prompt(docs_text):
+def rules_prompt(docs_text, only=None):
+    """Verbatim rules prompt; `only` = names of the documents to list rules from (the rest is context)."""
+    scope = ""
+    if only:
+        scope = ("- List ONLY the rules found in these documents: %s. The other documents are context: use them "
+                 "for the override/change marks below, but do not list their rules.\n"
+                 % ", ".join('"%s"' % n for n in only))
     return (
         "List EVERY rule in the documents below for the phone agent's behaviour on its calls, verbatim, in "
-        "document order, as JSON: {\"rules\": [{\"id\": text, \"text\": verbatim text}]}.\n"
+        "document order, as JSON: {\"rules\": [{\"id\": text, \"text\": verbatim text}]}.\n" + scope +
         "- Leave out instructions to the people who build, test or host the agent (building it, mocking or "
         "deploying services, submission, scoring/judging), setup steps, code, and test/sample data records: "
         "they are not rules for the agent.\n"
@@ -2088,6 +2096,26 @@ def _call_json(prompt, purpose, deadline, model=None):
                         timeout_s=max(0.0, deadline - time.time()), deadline=deadline)
 
 
+def rules_groups(docs, chunk=None):
+    """Consecutive document index groups for the verbatim rules pass: one group for a normal input; a big
+    input is split (by document, about equal sizes) so each part's long verbatim answer stays short."""
+    chunk = chunk or RULES_CHUNK_CHARS
+    sizes = [len(t) for _, t in docs]
+    n = min(MAX_RULES_PARTS, len(docs), max(1, -(-sum(sizes) // chunk)))
+    if n <= 1:
+        return [list(range(len(docs)))]
+    target, groups, cur, acc = sum(sizes) / n, [], [], 0
+    for i, size in enumerate(sizes):
+        cur.append(i)
+        acc += size
+        if acc >= target * (len(groups) + 1) and len(groups) < n - 1 and i < len(sizes) - 1:
+            groups.append(cur)
+            cur = []
+    if cur:
+        groups.append(cur)
+    return groups
+
+
 def _merge_and_resolve(results, replicates, docs_text, tools_info, end, warnings):
     """Merge each replicate's two parts; settle disagreements between replicates with a resolve call."""
     reps = []
@@ -2158,7 +2186,8 @@ def extract_policy(brief_paths, openapi_path, *, replicates=2, budget_s=None, wa
             _log("%s failed: %s" % (key, e))
 
     jobs = {}
-    pool = cf.ThreadPoolExecutor(max_workers=2 * replicates + 1)
+    groups = rules_groups(docs)
+    pool = cf.ThreadPoolExecutor(max_workers=2 * replicates + len(groups))
     try:
         for r in range(replicates):
             jobs[("p1", r)] = pool.submit(_call_json, part_prompt(PART1_KEYS, docs_text, tools_info["tools"], api_desc),
@@ -2166,17 +2195,31 @@ def extract_policy(brief_paths, openapi_path, *, replicates=2, budget_s=None, wa
             jobs[("p2", r)] = pool.submit(_call_json, part_prompt(PART2_KEYS, docs_text, tools_info["tools"], api_desc),
                                           "extract policy part 2 (replicate %d)" % (r + 1), round1_end)
         # the verbatim rules list (long answer) is needed last: it may run on while replicates are compared and
-        # resolved, until the end of the whole budget
-        rules_job = pool.submit(_call_json, rules_prompt(docs_text), "extract verbatim rules", end, llm.fast_model())
+        # resolved, until the end of the whole budget; a big input is listed in parallel parts
+        rules_jobs = []
+        for gi, g in enumerate(groups):
+            only = [docs[i][0] for i in g] if len(groups) > 1 else None
+            purpose = "extract verbatim rules" + (" (part %d of %d)" % (gi + 1, len(groups)) if only else "")
+            rules_jobs.append(pool.submit(_call_json, rules_prompt(docs_text, only), purpose, end, llm.fast_model()))
         for key, fut in jobs.items():
             collect(key, fut)
         _log("round 1 done in %.0fs" % (time.time() - t0))
         primary = _merge_and_resolve(results, replicates, docs_text, tools_info, end, warnings)
-        collect(("rules", 0), rules_job)
+        for gi, fut in enumerate(rules_jobs):
+            collect(("rules", gi), fut)
     finally:
         pool.shutdown(wait=False, cancel_futures=True)
 
-    rules = normalise_section("rules", (results.get(("rules", 0)) or {}).get("rules"), warnings)
+    rules = []
+    for gi, g in enumerate(groups):
+        part = normalise_section("rules", (results.get(("rules", gi)) or {}).get("rules"), warnings)
+        if len(groups) > 1:
+            det_g = numbered_rules([docs[i] for i in g])
+            if len(part) < 0.8 * len(det_g):  # this part failed: its numbered rules at least
+                warnings.append("rules part %d returned %d rules, numbered parse found %d; using numbered parse"
+                                % (gi + 1, len(part), len(det_g)))
+                part = det_g
+        rules += [r for r in part if r not in rules]
     det = numbered_rules(docs)
     if len(rules) < 0.8 * len(det):
         warnings.append("rules pass returned %d rules, numbered parse found %d; using numbered parse"
