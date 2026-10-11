@@ -473,6 +473,8 @@ class Builder:
                 text2 = re.sub(r"^```[a-z]*\s*|\s*```$", "", str(text2 or "").strip())
                 if gen.DIGEST_MIN_CHARS <= len(text2) < len(text):
                     text = text2
+            # the model sometimes appends a remark about its own answer after a rule line ('---' then 'Note: ...')
+            text = re.sub(r"\n\s*-{3,}\s*\n\s*(?:\*\*)?(?:Note|Notes|Remark)\b[\s\S]*$", "", text).strip()
             self.policy["rules_digest"] = text
             if not gen.usable_digest(self.policy):
                 self.policy.pop("rules_digest", None)
