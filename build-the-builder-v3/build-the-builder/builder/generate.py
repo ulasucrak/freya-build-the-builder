@@ -28,6 +28,11 @@ Graph (every value comes from the policy; nothing here knows a brief):
       turn cap reached      -> turn_cap (code) -> close_check -> finish -> farewell (tts goodbye) -> close_api -> end_forced
     workflow tool final_close (end_of_call): safety-net close_call when none was sent (stopped otherwise).
 
+A policy without the collection roles (verify / account / promise / close tools) gets the generic service-agent
+workflow instead (generic_workflow): setup (codegen/generic_setup.py) -> one 'assistant' conversation node with every
+openapi operation as an api_call tool (flat fields for the model; codegen/generic_pre.py rebuilds the nested body,
+codegen/generic_post.py unwraps the answer) -> end_conversation(reason) -> an end_call node named after the reason.
+
 Hooks (python, embedded from builder/oracle.py + builder/codegen/*.py) normalise answers/dates/amounts, stop
 requests that break the policy before they reach the bank, add `what_to_do_next` to every tool result, and
 derive close_call's outcome/reason from recorded facts (transfer, failed identity, promise, callback, notes).
@@ -1536,16 +1541,437 @@ def _setup_source():
     return src
 
 
+# ----------------------------------------------------------------------------------------------- generic workflow
+# A policy without the collection roles (verify / account / promise / close) is another kind of service call (e.g. a
+# caller the phone menu hands over): setup (code) -> one conversation node 'assistant' with EVERY service of the
+# openapi as an api_call tool, the policy's rules, phrases and call variables in the system prompt, and a code_exec
+# tool end_conversation(reason) whose reason routes to an end_call node named after it (the call's endedReason).
+
+GENERIC_POST = "generic_post"       # codegen/<GENERIC_POST>.py post hook; GENERIC_POST_INLINE until that file exists
+END_REASONS = ("done", "transfer_to_agent", "main_menu", "no_response")
+END_REASON_DESC = {"done": "the caller's request is handled", "transfer_to_agent": "hand the call to a person",
+                   "main_menu": "send the caller back to the phone menu", "no_response": "the caller does not answer"}
+MUTATING = ("change", "send", "create", "update", "delete", "set", "transfer")   # side effects: the engine never retries
+GENERIC_TIMEOUT_MS = 15000          # a service may answer after more than ten seconds and still succeed
+GENERIC_SHORT = "short sentences, one question at a time; do not repeat unasked."
+
+# minimal post hook (a generic_post module replaces it): the service's JSON envelope {data: {...}, result: {...}} is
+# unwrapped, ok derived from the HTTP status and a result code, and an error gets what_to_do_next (no message text)
+GENERIC_POST_INLINE = '''
+extra.pop("header", None)
+d = resp_data(extra)
+st = str(vget(extra, "status_code", "") or "")
+if isinstance(d, dict):
+    res = d.get("result") if isinstance(d.get("result"), dict) else dict()
+    rc = res.get("returnCode", res.get("code"))
+    ok = st[:1] in ("", "2") and (rc is None or str(rc).strip().lower() in ("1", "0", "ok", "success"))
+    inner = d.get("data")
+    if isinstance(inner, dict):
+        d.pop("data", None)
+        for k, v in inner.items():
+            d.setdefault(k, v)
+    for k in ("messageText", "message"):
+        res.pop(k, None)
+    d["ok"] = ok
+    if not ok:
+        d["what_to_do_next"] = ("The service answered " + str(rc or "an error") + ("/" + str(res.get("type")) if res.get("type") else "")
+                                + " (HTTP " + (st or "?") + "): follow the rule for this case; never read the service's message text aloud.")
+elif st[:1] not in ("", "2"):
+    set_next(extra, "The service did not answer (HTTP " + st + "): follow the rule for a service error.")
+'''
+
+# end_conversation (code_exec tool): records the reason; the conversation node routes on w_end_reason
+GENERIC_END = '''
+r = re.sub(r"[^a-z_]", "", str((extra or dict()).get("reason") or "").strip().lower().replace(" ", "_"))
+ok = r in (RT.get("end_reasons") or [])
+if ok:
+    vset(vs, "w_end_reason", r)
+out = dict(ok=ok, reason=r, what_to_do_next="The call ends now: say nothing more." if ok else
+           "Unknown reason: call end_conversation again with one of " + ", ".join(RT.get("end_reasons") or []) + ".")
+'''
+
+# language hints for a policy that does not name its language: letters only that language uses, and common words
+_LANG_HINTS = {
+    "Turkish": ("ğışİĞŞ", "ve bir için bu ile mi mı musunuz misiniz size sizi değil var yok lütfen teşekkür nasıl evet hayır"),
+    "German": ("äöüßÄÖÜ", "und der die das ist nicht sie ich wir bitte danke ihr ihre haben"),
+    "Spanish": ("ñ¿¡", "el la los las que de y usted por favor gracias es su para"),
+    "French": ("çéèêàœù", "le la les et vous est pour merci votre nous pas une"),
+    "Italian": ("ìò", "il che di non per grazie sono lei suo una"),
+    "Portuguese": ("ãõ", "o os que de você não obrigado para uma seu"),
+    "Dutch": ("ĳ", "het een en de niet u uw dank wij is"),
+    "English": ("", "the and you your is to of for please thank we can are"),
+}
+_LANG_CODES = {"tr": "Turkish", "de": "German", "es": "Spanish", "fr": "French", "it": "Italian", "pt": "Portuguese",
+               "nl": "Dutch", "en": "English"}
+_NUM_TOKENS = {"no", "num", "nr", "nbr", "number", "id"}
+
+
+def detect_language(texts):
+    """The language most of the texts are written in ('' when unclear): letters only that language uses, and its
+    common words."""
+    text = " ".join(t for t in texts if isinstance(t, str))
+    if not text.strip():
+        return ""
+    words = re.findall(r"[^\W\d_]+", text.lower())
+    scores = []
+    for lang, (chars, common) in _LANG_HINTS.items():
+        wset = set(common.split())
+        scores.append((3 * sum(text.count(c) for c in chars) + sum(1 for w in words if w in wset), lang))
+    scores.sort(key=lambda x: -x[0])
+    return scores[0][1] if scores[0][0] >= 3 and scores[0][0] > scores[1][0] else ""
+
+
+def generic_language(policy, p):
+    """The call language: the policy's own (a language code is named), else detected from its fixed phrases."""
+    lang = policy.get("language") if isinstance(policy, dict) else None
+    if isinstance(lang, str) and lang.strip():
+        lang = lang.strip()
+        code = re.split(r"[-_]", lang.lower())[0]
+        return _LANG_CODES.get(code, lang) if len(lang) <= 5 else lang
+    texts = [v for v in p["phrases"].values() if isinstance(v, str)] + [t.get("say") for t in p["triggers"]] + \
+        [p["opening"].get("line"), p["opening"].get("text")]
+    return detect_language(texts) or "English"
+
+
+def name_key(name):
+    """A field or variable name as comparable words: clientNo, client_number and ClientNumber all give
+    ('client', 'number') (no / num / nr / id count as 'number')."""
+    s = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", str(name))
+    s = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1 \2", s)
+    return tuple("number" if t in _NUM_TOKENS else t for t in re.split(r"[^a-z0-9]+", s.lower()) if t)
+
+
+def _oa_resolve(spec, node, depth=0):
+    """$ref and allOf of an openapi schema, resolved."""
+    if not isinstance(node, dict) or depth > 20:
+        return node if isinstance(node, dict) else {}
+    if isinstance(node.get("$ref"), str) and node["$ref"].startswith("#/"):
+        target = spec
+        for part in node["$ref"][2:].split("/"):
+            target = target.get(part.replace("~1", "/").replace("~0", "~"), {}) if isinstance(target, dict) else {}
+        merged = dict(_oa_resolve(spec, target, depth + 1))
+        merged.update({k: v for k, v in node.items() if k != "$ref"})
+        return merged
+    if isinstance(node.get("allOf"), list):
+        merged = {k: v for k, v in node.items() if k != "allOf"}
+        props, req = dict(node.get("properties") or {}), list(node.get("required") or [])
+        for sub in node["allOf"]:
+            sub = _oa_resolve(spec, sub, depth + 1)
+            props.update(sub.get("properties") or {})
+            req += [r for r in sub.get("required") or [] if r not in req]
+            for k, v in sub.items():
+                if k not in ("properties", "required"):
+                    merged.setdefault(k, v)
+        merged.update(properties=props, required=req)
+        merged.setdefault("type", "object")
+        return merged
+    return node
+
+
+def _oa_field(spec, schema, required, depth=0):
+    s = _oa_resolve(spec, schema or {})
+    typ = s.get("type")
+    if isinstance(typ, list):
+        typ = next((t for t in typ if t != "null"), None)
+    out = {"type": typ or ("object" if "properties" in s else "string"), "required": bool(required)}
+    for k in ("enum", "default", "const", "description", "format"):
+        if k in s:
+            out[k] = s[k]
+    if out["type"] == "object" and isinstance(s.get("properties"), dict) and depth < 6:
+        req = set(s.get("required") or [])
+        out["properties"] = {n: _oa_field(spec, x, n in req, depth + 1) for n, x in s["properties"].items()}
+    return out
+
+
+def generic_operations(p, openapi=None):
+    """[{name, url, method, summary, description, fields}] for every operation: from the openapi (nested request
+    schemas kept), else from the policy's tools (those with a URL)."""
+    ops = []
+    if isinstance(openapi, dict) and openapi.get("paths"):
+        servers = openapi.get("servers") or []
+        base = (servers[0].get("url") if servers and isinstance(servers[0], dict) else "") or ""
+        for path, item in (openapi.get("paths") or {}).items():
+            for method, op in (item or {}).items() if isinstance(item, dict) else ():
+                if method.lower() not in ("get", "post", "put", "patch", "delete") or not isinstance(op, dict):
+                    continue
+                content = _oa_resolve(openapi, op.get("requestBody") or {}).get("content") or {}
+                schema = next((c["schema"] for c in [content.get("application/json")] + list(content.values())
+                               if isinstance(c, dict) and isinstance(c.get("schema"), dict)), {})
+                name = op.get("operationId") or path.strip("/").split("/")[-1] or method.lower()
+                notes = (p["tools"].get(name) or {}).get("notes") or ""
+                ops.append({"name": name, "url": base.rstrip("/") + path, "method": method.upper(),
+                            "summary": op.get("summary") or "", "description": op.get("description") or notes,
+                            "fields": _oa_field(openapi, schema, True).get("properties") or {}})
+        return ops
+    for name, t in p["tools"].items():
+        try:
+            url = _tool_url(p, name)
+        except ValueError:
+            continue
+        ops.append({"name": name, "url": url, "method": t.get("method") or "POST", "summary": t.get("summary") or "",
+                    "description": t.get("notes") or "", "fields": t.get("fields") or {}})
+    return ops
+
+
+def _leaves(fields, path=(), chain=True, opt_parent=False):
+    """(path, spec, required all the way down, under an optional object) for every leaf of a request schema."""
+    for f, s in fields.items():
+        s = s if isinstance(s, dict) else {}
+        req = chain and bool(s.get("required"))
+        kids = s.get("properties")
+        if isinstance(kids, dict) and kids:
+            yield from _leaves(kids, path + (f,), req, opt_parent or not s.get("required"))
+        else:
+            yield path + (f,), s, req, opt_parent
+
+
+def _objects(fields, path=(), chain=True):
+    """Paths of the objects that are required all the way down (always sent, even when empty)."""
+    for f, s in fields.items():
+        s = s if isinstance(s, dict) else {}
+        if isinstance(s.get("properties"), dict) and s["properties"] and chain and s.get("required"):
+            yield list(path + (f,))
+            yield from _objects(s["properties"], path + (f,), True)
+
+
+def _short(text, n):
+    t = re.sub(r"\s+", " ", str(text or "")).strip()
+    if len(t) <= n:
+        return t
+    cut = t[:n]
+    end = cut.rfind(". ")
+    return cut[:end + 1] if end > n // 3 else cut.rstrip() + "..."
+
+
+def _constant(s):
+    """The fixed value of a schema leaf: its default, a single enum value or a const; None when there is none."""
+    if "default" in s and s["default"] is not None:
+        v = s["default"]
+    elif isinstance(s.get("enum"), list) and len([e for e in s["enum"] if e is not None]) == 1:
+        v = next(e for e in s["enum"] if e is not None)
+    elif s.get("const") is not None:
+        v = s["const"]
+    else:
+        return None
+    return v if isinstance(v, (str, int, float, bool)) else None
+
+
+def _mutating(name, method):
+    toks = re.split(r"[^a-z0-9]+", re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", name).lower())
+    return method.upper() in ("PUT", "PATCH", "DELETE") or any(t.startswith(m) for t in toks if t for m in MUTATING)
+
+
+def _generic_post_source(lang):
+    """codegen/<GENERIC_POST>.py when it exists, with the token its LANG_PLACEHOLDER declares (e.g.
+    LANG_PLACEHOLDER = "CALL_LANGUAGE_HERE") replaced by the call language everywhere; else the minimal inline unwrap.
+    The language also reaches the hook as RT["language"] and the call variable w_lang (set by the setup node)."""
+    f = CODEGEN / (GENERIC_POST + ".py")
+    if not f.exists():
+        return GENERIC_POST_INLINE
+    src = f.read_text()
+    m = re.search(r"^LANG_PLACEHOLDER\s*=\s*(['\"])(\w+)\1", src, re.M)
+    return src.replace(m.group(2), re.sub(r"[^\w -]", "", lang) or "English") if m else src
+
+
+def generic_tool(p, op, name, description, call_keys, post_src, rt_post, opts):
+    """An api_call tool for one operation. Request leaves are flat body fields: a call variable whose name matches
+    the leaf's (name_key) is baked as {{var}}, a schema constant is baked as its value, every other leaf is filled by
+    the model (a leaf under an optional object with no value is left out). The pre hook (codegen/generic_pre.py)
+    rebuilds the nested body from the embedded path map; the post hook unwraps the answer."""
+    leaves = list(_leaves(op["fields"]))
+    base = {}
+    for path, _s, _r, _o in leaves:
+        base.setdefault(re.sub(r"[^A-Za-z0-9_]", "_", path[-1]), []).append(path)
+    props, required, paths = {}, [], {}
+    for path, s, req, opt_parent in leaves:
+        flat = re.sub(r"[^A-Za-z0-9_]", "_", path[-1] if len(base[re.sub(r"[^A-Za-z0-9_]", "_", path[-1])]) == 1 else "_".join(path))
+        typ = s.get("type") if s.get("type") in ("string", "number", "integer", "boolean") else "string"
+        var = call_keys.get(name_key(path[-1]))
+        const = _constant(s)
+        if var:
+            leaf = {"type": typ, "default": "{{" + var + "}}"}
+        elif const is not None:
+            leaf = {"type": typ, "default": const}
+        elif opt_parent and not req:
+            continue                    # e.g. metadata of an optional object nobody can fill
+        else:
+            leaf = {"type": typ, "default": "{{" + flat + "}}"}
+            desc = _short(s.get("description") or "", 240)
+            enum = [e for e in (s.get("enum") or []) if e is not None]
+            if enum:
+                leaf["enum"] = enum
+                if "One of" not in desc:
+                    desc = (desc + " " if desc else "") + "One of: " + ", ".join(str(e) for e in enum) + "."
+            if s.get("type") == "array":
+                desc = (desc + " " if desc else "") + "A JSON list."
+            if desc:
+                leaf["description"] = desc
+            if req:
+                required.append(flat)
+        props[flat] = leaf
+        paths[flat] = [list(path), s.get("type") or "string"]
+    env = {"paths": paths, "objects": list(_objects(op["fields"]))}
+    tool = {
+        "type": "function",
+        "config": {"timeoutMs": GENERIC_TIMEOUT_MS, "maxRetries": 0 if _mutating(op["name"], op["method"]) else 1},
+        "function": {
+            "name": name, "handler": "__function__:api_call", "description": description,
+            "parameters": {"type": "object", "properties": {
+                "url": {"type": "string", "default": op["url"]},
+                "method": {"type": "string", "default": op["method"]},
+                "headers": {"type": "object", "properties": {"Content-Type": {"type": "string", "default": "application/json"}}},
+                "body": {"type": "object", "properties": props, "required": required},
+            }},
+        },
+        "pre_process_code": build_code("generic_pre", {"names": {}, "envelope": env}, "pre"),
+        "post_process_code": build_code(GENERIC_POST, rt_post, "post", source=post_src),
+    }
+    return tool
+
+
+def generic_rules(p):
+    """The policy's rules as shown in the generic prompt: every rule but those a later rule replaces, those struck
+    through and the call-variable rows the variable list repeats (no hook computes anything here)."""
+    ph = rule_phases(p)
+    roles = {i: r for i, r in rule_roles(p).items() if r in ("over", "void")}
+    labels = _rule_labels(p)
+    shown = [r for r in p["rules"] if r["id"] not in roles and ph.get(r["id"]) != "drop"]
+    return shown, [_rule_line(p, r, labels, roles) for r in shown]
+
+
+def _trigger_line(t):
+    act = t["action"] + ((" " + t["queue"]) if t["queue"] else "")
+    return "%s -> %s%s" % (_short(t["detect"] or t["name"].replace("_", " "), 200), act,
+                           (": say \"%s\"" % t["say"]) if t["say"] else "")
+
+
+def generic_system_prompt(p, language, tool_lines):
+    now_var = p["clock"]["now_variable"]
+    var_lines = ["%s = {{%s}}%s" % (v["name"], v["name"], (" (" + v["meaning"] + ")") if v["meaning"] else "") for v in p["variables"]]
+    if now_var not in _var_names(p):
+        var_lines.append("%s = {{%s}} (the date and time of the call)" % (now_var, now_var))
+    shown, rule_lines = generic_rules(p)
+    kept = " ".join(r["text"] for r in shown)
+    phrases = _bul(["%s: \"%s\"" % (k, v) for k, v in p["phrases"].items() if isinstance(v, str) and v.strip() and v.strip() not in kept])
+    triggers = _bul([_trigger_line(t) for t in p["triggers"] if t["detect"] or t["say"]])
+    return "\n".join([
+        "You are a phone agent on a live call. Speak %s only: %s" % (language, GENERIC_SHORT),
+        "Use only facts from this prompt, the call variables and tool results; never invent amounts, dates, names, reasons or service answers.",
+        "",
+        "Call variables (known before the call: never ask the caller for their values; the tools send them themselves):",
+        _bul(var_lines),
+        "Every date decision uses %s: now is {{w_now_text}}. Never use another clock or a date you assume." % now_var,
+        "",
+        "Tools: one call per message, then wait for its result; copy values from earlier results exactly; follow a result's"
+        " what_to_do_next; never read a service's message text or codes aloud.",
+        _bul(tool_lines),
+        "",
+        "The rules:",
+        _bul(rule_lines) if rule_lines else "- (none given)",
+        ("\nSituations and what to do:\n" + triggers) if triggers else "",
+        ("\nFixed phrases (in %s, word for word where they apply):\n" % language + phrases) if phrases else "",
+    ])
+
+
+def generic_workflow(p, prompts=None, openapi=None, opts=None, language=None):
+    """The generic service-agent workflow for a normalised policy (see the section comment)."""
+    opts = dict(DEFAULT_OPTIONS, **(opts or {}))
+    P = _Prompts(prompts)
+    language = language or generic_language({}, p)
+    now_var = p["clock"]["now_variable"]
+    calls = _var_names(p)
+    call_keys = {}
+    for v in calls:
+        call_keys.setdefault(name_key(v), v)
+    rt_post = {"names": {"language": language, "lang": language, "now_var": now_var}, "language": language, "lang": language}
+    post_src = _generic_post_source(language)
+    tools, tool_lines, used, ready = [], [], {"end_conversation"}, []
+    filled = set()
+    for op in generic_operations(p, openapi):
+        name = re.sub(r"[^A-Za-z0-9_]", "_", op["name"]).strip("_")[:60] or "service"
+        while name in used:
+            name += "_2"
+        used.add(name)
+        desc = P.get("tool." + name, P.get("tool." + op["name"], _short(" ".join(x for x in (op["summary"], op["description"]) if x), 500)
+                                         or "Call the %s service." % op["name"]))
+        t = generic_tool(p, op, name, desc, call_keys, post_src, rt_post, opts)
+        tools.append(t)
+        body = t["function"]["parameters"]["properties"]["body"]["properties"]
+        filled |= {f for f, s in body.items() if s.get("default") == "{{" + f + "}}" and f not in calls}
+        if not t["function"]["parameters"]["properties"]["body"]["required"] and t["config"]["maxRetries"]:
+            ready.append(name)          # read-only and nothing to ask the caller: can run at the start
+        tool_lines.append("%s: %s" % (name, _short(op["summary"] or op["description"] or desc, 160)))
+    reasons = list(END_REASONS)
+    t_end = {"type": "function", "config": {"timeoutMs": 12000, "maxRetries": 0}, "function": {
+        "name": "end_conversation", "handler": "__function__:code_exec",
+        "description": "End the call: last and once, in the same message as your closing words, with the reason: "
+                       + "; ".join("%s = %s" % (r, END_REASON_DESC.get(r, r)) for r in reasons) + ".",
+        "parameters": {"type": "object", "properties": {
+            "reason": {"type": "string", "enum": reasons, "description": "One of: " + ", ".join(reasons) + "."},
+            "code": {"type": "string", "default": build_code("end_conversation", {"names": {}, "end_reasons": reasons}, "tool",
+                                                             source=GENERIC_END)},
+            "timeout_ms": {"type": "number", "default": 10000}}, "required": ["reason"]}}}
+    tool_lines.append("end_conversation(reason): last, once, with your closing words in the same message; the reason is what"
+                      " those words say happens next: " + ", ".join("%s (%s)" % (r, END_REASON_DESC.get(r, r)) for r in reasons)
+                      + ". Never end the call while the caller still asks for something you can do.")
+
+    rt_setup = {"names": {"now_var": now_var, "language": language},
+                "call_vars": [v for v in calls if v != now_var and v not in filled]}
+    nodes = {"setup": _code_node("setup", "generic_setup", rt_setup, "assistant")}
+    opening = P.get("opening_line") or (static_opening(p, opts["static_greeting"]) if opts["static_greeting"] else "")
+    if opening and not P.get("opening_line"):
+        said = detect_language([opening])           # a fixed first line only when it is in the call language
+        if said != language and not (said == "" and language == "English"):
+            opening = ""
+    on_enter = {"type": "tts", "text": _brace_vars(opening, p)} if opening else {"type": "llm", "prompt": P.get(
+        "assistant.on_enter", "This is the start of the call; the caller is waiting. In %s, do now what the rules say comes first: when"
+        " they begin with a service call, make it now%s and speak from its result; otherwise greet briefly and ask how you can"
+        " help. Keep it short." % (language, (" (needing nothing from the caller: " + ", ".join(ready) + ")") if ready else ""))}
+    nodes["assistant"] = {
+        "name": "assistant", "node_type": "conversation", "on_enter": on_enter, "on_enter_first_entry_only": True,
+        "task_message": P.get("assistant.task", "Help the caller as the rules say, one step at a time. Get every account fact"
+                              " from a service before you state it, and copy identifiers from earlier results exactly into the next"
+                              " call. When the call is finished, say the closing words the rules give and call end_conversation with"
+                              " the reason in the same message."),
+        "tools": tools + [t_end],
+        "max_node_turns": opts["negotiate_max_turns"],
+        "max_turn_transition": "end_" + ("transfer_to_agent" if "transfer_to_agent" in reasons else reasons[0]),
+        # the tool's own write (w_end_reason), or the engine's copy of the model's argument (<tool>_args.<field>)
+        "transitions": [{"target_node": "end_" + r, "description": "end_conversation: " + r,
+                         "condition": _or(_eq("w_end_reason", r), _eq("end_conversation_args.reason", r))} for r in reasons],
+    }
+    if opts["reasoning_off"]:
+        nodes["assistant"]["reasoning_override"] = "disabled"
+    for r in reasons:
+        nodes["end_" + r] = _end_node("end_" + r, r)
+    wf = {
+        "initial_node": "setup",
+        "system_prompt": P.get("system_prompt", generic_system_prompt(p, language, tool_lines)),
+        "nodes": nodes,
+        "global_nodes": {},
+    }
+    tv = {v["name"]: str(v["example"]) for v in p["variables"] if v.get("example") not in (None, "")}
+    if tv:
+        wf["test_variables"] = tv
+    _fill_placeholders(wf, p)
+    _strip_nulls(wf)
+    return wf
+
+
 # ----------------------------------------------------------------------------------------------- main
 
 def generate_workflow(policy, prompts=None, openapi=None, options=None):
     """policy dict (contract v1) -> Freya workflow dict. `openapi` (dict) fills tool URLs/fields/responses that
-    the policy lacks. Raises ValueError when the policy cannot produce a workflow."""
+    the policy lacks. A policy without the collection roles gets generic_workflow. Raises ValueError when the
+    policy cannot produce a workflow."""
     opts = dict(DEFAULT_OPTIONS)
     opts.update(options or {})
     if openapi:
         policy = _merge_openapi(policy, openapi)
     p = policy_schema.normalise(policy)
+    if any(not _tool_name(p, role) for role in ("verify", "account", "promise", "close")):
+        # not a collection call: the generic service-agent workflow (every openapi operation is a tool)
+        return generic_workflow(p, prompts, openapi, opts, generic_language(policy, p))
     for role in ("verify", "account", "promise", "close"):
         if not _tool_name(p, role):
             raise ValueError("policy has no %s tool" % ROLES[role][0])
