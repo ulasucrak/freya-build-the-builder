@@ -726,7 +726,7 @@ def rule_phases(p):
         free[r["id"]] = not (g or n_sec or n_trig or b)
     # "[overrides <ids>]": a rule filed nowhere that replaces rules of one step belongs to that step
     for r in p["rules"]:
-        m = re.search(r"\[overrides ([^\]]+)\]", r["text"])
+        m = re.search(r"\[(?:overrides|changes) ([^\]]+)\]", r["text"])
         if m and out.get(r["id"]) == "all" and free.get(r["id"]):
             targets = {out.get(t.strip()) for t in m.group(1).split(",")}
             if len(targets) == 1 and targets <= {"greet", "negotiate"}:
@@ -734,7 +734,9 @@ def rule_phases(p):
     return out
 
 
-_OVERRIDE_RX = re.compile(r"\[\s*(?:overrides|replaces|supersedes)\s+([^\]]+)\]\s*", re.I)
+# "[overrides <ids>]": the later rule replaces the earlier one as a whole; "[changes <ids>]": it changes a part only
+_OVERRIDE_RX = re.compile(r"\[\s*(overrides|replaces|supersedes|changes|amends)\s+([^\]]+)\]\s*", re.I)
+_PARTIAL_KINDS = ("changes", "amends")
 _DATE_RX = re.compile(r"\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}[./]\d{1,2}[./]\d{2,4}\b|\b(?:january|february|march|april|may|june|july|"
                       r"august|september|october|november|december)\s+\d{4}\b", re.I)
 
@@ -743,22 +745,60 @@ def _overridden(p):
     """Rule ids a later rule replaces ("[overrides <ids>] ..." marks from the rules extraction). Read from the last
     rule back, so a mark counts only when its own rule is still in force: a memo item that a later memo withdraws (or
     one struck through) no longer replaces anything, and the rule it replaced applies again."""
+    return {t for t, marks in _override_marks(p).items() if any(k not in _PARTIAL_KINDS for k, _r in marks)}
+
+
+def _override_marks(p):
+    """target rule id -> [(kind, later rule)] for the marks of rules still in force (see _overridden)."""
     ids = {r["id"] for r in p["rules"]}
-    out = set()
+    out, gone = {}, set()
     for r in reversed(p["rules"]):
-        if r["id"] in out or _is_void(r["text"]):
+        if r["id"] in gone or _is_void(r["text"]):
             continue
         for m in _OVERRIDE_RX.finditer(r["text"]):
-            for t in re.split(r"[,;]|\band\b", m.group(1)):
+            kind = m.group(1).lower()
+            for t in re.split(r"[,;]|\band\b", m.group(2)):
                 t = t.strip().strip("`")
                 if t in ids and t != r["id"]:
-                    out.add(t)
+                    out.setdefault(t, []).append((kind, r))
+                    if kind not in _PARTIAL_KINDS:
+                        gone.add(t)
     return out
+
+
+_NEG_RX = re.compile(r"\b(never|not|no|don't|cannot)\b", re.I)
+
+
+def _contradicts_on_tool(p, old, new):
+    """Both rules talk about the same tool and one says not to use it where the other says to (e.g. 'Brief A never
+    uses add_note' replaced by 'call add_note for each product without a promise')."""
+    tools = set(p["tools"]) | {v[0] for v in ROLES.values()}
+
+    def stance(text, tool):
+        sents = [x for x in re.split(r"(?<=[.!?])\s+", _rule_text(text)) if re.search(r"\b" + re.escape(tool) + r"\b", x)]
+        return {bool(_NEG_RX.search(x)) for x in sents}
+    for tool in tools:
+        a, b = stance(old, tool), stance(new, tool)
+        if a and b and a != b:
+            return True
+    return False
 
 
 def _rule_text(t):
     """A rule as the model reads it: without the extraction's "[overrides ...]" mark (the replaced rule is not shown)."""
     return _OVERRIDE_RX.sub("", t).strip()
+
+
+def _hidden_by_override(p, r, marks, new_marks):
+    """A replaced rule is hidden. Policies with '[changes]' marks: every '[overrides]' is a full replacement and every
+    '[changes]' keeps the old rule. Older policies (one kind of mark): the old rule stays when it still says what to say
+    or not to do, unless the later rule contradicts it on the same tool."""
+    full = [x for k, x in marks if k not in _PARTIAL_KINDS]
+    if not full:
+        return False
+    if new_marks:
+        return True
+    return not _keeps_content(r["text"]) or any(_contradicts_on_tool(p, r["text"], x["text"]) for x in full)
 
 
 def _is_void(t):
@@ -813,7 +853,8 @@ def rule_roles(p):
     Rules without a role are shown as before (rule_phases decides where)."""
     def filed(objs):
         return [_norm_rule(t) for o in objs for t in _texts_in(o) if len(t) > 25]
-    over = _overridden(p)
+    marks = _override_marks(p)
+    new_marks = any(m.group(1).lower() in _PARTIAL_KINDS for r in p["rules"] for m in _OVERRIDE_RX.finditer(r["text"]))
     cal = filed([p.get("calendar"), p.get("dates")])
     bands = filed([p.get("bands")])
     amounts = filed([p.get("amounts")])
@@ -830,7 +871,7 @@ def rule_roles(p):
     out = {}
     for r in p["rules"]:
         t = r["text"]
-        if r["id"] in over and not _keeps_content(t):
+        if _hidden_by_override(p, r, marks.get(r["id"]) or [], new_marks):
             out[r["id"]] = "over"
             continue
         if ph.get(r["id"]) != "drop" and "." in r["id"] and r["id"].rsplit(".", 1)[0] in var_secs and len(t) < 90:
@@ -889,7 +930,7 @@ def _changes(p, t, labels, roles):
     """'(changes <labels>) ' for the rules a later rule changes that are still shown."""
     keep = []
     for m in _OVERRIDE_RX.finditer(t):
-        for x in re.split(r"[,;]|\band\b", m.group(1)):
+        for x in re.split(r"[,;]|\band\b", m.group(2)):
             x = x.strip().strip("`")
             if x in labels and x not in roles:
                 keep.append(labels[x])

@@ -1575,3 +1575,50 @@ class ReviewT06(unittest.TestCase):
         for name in ("brief-a", "brief-b", "S6"):
             _p, wf = self.gen(name)
             self.assertIn("never end a turn with nothing to say", wf["system_prompt"])
+
+
+class OverrideKinds(unittest.TestCase):
+    """T06: '[overrides]' = full replacement (hidden), '[changes]' = partial change (kept, labelled). Policies with the
+    old single mark keep the keep-content heuristic, except a contradiction on the same tool (B: add_note)."""
+
+    OPENAPI = json.loads((KIT / "tools" / "openapi.json").read_text())
+
+    def gen(self, pol):
+        return S.normalise(pol), G.generate_workflow(pol, None, self.OPENAPI)
+
+    def test_brief_b_hides_never_uses_add_note_but_keeps_dispute(self):
+        for pol in (json.loads((KIT / "policies" / "brief-b.policy.json").read_text()), raw("brief-b")):
+            p, wf = self.gen(pol)
+            for node in ("greet_verify", "negotiate", "wrap_up"):
+                self.assertNotIn("never uses `add_note`", wf["system_prompt"] + wf["nodes"][node]["task_message"], node)
+            neg = wf["system_prompt"] + wf["nodes"]["negotiate"]["task_message"]
+            self.assertIn("\"This debt is not mine\" or \"I never had this product\": do not argue", neg)
+        p, wf = self.gen(json.loads((KIT / "policies" / "S2.policy.json").read_text()))
+        r = next(x for x in p["rules"] if x["id"] == "02-policy-extract.4.4.3")
+        self.assertIn(G._rule_text(r["text"]), wf["system_prompt"] + wf["nodes"]["greet_verify"]["task_message"])
+
+    def test_two_mark_kinds(self):
+        base = raw("brief-b")
+        rules = [{"id": "d.1", "text": "Never call `add_note`. Do not argue."},
+                 {"id": "d.2", "text": "Say \"hello\" first."},
+                 {"id": "m.1", "text": "[overrides d.1] Call `add_note` for each product."},
+                 {"id": "m.2", "text": "[changes d.2] Say it twice."}]
+        q = dict(base, rules=rules)
+        p = S.normalise(q)
+        roles = G.rule_roles(p)
+        self.assertEqual(roles.get("d.1"), "over")             # full replacement: hidden
+        self.assertIsNone(roles.get("d.2"))                    # partial change: kept
+        labels = G._rule_labels(p)
+        self.assertIn("(changes ", G._rule_line(p, rules[3], labels, roles))
+        self.assertNotIn("[changes", G._rule_text(rules[3]["text"]))
+        # new-style policy: an [overrides] hides even a rule with content to say
+        q2 = dict(base, rules=[{"id": "d.1", "text": "Say \"hi\"."}, {"id": "m.1", "text": "[overrides d.1] Say \"hello\"."},
+                               {"id": "m.2", "text": "[changes d.1] x"}])
+        self.assertEqual(G.rule_roles(S.normalise(q2)).get("d.1"), "over")
+        # old-style policy: content kept, unless the same tool is contradicted
+        q3 = dict(base, rules=[{"id": "d.1", "text": "Say \"hi\". Never call `add_note`."},
+                               {"id": "m.1", "text": "[overrides d.1] Call `add_note` once."}])
+        self.assertEqual(G.rule_roles(S.normalise(q3)).get("d.1"), "over")
+        q4 = dict(base, rules=[{"id": "d.1", "text": "Say \"hi\" and do not argue."},
+                               {"id": "m.1", "text": "[overrides d.1] Continue the call."}])
+        self.assertIsNone(G.rule_roles(S.normalise(q4)).get("d.1"))

@@ -622,8 +622,10 @@ def rules_prompt(docs_text):
         "- Include sub-bullets inside their rule's text. Keep the exact wording, numbers, quotes and placeholders.\n"
         "- If a later document or memo replaces a rule as a whole, keep both, and start the later one's text with "
         "\"[overrides <id>] \" (several ids comma-separated). The replaced rule is then left out of the agent's "
-        "prompt, so use the mark ONLY for a full replacement: a later rule that changes part of a rule (a number, "
-        "an outcome, one case) or merely adds to it gets no mark; the earlier rule stays in force for the rest."
+        "prompt, so use this mark ONLY for a full replacement (also when the later rule contradicts it, e.g. a tool "
+        "that was never used is now required).\n"
+        "- If a later rule changes only part of an earlier one (a number, an outcome, one case) or adds to it, keep "
+        "both and start the later one's text with \"[changes <id>] \": the earlier rule stays in force for the rest."
         "\n\nDocuments:\n%s\n" % docs_text)
 
 
