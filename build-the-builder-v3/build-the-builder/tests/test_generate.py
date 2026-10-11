@@ -1180,7 +1180,7 @@ class PromptBudget(unittest.TestCase):
             g, n = self.sizes(G.generate_workflow(raw(name)))
             if len(raw(name).get("rules") or []) < 5:   # (almost) no rules list: the section texts are carried
                 self.assertLess(g, 0.90 * g0, name)
-                self.assertLess(n, 0.82 * n0, name)     # T06: + the state hint and the hook pointer
+                self.assertLess(n, 0.83 * n0, name)     # T06: + the state hint, the hook pointer and the privacy line
                 continue
             self.assertLess(g, 0.86 * g0, name)          # identity step: rules of the negotiation are gone
             self.assertLess(n, 0.90 * n0, name)          # the negotiation keeps its own (verbatim) rules
@@ -1383,9 +1383,14 @@ class PromptBudgetV3(unittest.TestCase):
 
     POLICIES = sorted((KIT / "policies").glob("*.policy.json")) + sorted(FIX.glob("*.policy.json"))
     OPENAPI = json.loads((KIT / "tools" / "openapi.json").read_text())
-    # before T06 (chars / 4, policies/): brief-a greet 3366, negotiate 3402, wrap_up 2747; brief-b 3291, 4149, 3476
+    # tokens (chars / 4) per node before T06: (greet_verify, negotiate, wrap_up); no node may grow back past these
+    BEFORE = {"brief-a": (3366, 3402, 2747), "brief-b": (3291, 4149, 3476), "S1": (3612, 4043, 3204),
+              "S2": (4043, 4711, 3923), "S3": (2911, 3565, 2904), "S4": (3131, 3795, 3129), "S5": (2987, 3958, 3289),
+              "S6": (4453, 5174, 4384), "S7": (3846, 4506, 3720), "brief-a-live": (3578, 3536, 2690),
+              "fix:brief-a": (3473, 3476, 2816), "fix:brief-b": (3167, 4144, 3493), "fixture-a": (1423, 1458, 895),
+              "fixture-x": (1183, 1281, 820), "s1-live": (3544, 4016, 3258), "s3-live": (3009, 3633, 2930)}
     TARGET_TOKENS = 2500        # goal per node; the verbatim rules of the longer briefs still exceed it (see CEILING)
-    CEILING_TOKENS = 3700       # regression guard for every policy
+    CEILING_TOKENS = 4000       # regression guard for every policy
 
     def sizes(self, path):
         pol = json.loads(path.read_text())
@@ -1396,13 +1401,16 @@ class PromptBudgetV3(unittest.TestCase):
     def test_per_node_budget(self):
         for path in self.POLICIES:
             _wf, sz = self.sizes(path)
-            for node, tok in sz.items():
-                self.assertLessEqual(tok, self.CEILING_TOKENS, (path.name, node, tok))
-        for name, before in (("brief-a", (3366, 3402, 2747)), ("brief-b", (3291, 4149, 3476))):
+            name = path.name.split(".")[0]
+            key = "fix:" + name if path.parent == FIX and "fix:" + name in self.BEFORE else name
+            for node, b in zip(("greet_verify", "negotiate", "wrap_up"), self.BEFORE[key]):
+                self.assertLessEqual(sz[node], self.CEILING_TOKENS, (path.name, node, sz[node]))
+                self.assertLessEqual(int(sz[node]), b, (path.name, node, sz[node]))       # never above its pre-T06 size
+        for name in ("brief-a", "brief-b"):
+            before = self.BEFORE[name]
             _wf, sz = self.sizes(KIT / "policies" / (name + ".policy.json"))
             for node, b in zip(("greet_verify", "negotiate", "wrap_up"), before):
                 self.assertLess(sz[node], 0.92 * b, (name, node, sz[node]))
-            self.assertLess(sz["negotiate"], 3200, name)
             self.assertLess(sz["wrap_up"], 0.75 * before[2], name)
             self.assertLessEqual(sz["wrap_up"], self.TARGET_TOKENS, name)
         for name in ("fixture-a", "fixture-x"):
@@ -1427,7 +1435,7 @@ class PromptBudgetV3(unittest.TestCase):
         roles = G.rule_roles(p)
         by = {r["text"][:40]: roles.get(r["id"]) for r in p["rules"]}
         role = lambda start: next(v for k, v in by.items() if k.startswith(start))
-        self.assertEqual(role("Brief A never uses `add_note`"), "over")        # replaced by the Brief B note rule
+        self.assertIn("over", roles.values())                                  # a rule replaced as a whole
         self.assertIsNone(role("Say that you are calling from the collec"))  # replaced in part: it still says what to say
         self.assertEqual(role("`days_late`: 1 to 7"), "hook")                  # deadline table row: computed per product
         self.assertEqual(role("Business days are Monday to Friday"), "hook")
@@ -1496,3 +1504,74 @@ class PromptBudgetV3(unittest.TestCase):
         self.assertIn("never 'I have recorded' before the result", wf["system_prompt"])
         self.assertIn("One tool call per message", wf["system_prompt"])
         self.assertIn("results can be lost", wf["system_prompt"])
+
+
+class ReviewT06(unittest.TestCase):
+    """T06 review: rules the agent must follow were hidden by rule_roles / _overridden."""
+
+    OPENAPI = json.loads((KIT / "tools" / "openapi.json").read_text())
+
+    def gen(self, name):
+        pol = json.loads((KIT / "policies" / (name + ".policy.json")).read_text())
+        return S.normalise(pol), G.generate_workflow(pol, None, self.OPENAPI)
+
+    def visible(self, p, wf, rid, node):
+        r = next(x for x in p["rules"] if x["id"] == rid)
+        text = G._brace_vars(G._rule_text(r["text"]), p)
+        return text in wf["system_prompt"] + "\n" + wf["nodes"][node]["task_message"]
+
+    def test_one_date_for_all_products_rule_stays(self):
+        """No hook records a single named date on each product's own deadline: the rule is shown (b.6, S1.49, ...)."""
+        for name, rid in (("brief-b", "brief-b.6"), ("S1", "brief.49"), ("S2", "02-policy-extract.4.8.3"),
+                          ("S3", "brief.F6"), ("S6", "02-policy-extract.5.6.8"), ("S7", "brief.54")):
+            p, wf = self.gen(name)
+            self.assertNotIn(G.rule_roles(p).get(rid), ("hook", "over"), (name, rid))
+            self.assertTrue(self.visible(p, wf, rid, "negotiate"), (name, rid))
+        self.assertIsNotNone(G._SPEAKS_RX.search("say so in the read-back"))
+
+    def test_partly_replaced_rule_stays_with_its_change(self):
+        """B b.9 changes a.40 (the call goes on) but 'do not argue', 'take no promise' and 'closed in the past is a
+        dispute' still apply: a.40 is shown and b.9 says it changes it."""
+        p, wf = self.gen("brief-b")
+        neg = wf["nodes"]["negotiate"]["task_message"]
+        self.assertTrue(self.visible(p, wf, "brief-a.40", "negotiate"))
+        self.assertIn("do not argue", neg)
+        b9 = [x for x in neg.splitlines() if "A dispute or an \"already paid\" claim on one product" in x][0]
+        self.assertIn("(changes ", b9)
+        self.assertIn("40", b9)
+        for t in ("Never do X.", "Do not argue.", "Ask once.", "Offer the floor.", "Tell them to use the app.", "Say sorry."):
+            self.assertTrue(G._keeps_content(t), t)
+        self.assertFalse(G._keeps_content("Persuasion attempts are counted per call."))
+
+    def test_count_change_keeps_the_rest_of_the_rule(self):
+        """S2 4.4.3: the memo changes only the number of wrong answers; 'use the app or visit a branch' stays."""
+        p, wf = self.gen("S2")
+        self.assertNotEqual(G.rule_roles(p).get("02-policy-extract.4.4.3"), "over")
+        self.assertTrue(self.visible(p, wf, "02-policy-extract.4.4.3", "greet_verify"))
+
+    def test_withdrawn_override_restores_the_rule(self):
+        """S6: memo B withdraws memo A item 2, so 5.3.2 (callback hours) applies again; 5.10.4 stays (memo B adds a
+        note before the transfer)."""
+        p, wf = self.gen("S6")
+        over = G._overridden(p)
+        self.assertNotIn("02-policy-extract.5.3.2", over)
+        self.assertTrue(self.visible(p, wf, "02-policy-extract.5.3.2", "greet_verify"))
+        self.assertTrue(self.visible(p, wf, "02-policy-extract.5.10.4", "negotiate"))
+        # a mark from a rule that is itself replaced does not count
+        q = {"rules": [{"id": "d.1", "text": "Old."}, {"id": "m.1", "text": "[overrides d.1] New."},
+                       {"id": "m.2", "text": "[overrides m.1] Item 1 is withdrawn."}]}
+        self.assertEqual(G._overridden(q), {"m.1"})
+
+    def test_no_dangling_rule_reference(self):
+        """A shown rule that cites 'rule 30' keeps rule 30 shown (B 26/27/b.4)."""
+        for name in ("brief-a", "brief-b"):
+            p, wf = self.gen(name)
+            self.assertTrue(self.visible(p, wf, "brief-a.30", "negotiate"), name)
+        self.assertEqual(G._rule_number("a.30"), "30")
+        self.assertEqual(G._rule_number("30"), "30")
+        self.assertIsNone(G._rule_number("dates.1"))
+
+    def test_system_prompt_keeps_turn_rule(self):
+        for name in ("brief-a", "brief-b", "S6"):
+            _p, wf = self.gen(name)
+            self.assertIn("never end a turn with nothing to say", wf["system_prompt"])

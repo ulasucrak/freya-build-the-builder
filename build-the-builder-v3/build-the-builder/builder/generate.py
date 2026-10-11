@@ -740,10 +740,14 @@ _DATE_RX = re.compile(r"\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}[./]\d{1,2}[./]\d{2,4}\b|
 
 
 def _overridden(p):
-    """Rule ids a later rule replaces ("[overrides <ids>] ..." marks from the rules extraction)."""
+    """Rule ids a later rule replaces ("[overrides <ids>] ..." marks from the rules extraction). Read from the last
+    rule back, so a mark counts only when its own rule is still in force: a memo item that a later memo withdraws (or
+    one struck through) no longer replaces anything, and the rule it replaced applies again."""
     ids = {r["id"] for r in p["rules"]}
     out = set()
-    for r in p["rules"]:
+    for r in reversed(p["rules"]):
+        if r["id"] in out or _is_void(r["text"]):
+            continue
         for m in _OVERRIDE_RX.finditer(r["text"]):
             for t in re.split(r"[,;]|\band\b", m.group(1)):
                 t = t.strip().strip("`")
@@ -841,20 +845,44 @@ def rule_roles(p):
         if cells and any(re.search(r"\bwhen\b", k) for k, _v in cells) and \
                 any(re.search(r"(?<![\w-])" + re.escape(c) + r"(?![\w-])", t.lower()) for c in codes):
             out[r["id"]] = "outcome"
-        elif cells and (vals & band_names or _DATE_RX.search(t)):
+        elif cells and (vals & band_names or _DATE_RX.search(t)) and not _SPEAKS_RX.search(t):
             out[r["id"]] = "hook"               # a deadline-table row or a holiday row
-        elif not cells and not hit(x, third) and (hit(x, cal) or (hit(x, bands) and not hit(x, amounts))):
-            out[r["id"]] = "hook"
+        elif not cells and not hit(x, third) and (hit(x, cal) or (hit(x, bands) and not hit(x, amounts))) \
+                and not _SPEAKS_RX.search(_rule_text(t)):
+            out[r["id"]] = "hook"               # no hook records, reads back or says anything for the agent
         elif floor_fields and len(t) < 240 and any(f in t for f in floor_fields) and not _keeps_content(t) \
                 and not re.search(r"\b(ask|offer|accept|refus\w*|propos\w*)\b", t, re.I):
             out[r["id"]] = "hook"               # a definition of the floor / full amount: each product's facts give it
+    # a rule a shown rule refers to by number ("treat it as a flat refusal (rule 30)") stays, so no reference dangles
+    labels = _rule_labels(p)
+    for _ in range(2):
+        shown_text = " ".join(_rule_text(r["text"]) for r in p["rules"] if r["id"] not in out and ph.get(r["id"]) != "drop")
+        named = set()
+        for m in re.finditer(r"\brules?\s+((?:[\w.]+(?:\s*,\s*|\s+and\s+|\s+or\s+)?)+)", shown_text, re.I):
+            named |= {x.strip(".") for x in re.split(r"\s*,\s*|\s+and\s+|\s+or\s+", m.group(1)) if x.strip(".")}
+        back = [i for i, role in out.items() if role in ("hook", "over") and ph.get(i) != "drop"
+                and _rule_number(labels[i]) in named]
+        if not back:
+            break
+        for i in back:
+            del out[i]
     return out
 
 
+def _rule_number(label):
+    """'30' for a rule labelled 30 or a.30 (how other rules cite it: 'rule 30'), else None."""
+    m = re.fullmatch(r"(?:[a-z]\.)?(\d+[a-z]?)", label)
+    return m.group(1) if m else None
+
+
+_SPEAKS_RX = re.compile(r"\b(record\w*|read\w*|says?|tell\w*)\b", re.I)
+
+
 def _keeps_content(t):
-    """A replaced rule that still says what to say: a later rule often changes only part of it
-    (e.g. the outcome), so it stays, and the later rule is shown as changing it."""
-    return bool(re.search(r"\bsays?\b", _rule_text(t), re.I)) and not _cells(t)
+    """A replaced rule that still tells the agent what to say or not to do: a later rule often changes only part of it
+    (e.g. the outcome or a count), so it stays, and the later rule is shown as changing it."""
+    return bool(re.search(r"\bdo not\b|\bdon't\b|\bnever\b|\basks?\b|\boffers?\b|\btell\w*\b|\bsays?\b", _rule_text(t), re.I)) \
+        and not _cells(t)
 
 
 def _changes(p, t, labels, roles):
@@ -923,8 +951,8 @@ def wrap_rules(p):
 
 # data minimisation and disclosure only to the verified person (KVKK / GDPR principles); asking for the customer by
 # the name the bank gives is not a disclosure
-PRIVACY_LINE = ("Privacy: never read back or repeat an identity answer (date of birth, digits). Before identity is verified say nothing"
-                " about the account; to anyone but the verified customer give no personal or account details.")
+PRIVACY_LINE = ("Privacy: never read back or repeat an identity answer (date of birth, digits); before verification say nothing about"
+                " the account; give no personal or account details to anyone but the verified customer.")
 
 
 def default_system_prompt(p):
@@ -935,16 +963,16 @@ def default_system_prompt(p):
     phrases = _bul(["%s: \"%s\"" % (k, v) for k, v in p["phrases"].items() if isinstance(v, str) and v.strip() not in kept])
     return "\n".join(x for x in [
         "You are a bank's digital phone agent on a live call. Speak %s: one to three short sentences per turn, one question at a time." % p["language"],
-        "Use only facts from this prompt, the call variables and tool results; never invent amounts, dates, reasons, policies or offers.",
+        "Use only facts from this prompt, the call variables and tool results; never invent amounts, dates, reasons or offers.",
         PRIVACY_LINE,
         "",
         "Call variables:",
         vars_,
         "",
         "Tools:",
-        "- When a rule says to call a tool, call it; saying you did is not enough. One tool call per message, then wait for its result (several calls in one message run at once and results can be lost). Follow a result's what_to_do_next and speak in the same turn.",
-        "- A failed or stopped call recorded nothing (see 'Status of your last tool request'). Say something was recorded, scheduled or transferred only after a result says it worked; a read-back asks for confirmation, never 'I have recorded' before the result.",
-        "- close_call: last and once, after all other results, in the message with your thanks and goodbye.",
+        "- When a rule says to call a tool, call it. One tool call per message, then wait for its result (several calls in one message run at once and results can be lost). Follow a result's what_to_do_next and speak in the same turn; never end a turn with nothing to say.",
+        "- A failed or stopped call recorded nothing ('Status of your last tool request'): say something was recorded, scheduled or transferred only after a result says so; a read-back asks for confirmation, never 'I have recorded' before the result.",
+        "- close_call: last and once, after all other results, with your thanks and goodbye.",
         "",
         "The bank's rules for every step:",
         rules,
@@ -958,7 +986,7 @@ STATUS_LINE = "Status of your last tool request: {{w_last_event}}"
 NEXT_ACTION = "{{w_next_action}}"
 # the rules on dates, deadlines, bands, floors, the offer ladder and the outcome table are computed by the hooks
 # (prepare_account, check_offer, close_check, note_pre) and are not repeated in the step prompt (rule_roles 'hook')
-HOOK_POINTER = ("The facts above and the tool results give the business days, deadlines, floors, offers and the outcome: use them as given"
+HOOK_POINTER = ("The facts above and tool results give business days, deadlines, floors, offers and the outcome: use them as given"
                 " (weekdays and years only from the calendar facts). A promise: an amount from the floor to the full amount, a business day"
                 " from today to the product's deadline. A date or an amount the customer names is never a refusal.")
 
@@ -1238,9 +1266,9 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
         "name": "wrap_up", "node_type": "conversation",
         "on_enter": {"type": "llm", "prompt": P.get("wrap_up.on_enter",
                                                    "Before the call can be closed: {{w_wrap_todo}} Do it now with the tools, one tool call per message. The customer already heard your goodbye: do not say it again or describe what you record; if you must speak, say only 'One moment, please.'")},
-        "task_message": P.get("wrap_up.task", "The call is about to be closed. Before that: {{w_wrap_todo}}\n"
-                              "Use the tools for it, one tool call per message, and wait for each result. The customer already heard your goodbye: do not say it again or describe what you record; if you must speak, say only 'One moment, please.' "
-                              "Then call close_call again with the outcome that applies.\n" + STATUS_LINE + wrap_text),
+        "task_message": P.get("wrap_up.task", "Before the close: {{w_wrap_todo}}\n"
+                              "Use the tools, one call per message, after each result. The customer heard your goodbye: do not say it again or describe what you record; if you must speak, say only 'One moment, please.' "
+                              "Then call close_call again.\n" + STATUS_LINE + wrap_text),
         "tools": wrap_tools,
         "max_node_turns": 4, "max_turn_transition": "finish",
         "transitions": [{"target_node": "finish", "description": "the model asked to close the call",

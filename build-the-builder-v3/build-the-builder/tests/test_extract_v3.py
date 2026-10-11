@@ -23,7 +23,9 @@ class ExtractV3(unittest.TestCase):
         txt = extract.rules_prompt("DOCS")
         self.assertIn("[overrides <id>] ", txt)
         self.assertIn("left out of the agent's prompt", txt)
-        self.assertIn("not when it merely adds", txt)
+        self.assertIn("ONLY for a full replacement", txt)
+        self.assertIn("changes part of a rule", txt)
+        self.assertNotIn("replaces or changes", txt)
         self.assertTrue(txt.rstrip().endswith("DOCS"))
 
 

@@ -620,10 +620,11 @@ def rules_prompt(docs_text):
         "extension>.<short section slug>.<k>\".\n"
         "- Tables: one entry per table row, written as the header names with that row's values, verbatim.\n"
         "- Include sub-bullets inside their rule's text. Keep the exact wording, numbers, quotes and placeholders.\n"
-        "- If a later document or memo replaces or changes a rule, keep both, and start the later one's text with "
+        "- If a later document or memo replaces a rule as a whole, keep both, and start the later one's text with "
         "\"[overrides <id>] \" (several ids comma-separated). The replaced rule is then left out of the agent's "
-        "prompt, so mark it only when the later rule really replaces or contradicts it, not when it merely adds "
-        "to it.\n\nDocuments:\n%s\n" % docs_text)
+        "prompt, so use the mark ONLY for a full replacement: a later rule that changes part of a rule (a number, "
+        "an outcome, one case) or merely adds to it gets no mark; the earlier rule stays in force for the rest."
+        "\n\nDocuments:\n%s\n" % docs_text)
 
 
 def resolve_prompt(conflicts, docs_text, tools):
