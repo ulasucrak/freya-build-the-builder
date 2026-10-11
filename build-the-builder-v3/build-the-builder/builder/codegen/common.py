@@ -115,12 +115,13 @@ def body_of(config):
 
 
 def block_request(config, vs, flag, info, tool=""):
-    """Stop a request before it reaches the bank. The URL is replaced by one that cannot resolve and whose host
-    name says why; the explanation is also stored in w_last_event, which every conversation prompt shows, because
-    the post-hook does not run for a request that never got an HTTP response."""
+    """Stop a request before it reaches the bank's operation. It goes to a reserved path on the tool's OWN host
+    (the agent may call no other service), which records nothing and answers an error; post-hooks see the block
+    flag and say why. The explanation is also stored in w_last_event, which every conversation prompt shows."""
     code = re.sub(r"[^a-z0-9]+", "-", str((info or dict()).get("code") or "rule").lower()).strip("-")[:30]
     try:
-        config["url"] = "https://not-sent-" + (code or "rule") + "-nothing-recorded.invalid/"
+        m = re.match(r"(https?://[^/?#]+)", str(config.get("url") or ""))
+        config["url"] = (m.group(1) if m else "") + "/not-sent-" + (code or "rule") + "-nothing-recorded"
     except Exception:
         pass
     vset(vs, flag, json.dumps(info))

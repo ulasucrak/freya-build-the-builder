@@ -113,7 +113,7 @@ class Sim:
         if t.get("pre_process_code"):
             run(t["pre_process_code"], self.vs, "config", cfg)
         self.vs[name + "_args"] = cfg["body"]
-        if ".invalid" in cfg["url"]:
+        if "/not-sent-" in cfg["url"]:
             self.vs[name + "_failure_count"] = self.vs.get(name + "_failure_count", 0) + 1
             return cfg, None, self.vs.get("w_last_event", "")
         result = {"status": status, "data": dict(response or {"ok": True}), "status_code": 200 if status == "success" else 500,
@@ -132,7 +132,7 @@ class Sim:
         """The model's close_call (a close request), then the engine's close_check -> (wrap_up | finish -> close_api).
         Returns (route, final close body or None, wrap to-do text)."""
         cfg, _r, _m = self.call(node, "close_call", body)
-        assert ".invalid" in cfg["url"], "the model's close_call must never reach the bank"
+        assert "/not-sent-" in cfg["url"], "the model's close_call must never reach the bank"
         return self.engine_close()
 
     def close_until_done(self, node, body, tries=4):
@@ -141,7 +141,7 @@ class Sim:
         holds = 0
         for _ in range(tries):
             cfg, _r, _m = self.call(node, "close_call", body)
-            assert ".invalid" in cfg["url"], "the model's close_call must never reach the bank"
+            assert "/not-sent-" in cfg["url"], "the model's close_call must never reach the bank"
             if self.vs.get("w_close_requested") != "yes":
                 holds += 1
                 continue
@@ -766,7 +766,7 @@ class Snippets(unittest.TestCase):
         self.assertEqual(self.sim.vs["w_last_event"], "none")
         # a second promise for the same product is stopped
         cfg, _r, msg = self.sim.call("negotiate", "create_promise", {"product_id": "p1", "amount": 300, "date": "2026-10-30"})
-        self.assertIn(".invalid", cfg["url"])
+        self.assertIn("/not-sent-", cfg["url"])
         # service failure (bank answered ok=false): retry once, then give up honestly; the note is kept for the end
         _c, _r, msg = self.sim.call("negotiate", "create_promise", {"product_id": "p2", "amount": 900, "date": "2026-10-23"},
                                     {"ok": False, "error": "boom"})
@@ -892,7 +892,7 @@ class Snippets(unittest.TestCase):
         self.sim.vs["w_id_state"] = "verified"
         outs = self.sim.parallel("negotiate", [("transfer_to_agent", {"queue": "restructuring"}),
                                                ("close_call", {"outcome": "transferred", "reason": "restructuring"})])
-        self.assertIn(".invalid", outs[1][0]["url"])                 # the model's close never reaches the bank
+        self.assertIn("/not-sent-", outs[1][0]["url"])                 # the model's close never reaches the bank
         self.assertEqual(self.sim.vs.get("w_transfer_q_restructuring"), "restructuring")
         route, body, _t = self.sim.engine_close()
         self.assertEqual((route, body["outcome"], body["reason"]), ("finish", "transferred", "restructuring"))
@@ -943,7 +943,7 @@ class Snippets(unittest.TestCase):
         _c, _r, msg = self.sim.call("negotiate", "transfer_to_agent", {"queue": "restructuring"})
         self.assertIn("'transferred'", msg)
         cfg, _r, _m = self.sim.call("negotiate", "add_note", {"product_id": "p2", "reason": "refused"})
-        self.assertIn(".invalid", cfg["url"])
+        self.assertIn("/not-sent-", cfg["url"])
         cfg, _r, _m = self.sim.call("negotiate", "create_promise", {"product_id": "p2", "amount": 900, "date": "2026-10-16"})
         self.assertIn("not-sent-after-transfer", cfg["url"])
         route, body, _t = self.sim.close("negotiate", {"outcome": "promise"})
@@ -986,13 +986,13 @@ class Snippets(unittest.TestCase):
         self.assertEqual(fc["config"]["alwaysRunsAt"], ["end_of_call"])
         cfg = {"url": "u", "body": {"outcome": "", "reason": ""}}
         run(fc["pre_process_code"], dict(self.sim.vs, w_close_done="yes"), "config", cfg)
-        self.assertIn(".invalid", cfg["url"])
+        self.assertIn("/not-sent-", cfg["url"])
         cfg = {"url": "u", "body": {"outcome": "", "reason": ""}}
         run(fc["pre_process_code"], dict(self.sim.vs, w_promised="p1", w_close_done="no"), "config", cfg)
         self.assertEqual((cfg["url"], cfg["body"]), ("u", {"outcome": "promise"}))
         cfg = {"url": "u", "body": {}}
         run(fc["pre_process_code"], {"now": "2026-10-14T11:00"}, "config", cfg)   # nothing known: send nothing
-        self.assertIn(".invalid", cfg["url"])
+        self.assertIn("/not-sent-", cfg["url"])
 
     def test_hooks_survive_garbage(self):
         for node in ("greet_verify", "negotiate"):
@@ -1038,7 +1038,7 @@ class RunFixes250(unittest.TestCase):
         t = [x for x in self.wf["nodes"][node]["tools"] if x["function"]["name"] == tool][0]
         cfg = {"url": "https://bank/" + tool, "body": dict(body)}
         exec(t["pre_process_code"], {"config": cfg, "vars": self.vs})
-        return "invalid" not in cfg["url"], cfg["body"]
+        return "/not-sent-" not in cfg["url"], cfg["body"]
 
     def products(self, raw_products):
         self.vs["w_account_products"] = raw_products
@@ -1226,3 +1226,14 @@ class Generalization(unittest.TestCase):
         self.assertIn("never ask about today again", wb["nodes"]["negotiate"]["task_message"])
         self.assertNotIn("never ask about today again", wa["nodes"]["negotiate"]["task_message"])    # one product: not needed
         self.assertIn("is one amount", wa["nodes"]["negotiate"]["task_message"])
+
+
+    def test_stopped_requests_stay_on_the_tools_own_host(self):
+        """Final rule: the agent may call only our mock. A stopped request goes to the same host, never elsewhere."""
+        wf = G.generate_workflow(raw("brief-b"))
+        t = tool(wf, "negotiate", "create_promise")
+        cfg = {"url": "https://my-mock.example.workers.dev/v1/create_promise", "body": {"product_id": "p9", "amount": 1, "date": "2026-10-14"}}
+        vs = {"now": "2026-10-14T11:00", "w_products_json": json.dumps([{"id": "p1", "full": 100.0, "floor": 30.0, "deadline": "2026-10-23", "offers": []}])}
+        exec(t["pre_process_code"], {"config": cfg, "vars": vs})
+        self.assertTrue(cfg["url"].startswith("https://my-mock.example.workers.dev/not-sent-"), cfg["url"])
+        self.assertNotIn(".invalid", json.dumps(wf))                     # no other host anywhere in the workflow

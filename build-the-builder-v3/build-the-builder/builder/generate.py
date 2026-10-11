@@ -49,7 +49,6 @@ except ImportError:  # run as a plain script
 
 HERE = pathlib.Path(__file__).resolve().parent
 CODEGEN = HERE / "codegen"
-BLOCK_URL = "https://blocked.invalid/not-sent"
 
 ROLES = {
     "verify": ("verify_identity", ["verify", "identity"]),
@@ -278,7 +277,6 @@ def _names(p, opts):
         "next_weekday": p["dates"].get("next_weekday") or "",
         "guard": "on" if opts["guard"] else "off",
         "offer_tool": "check_offer" if opts.get("check_tool") else "",   # persuasion offers come from the tool, not the facts
-        "block_url": BLOCK_URL,
         "verify_tool": t["verify"], "promise_tool": t["promise"], "note_tool": t["note"],
         "callback_tool": t["callback"], "transfer_tool": t["transfer"], "close_tool": t["close"],
         "account_node": "load_account", "close_node": "close_api",
