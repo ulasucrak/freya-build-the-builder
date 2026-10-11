@@ -30,11 +30,16 @@ vset(vs, "w_notes_rule", ("Decide a note reason for each product without a promi
 # question; spoken as a fixed line (no model call). Only from the account data; never a placeholder.
 E = RT.get("entry") or dict()
 line = ""
+hit = ""
 if E:
     if prods:
         parts = [str(E.get("intro") or "")]
         for p in prods:
-            nm_ = str(p.get("name") or "").strip() or ("product " + str(p.get("id") or p.get("index")))
+            nm_ = str(p.get("name") or "").strip()
+            # a template field the account lacks ('credit card ending {card_last4}'): drop the dangling words
+            while re.search(r"\s(ending|in|with|at|of|for|number|no\.?|#)$", nm_, re.I):
+                nm_ = re.sub(r"\s+\S+$", "", nm_)
+            nm_ = nm_ or ("product " + str(p.get("id") or p.get("index")))
             nm_ = nm_ if nm_.lower().startswith("your ") else "your " + nm_
             d = p.get("days_late")
             a = money(p.get("full"))
@@ -47,7 +52,18 @@ if E:
             if d is None and not a:
                 s += " has a late payment"
             parts.append(s + ".")
-        parts.append(str((E.get("many") if len(prods) > 1 else E.get("one")) or ""))
+        # a data-decided trigger that matches (e.g. total past due over a limit -> transfer): no payment question
+        for c in E.get("conds") or []:
+            vals = [to_number(r.get(c.get("field"))) for r in raw if isinstance(r, dict)]
+            vals = [v for v in vals if v is not None]
+            if c.get("over") == "all_products_sum":
+                vals = [sum(vals)] if vals else []
+            ok = [v for v in vals if {">": v > c["value"], ">=": v >= c["value"], "<": v < c["value"], "<=": v <= c["value"],
+                                      "==": v == c["value"], "!=": v != c["value"]}.get(c.get("op"))]
+            if ok and (c.get("over") not in ("each_product", "all_products") or len(ok) == len(vals)):
+                hit = hit or str(c.get("name"))
+        if not hit:
+            parts.append(str((E.get("many") if len(prods) > 1 else E.get("one")) or ""))
         line = " ".join([x for x in parts if x])
     else:
         line = "Thank you. I am sorry, I cannot see your account details at the moment."
@@ -55,7 +71,8 @@ if E:
 vset(vs, "w_entry_line", line)
 ids = ", ".join([str(p.get("id")) for p in prods])
 if prods and line:
-    vset(vs, "w_next_action", "Verified; " + str(len(prods)) + " product(s): " + ids + ". Debt and first question already said: answer the reply.")
+    vset(vs, "w_next_action", "Verified; " + str(len(prods)) + " product(s): " + ids + ". Debt already said; "
+         + (("rule '" + hit + "' applies: follow it now.") if hit else "first question asked: answer the reply."))
 elif prods:
     vset(vs, "w_next_action", "Verified; " + str(len(prods)) + " product(s): " + ids + ". Next: state the debt, then handle each product.")
 else:

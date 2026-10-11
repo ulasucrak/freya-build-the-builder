@@ -123,12 +123,62 @@ class StaticEntry(unittest.TestCase):
         self.assertEqual(into, ["greet_verify"])
 
 
+class EntryReviewFixes(unittest.TestCase):
+    """FX1 review: data-decided triggers, missing digit fields, non-English policies."""
+
+    def s4(self, past_due):
+        wf = G.generate_workflow(json.loads((KIT / "policies" / "S4.policy.json").read_text()), None, OA)
+        s = TG.Sim(wf, customer_id="c1")
+        s.account([{"product_id": "p1", "type": "credit_card", "card_last4": "1234", "past_due": past_due, "days_late": 4, "minimum_payment": 90},
+                   {"product_id": "p2", "type": "loan", "past_due": 400, "days_late": 9, "instalment_amount": 100}])
+        return s
+
+    def test_high_balance_condition_drops_the_pay_today_question(self):
+        s = self.s4(2500)                      # 2900 in total: no trigger, the question is asked
+        self.assertTrue(s.vs["w_entry_line"].endswith("Can you pay everything today?"))
+        s = self.s4(2700)                      # 3100 > 3000: high_balance (transfer, do not collect)
+        line = s.vs["w_entry_line"]
+        self.assertNotIn("today", line)
+        self.assertTrue(line.endswith("the past-due amount is 400."), line)
+        self.assertIn("high_balance", s.vs["w_next_action"])
+
+    def test_unreadable_condition_keeps_the_model(self):
+        p = TG.raw("brief-b")
+        p["triggers"] = list(p["triggers"]) + [dict(name="odd", detect="x", action="transfer", condition={"over": "household", "field": "x", "op": ">", "value": 1})]
+        self.assertIsNone(G.static_entry(S.normalise(p)))
+        p["triggers"][-1]["condition"] = {"over": "any_product", "field": "past_due", "op": ">", "value": 1000}
+        e = G.static_entry(S.normalise(p))
+        self.assertEqual(e["conds"], [dict(name="odd", over="any_product", field="past_due", op=">", value=1000)])
+        s = TG.Sim(G.generate_workflow(p), customer_id="c1")
+        s.account([dict(CARD), dict(LOAN)])            # 912.50: no product over 1000
+        self.assertTrue(s.vs["w_entry_line"].endswith("today?"))
+        s.account([dict(CARD), dict(LOAN, past_due=1200)])
+        self.assertFalse(s.vs["w_entry_line"].endswith("?"))
+
+    def test_missing_digits_drop_ending(self):
+        for name in ("brief-a", "S1.policy.json", "S7.policy.json"):
+            pol = TG.raw(name) if name in TG.ALL else json.loads((KIT / "policies" / name).read_text())
+            s = entry_after(G.generate_workflow(pol, None, OA), [dict(CARD, card_last4=None)])
+            line = s.vs["w_entry_line"]
+            self.assertIn("Your credit card is 4 days late", line, name)
+            self.assertNotRegex(line, r"ending( in)?\s*(is|has|,|\.)", name)
+
+    def test_non_english_policy_keeps_the_model(self):
+        p = TG.raw("brief-a")
+        p["language"] = "German"
+        self.assertIsNone(G.static_entry(S.normalise(p)))
+        self.assertEqual(G.generate_workflow(p)["nodes"]["negotiate"]["on_enter"]["type"], "llm")
+        p["language"] = "English (UK)"
+        self.assertIsNotNone(G.static_entry(S.normalise(p)))
+
+
 class ShortReplies(unittest.TestCase):
     def test_system_prompt_caps_reply_length(self):
         for name, pol in POLICIES:
             sysp = G.generate_workflow(pol, None, OA)["system_prompt"]
             self.assertIn("one or two short sentences (max 120 chars)", sysp, name)
-            self.assertIn("no repeats but the read-back", sysp, name)
+            self.assertIn("do not repeat unasked", sysp, name)          # S7 brief.30: repeat amounts/dates when asked
+            self.assertNotIn("no repeats", sysp, name)
             self.assertNotIn("one to three", sysp.splitlines()[0], name)
 
     def test_next_action_after_the_entry_is_short(self):

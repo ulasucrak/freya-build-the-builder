@@ -567,6 +567,8 @@ def static_opening(p):
     return ""
 
 
+_COND_OVER = ("all_products_sum", "any_product", "each_product", "all_products")
+_COND_OPS = (">", ">=", "<", "<=", "==", "!=")
 _MANY_RX = re.compile(r"\b(all|every|everything|multi|multiple|several|them|both)\b", re.I)
 _PAY_RX = re.compile(r"\b(pay|paid|clear|settle|payment)\b", re.I)
 _DEBT_RX = re.compile(r"days late|days overdue|days in arrears|days past due|how many days|number of days|one sentence each"
@@ -583,6 +585,19 @@ def static_entry(p):
     sentence per late product (product name in words, days late, the past-due amount) and the first payment question,
     quoted in the brief (one product / several products). The prepare_account code fills it in per call, so the model
     is not asked to write the longest line of the call. None when anything is left open (then the model speaks it)."""
+    if not str(p.get("language") or "English").strip().lower().startswith("english"):
+        return None                     # the fixed wording below is English
+    # a trigger decided by the account data (e.g. 'total past due over 3000 -> transfer, do not collect'): the code
+    # checks it and leaves the payment question out when it matches; a condition it cannot read keeps the model
+    conds = []
+    for t in p["triggers"]:
+        c = t.get("condition")
+        if not c:
+            continue
+        if not isinstance(c, dict) or c.get("over") not in _COND_OVER or c.get("op") not in _COND_OPS \
+                or not isinstance(c.get("field"), str) or not isinstance(c.get("value"), (int, float)) or isinstance(c.get("value"), bool):
+            return None
+        conds.append(dict(name=t["name"], over=c["over"], field=c["field"], op=c["op"], value=c["value"]))
     texts = [r["text"] for r in p["rules"]] + [x for x in (p["products"].get("notes") or []) if isinstance(x, str)]
     debt = [t for t in texts if _DEBT_RX.search(t)]
     if not debt:
@@ -620,7 +635,7 @@ def static_entry(p):
                                 ("past due", "past-due amount"), ("overdue", "overdue amount")) if k in low), "past-due amount")
     late = next((n for k, n in (("days late", "late"), ("days overdue", "overdue"), ("days in arrears", "in arrears"),
                                 ("days past due", "past due")) if k in low), "late")
-    return {"intro": intro, "noun": noun, "late": late, "one": one, "many": many or one}
+    return {"intro": intro, "noun": noun, "late": late, "one": one, "many": many or one, "conds": conds}
 
 
 def _pre_verification_outcomes(p):
@@ -1175,7 +1190,7 @@ def wrap_rules(p):
 # data minimisation and disclosure only to the verified person (KVKK / GDPR principles); asking for the customer by
 # the name the bank gives is not a disclosure
 # long replies are slow (live: under 60 characters 0.7 s, over 300 characters 5 s) and the customer hears every word
-SHORT_LINE = "one or two short sentences (max 120 chars), one question at a time; no repeats but the read-back."
+SHORT_LINE = "one or two short sentences (max 120 chars), one question at a time; do not repeat unasked."
 PRIVACY_LINE = ("Privacy: never read back or repeat an identity answer (date of birth, digits); before verification say nothing about"
                 " the account; give no personal or account details to anyone but the verified customer.")
 
