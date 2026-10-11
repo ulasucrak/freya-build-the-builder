@@ -7,12 +7,28 @@
 //
 // test-customers.json is looked up in $TEST_CUSTOMERS_JSON, then next to the repo ("Build the Builder - Final Case").
 // Set SKIP_SLOW=1 to skip the one real 12-second delay check.
+//
+// Live check (optional):  node final-mock/test_mock.mjs --url https://freya-statement-mock.ulasucrak.workers.dev
+// Same requests, but sent over HTTP to the deployed Worker instead of calling worker.fetch() in-process: the pairs run
+// 8 at a time, 20 s timeout per request, the real 12 s delaySeconds case included (SKIP_SLOW is ignored), and the
+// summary line reads "live <url>: N/N request/response pairs identical".
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import worker from "./worker.js";
+
+const argv = process.argv.slice(2);
+const urlArg = argv.findIndex((a) => a === "--url" || a.startsWith("--url="));
+const LIVE = urlArg < 0 ? null
+  : (argv[urlArg].startsWith("--url=") ? argv[urlArg].slice(6) : argv[urlArg + 1] || "").trim().replace(/\/+$/, "");
+if (LIVE !== null && !/^https?:\/\/[^/\s]+/.test(LIVE)) {
+  console.error("usage: node final-mock/test_mock.mjs [--url https://<worker>.workers.dev]");
+  process.exit(2);
+}
+const CONCURRENCY = 8; // live mode: requests in flight
+const TIMEOUT_MS = 20000; // live mode: per request
+const worker = LIVE ? null : (await import("./worker.js")).default;
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CASE_REL = path.join("Build the Builder - Final Case", "test-environment", "test-customers.json");
@@ -31,23 +47,62 @@ let passed = 0;
 let failed = 0;
 const failures = [];
 
+// One request -> { status, headers, text }. Local: the worker's fetch() in-process. Live (--url): real HTTP to the
+// deployed Worker (env is ignored, so the real delaySeconds wait happens), 20 s timeout covering the body read,
+// one retry for a network error / timeout (a wrong answer is never retried).
+async function send(pathname, init, env = FAST) {
+  if (!LIVE) {
+    const res = await worker.fetch(new Request("https://mock.test" + pathname, init), env);
+    return { status: res.status, headers: res.headers, text: await res.text() };
+  }
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const res = await fetch(LIVE + pathname, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) });
+      return { status: res.status, headers: res.headers, text: await res.text() };
+    } catch (e) {
+      if (attempt >= 2) throw new Error(`${init.method} ${pathname}: ${e.cause?.code || e.name}: ${e.message}`);
+    }
+  }
+}
+
 async function call(pathname, body, { method = "POST", env = FAST, raw = false } = {}) {
   const init = { method, headers: { "Content-Type": "application/json", Authorization: "Bearer test" } };
   if (method !== "GET" && method !== "HEAD" && body !== undefined) init.body = raw ? body : JSON.stringify(body);
-  const res = await worker.fetch(new Request("https://mock.test" + pathname, init), env);
-  const text = await res.text();
+  const { status, headers, text } = await send(pathname, init, env);
   let json = null;
   try { json = JSON.parse(text); } catch { /* not JSON */ }
-  return { status: res.status, text, json, headers: res.headers };
+  return { status, text, json, headers };
 }
 
 async function check(name, fn) {
   try {
     await fn();
     passed++;
+    return true;
   } catch (e) {
     failed++;
     failures.push(`${name}: ${e.message.split("\n").slice(0, 6).join(" | ")}`);
+    return false;
+  }
+}
+
+// Runs fn(item) for all items, `limit` at a time.
+async function pool(items, limit, fn) {
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) await fn(items[next++]);
+  }));
+}
+
+const T_START = Date.now();
+if (LIVE) {
+  console.log(`LIVE mode: ${LIVE}  (${CONCURRENCY} at a time, ${TIMEOUT_MS / 1000} s timeout per request, real delaySeconds wait)`);
+  try {
+    const h = await send("/health", { method: "GET" });
+    if (h.status !== 200) throw new Error(`GET /health -> HTTP ${h.status}`);
+  } catch (e) {
+    console.error(`live URL not reachable: ${e.message}`);
+    process.exit(2);
   }
 }
 
@@ -120,18 +175,24 @@ for (const cu of customers) {
 
 let filePairs = 0;
 let filePairsOk = 0;
-for (const [label, p, body, entry, variant] of pairs) {
+const liveSlow = []; // live mode: the delaySeconds pair(s) with the seconds they really took
+await pool(pairs, LIVE ? CONCURRENCY : 1, async ([label, p, body, entry, variant]) => {
   if (!variant) filePairs++;
-  const before = failed;
-  await check(label, async () => {
+  const t0 = Date.now();
+  const ok = await check(label, async () => {
     const res = await call(p, body);
     assert.equal(res.status, entry.http, `status ${res.status} != ${entry.http}`);
     assert.deepStrictEqual(res.json, entry.response);
     assert.ok(!("delaySeconds" in res.json), "delaySeconds leaked into the body");
     assert.match(res.headers.get("content-type") || "", /application\/json/);
+    if (LIVE && entry.delaySeconds) {
+      const waited = (Date.now() - t0) / 1000;
+      liveSlow.push(`${label} answered after ${waited.toFixed(1)}s (delaySeconds ${entry.delaySeconds})`);
+      assert.ok(waited >= entry.delaySeconds - 0.05, `answered after ${waited}s, expected >= ${entry.delaySeconds}s`);
+    }
   });
-  if (!variant && failed === before) filePairsOk++;
-}
+  if (!variant && ok) filePairsOk++;
+});
 
 // The answer text keeps the file's number literals (e.g. "transferAmount":0.0), not just equal values.
 await check("number literals preserved", async () => {
@@ -280,15 +341,15 @@ await check("GET /health -> 200 {ok:true}", async () => {
   assert.deepStrictEqual(res.json, { ok: true });
 });
 await check("OPTIONS preflight -> 204 + CORS", async () => {
-  const res = await worker.fetch(new Request("https://mock.test/voice/v1/cards.list", { method: "OPTIONS" }), FAST);
+  const res = await send("/voice/v1/cards.list", { method: "OPTIONS" });
   assert.equal(res.status, 204);
   assert.equal(res.headers.get("access-control-allow-origin"), "*");
 });
 await check("POST /oauth2/token -> test token", async () => {
-  const res = await worker.fetch(new Request("https://mock.test/oauth2/token", { method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "grant_type=client_credentials&scope=voice.statement" }), FAST);
+  const res = await send("/oauth2/token", { method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "grant_type=client_credentials&scope=voice.statement" });
   assert.equal(res.status, 200);
-  const j = await res.json();
+  const j = JSON.parse(res.text);
   assert.equal(j.token_type, "Bearer");
   assert.equal(j.expires_in, 1800);
 });
@@ -304,7 +365,14 @@ for (const cu of customers) {
     walk(node, []);
   }
 }
-if (process.env.SKIP_SLOW) {
+if (LIVE) {
+  // the pairs above already waited for the real delay (timed there), nothing more to wait for
+  for (const line of liveSlow) console.log("delay check: " + line);
+  if (liveSlow.length !== slow.length) {
+    failed++;
+    failures.push(`delay check: ${liveSlow.length} of ${slow.length} slow entries answered with the expected wait`);
+  }
+} else if (process.env.SKIP_SLOW) {
   console.log(`SKIPPED real-delay check (${slow.length} slow entr${slow.length === 1 ? "y" : "ies"})`);
 } else {
   for (const [svc, keys, e] of slow) {
@@ -323,7 +391,8 @@ if (process.env.SKIP_SLOW) {
 
 // ------------------------------------------------------------------------------------------------ summary
 
-console.log(`test-customers.json: ${filePairsOk}/${filePairs} request/response pairs identical (status + body)`);
-console.log(`all checks: ${passed} passed, ${failed} failed (incl. string/number variants and error cases)`);
+console.log(`${LIVE ? `live ${LIVE}` : "test-customers.json"}: ${filePairsOk}/${filePairs} request/response pairs identical (status + body)`);
+console.log(`all checks: ${passed} passed, ${failed} failed (incl. string/number variants and error cases)` +
+  (LIVE ? `, ${((Date.now() - T_START) / 1000).toFixed(1)} s` : ""));
 for (const f of failures.slice(0, 30)) console.log("FAIL " + f);
 process.exit(failed ? 1 : 0);

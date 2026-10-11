@@ -2,9 +2,11 @@
 """Generate openapi.json (OpenAPI 3.0) for the mock:  python3 final-mock/gen_openapi.py [out.json]
 
 Inline schemas only (no $ref): the builder reads requestBody/response properties directly.
-The servers URL is a placeholder (REPLACE) filled in after deploy.
+The servers URL is SERVER_URL below (the deployed Worker); override it with the MOCK_URL environment variable.
 """
 import json, os, sys
+
+SERVER_URL = os.environ.get("MOCK_URL") or "https://freya-statement-mock.ulasucrak.workers.dev"
 
 S = lambda d, **kw: {"type": "string", "description": d, **kw}
 I = lambda d, **kw: {"type": "integer", "description": d, **kw}
@@ -276,7 +278,7 @@ spec = {
         "version": "2026-10-01",
         "description": "Mock of Freya Bank's seven voice-assistant services for the statement/debt use case, per the bank's service contract of 1 October 2026. Every service is POST with JSON in and out. Request body: {\"data\": {service fields}, \"call\": {\"ani\": caller's number, \"lang\": \"tr\"}}. Response: {\"data\": {...}, \"result\": {...}}; success = HTTP 200 and result.returnCode \"1\"; error answers carry only result (returnCode/code, messageText/message, type ERROR or WARNING). Dates are strings dd.MM.yyyy; amounts are JSON numbers with a dot decimal separator, never rounded. Services return raw values only, no sentences for the caller. The caller is already identified: start from cards_list with the customer number. Send cardNumber exactly as cards_list returned it. The test environment does not check the token, headers or the call object; only data fields decide the answer.",
     },
-    "servers": [{"url": "https://freya-statement-mock.REPLACE.workers.dev"}],
+    "servers": [{"url": SERVER_URL}],
     "paths": paths,
     "components": {},
 }
