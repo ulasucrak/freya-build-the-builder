@@ -29,18 +29,20 @@ MAX_EDITS = 40
 SYSTEM = (
     "You review the dialogue prompts of a phone agent that runs on the Freya platform as a graph of steps. "
     "A deterministic generator already built the graph, the code steps, the tool calls, the routing and complete "
-    "default texts from a policy extracted from the bank's brief. You make targeted edits so the texts follow the "
-    "brief exactly. You never invent rules, numbers, names or phrases that are not in the brief."
+    "default texts from a policy extracted from the brief. You make targeted edits so the texts follow the "
+    "brief exactly. You never invent rules, numbers, names or phrases that are not in the brief. Everything the agent "
+    "says aloud is in the language of the calls; phrases the brief quotes stay verbatim."
 )
 
 RULES = """How the platform uses these texts:
 - system_prompt is part of the dialogue prompt in every step. task_message is the instruction for one step only; loop_prompt (if present) replaces it from the second turn in that step.
 - Routing is decided elsewhere: never describe routing or name other steps. If a step has tools, refer to them by name.
-- The current texts were generated from the policy and work together with the code steps: keep their instructions about tools, tool results, `what_to_do_next` hints, facts blocks and closing unless the brief contradicts them.
-- Your job: find what is missing or wrong compared with the BRIEF (verbatim sentences the brief prescribes, rules the policy lost, wrong wording, forbidden words before identity is verified, honesty about failed tools) and fix it with small edits. Do not restate what is already there.
+- The current texts were generated from the policy and work together with the code steps: keep their instructions about tools, tool results, `what_to_do_next` hints, facts blocks and closing (where present) unless the brief contradicts them.
+- Your job: find what is missing or wrong compared with the BRIEF (verbatim sentences the brief prescribes, rules the policy lost, wrong wording, words the brief forbids at some point of the call, honesty about failed tools) and fix it with small edits. Do not restate what is already there.
+- Language: all spoken text is in the LANGUAGE OF THE CALLS given below; a sentence you add for the agent to say is written in that language (instructions about what to do may stay in English). Keep every phrase the brief quotes verbatim, in its own language and spelling: never translate or paraphrase it.
 - Keep the texts short: every turn sends system_prompt plus one step's text, and a longer prompt makes each reply slower. Say each rule once: do not copy a rule from system_prompt into a step (or the other way), do not restate tool descriptions, and add a sentence only where the brief needs it.
 - Short replies are faster (a 300-character reply takes ~5 s, a 60-character one under 1 s): keep the one-or-two-sentence limit in system_prompt and never ask the agent to say more per turn or to repeat facts it already said.
-- A step whose text says its first message "was already spoken" opens with a fixed line built from the account data: do not add an instruction to state the debt or ask the first question again.
+- A step whose text says its first message "was already spoken" opens with a fixed line the code already said: do not add an instruction to say that line again or to ask its question again.
 - Keep every {{placeholder}} spelled exactly as it is. Use only placeholders listed as available. Never write double braces for anything else.
 
 Edit operations (answer with a list; at most %d edits):
@@ -106,6 +108,16 @@ def workflow_outline(wf):
     return out
 
 
+def call_language(policy):
+    """The policy's call language ('German'; a {name: ...} object or a list is reduced to the name), '' when absent."""
+    lang = (policy or {}).get("language") if isinstance(policy, dict) else None
+    if isinstance(lang, dict):
+        lang = lang.get("name") or lang.get("language") or ""
+    elif isinstance(lang, (list, tuple)):
+        lang = next((x for x in lang if isinstance(x, str) and x.strip()), "")
+    return lang.strip() if isinstance(lang, str) else ""
+
+
 def build_request(brief_text, policy, wf, feedback=None, answer=True):
     """User prompt for one prompt-editing call."""
     pol = {k: v for k, v in (policy or {}).items() if k != "tools"}
@@ -114,7 +126,8 @@ def build_request(brief_text, policy, wf, feedback=None, answer=True):
     parts = [RULES, "",
              "BRIEF (all files, in order; later material overrides earlier):", _cut(brief_text, MAX_BRIEF_CHARS), "",
              "POLICY extracted from the brief (JSON):", _cut(json.dumps(pol, ensure_ascii=False), MAX_POLICY_CHARS), "",
-             "TOOLS of the bank API (name -> fields):", json.dumps(tools), "",
+             "TOOLS of the API (name -> fields):", json.dumps(tools), "",
+             "LANGUAGE OF THE CALLS:", call_language(policy) or "not stated: the language of the brief's quoted phrases", "",
              "AVAILABLE VARIABLES for {{placeholders}}:", ", ".join(sorted(known_variables(wf, policy))), "",
              "CURRENT system_prompt:", (wf or {}).get("system_prompt") or "", "",
              "CURRENT STEPS (JSON):", json.dumps(workflow_outline(wf), ensure_ascii=False, indent=1)]

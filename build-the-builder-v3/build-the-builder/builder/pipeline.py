@@ -7,7 +7,13 @@
 
 Hard wall clock: every stage gets a sub-budget and nothing starts that cannot finish before the end; when time runs
 low the best version so far is what stays saved and exported. Every model call, every Freya change and every test
-run goes to the trace (builder/trace.py).
+run goes to the trace (builder/trace.py): <trace_dir>/<slot>-<UTC time>.txt (+ .json), or exactly `trace_out`
+(Builder argument, else the BUILD_TRACE_OUT environment variable) with its JSON twin next to it.
+
+Generic builds: when the tools (policy + tool API) lack a debt-collection role (policy_schema.is_generic) or the
+generator marks the workflow {"meta": {"generic": true}}, the generator builds a generic service agent; validation
+then needs no collection sections, the prompt stage still runs (unless {"meta": {"prompts_complete": true}}) and the
+self-test is skipped with a trace note (its cases and its test-mode bank only model collection agents).
 
 All external calls go through `Deps`, so tests replace them with fakes. Nothing here knows a brief.
 """
@@ -20,6 +26,7 @@ import re
 import sys
 import time
 
+from builder import policy_schema as schema_mod
 from builder import prompts as prompts_mod
 from builder.trace import Budget, CallTimeout, Trace, one_line, run_with_timeout
 
@@ -41,6 +48,11 @@ RETRY_EXTRACT_S = 150        # second, single-replicate extraction after a failu
 POLICY_KEYS = ["source", "variables", "clock", "calendar", "opening", "third_party", "identity", "products",
                "bands", "amounts", "dates", "promise", "callback", "triggers", "notes", "outcomes", "phrases",
                "tools", "rules"]
+# Markers the generator may put in workflow["meta"] (both optional; the pipeline also detects a generic build itself):
+#   "generic": true           a generic service agent (no debt-collection roles): no self-test
+#   "prompts_complete": true  the texts need no LLM prompt stage
+WF_META = "meta"
+TRACE_OUT_ENV = "BUILD_TRACE_OUT"    # fixed path of the text trace (JSON twin next to it), when no trace_out is given
 
 
 class Deps:
@@ -93,16 +105,71 @@ def slot_from_paths(paths):
     return re.sub(r"[^A-Za-z0-9_.-]+", "-", name).strip("-") or "build"
 
 
+def _hidden(path, root):
+    """Dotfiles, files in hidden folders, Office lock files and __MACOSX (as extract.read_documents skips them)."""
+    try:
+        parts = path.relative_to(root).parts
+    except ValueError:
+        parts = (path.name,)
+    return any(x.startswith(".") or x.startswith("~$") or x == "__MACOSX" for x in parts)
+
+
 def expand_briefs(paths):
-    """Files as given; a folder contributes its files in name order (hidden files skipped)."""
+    """Files as given; a folder contributes every file below it, recursively like extract.read_documents (hidden
+    files and folders skipped), in relative-path order."""
     out = []
     for p in paths:
         p = pathlib.Path(p)
         if p.is_dir():
-            out += sorted(str(x) for x in p.iterdir() if x.is_file() and not x.name.startswith("."))
-        else:
+            files = [x for x in p.rglob("*") if x.is_file() and not _hidden(x, p)]
+            out += [str(x) for x in sorted(files, key=lambda x: str(x.relative_to(p)))]
+        elif p.name != ".DS_Store":
             out.append(str(p))
     return out
+
+
+def workflow_meta(wf):
+    """The generator's markers (workflow["meta"]), {} when there are none."""
+    m = wf.get(WF_META) if isinstance(wf, dict) else None
+    return m if isinstance(m, dict) else {}
+
+
+def platform_workflow(wf):
+    """The workflow as Freya gets it: without the generator's markers (workflow["meta"])."""
+    if isinstance(wf, dict) and WF_META in wf:
+        return {k: v for k, v in wf.items() if k != WF_META}
+    return wf
+
+
+def openapi_tool_names(openapi):
+    """Tool names the generator derives from an openapi dict (operationId, else the last path segment)."""
+    out = []
+    paths = openapi.get("paths") if isinstance(openapi, dict) else None
+    for path, ops in (paths if isinstance(paths, dict) else {}).items():
+        for _method, op in (ops if isinstance(ops, dict) else {}).items():
+            if isinstance(op, dict):
+                name = op.get("operationId") or str(path).strip("/").split("/")[-1]
+                if name and name not in out:
+                    out.append(str(name))
+    return out
+
+
+def generic_reason(policy, openapi=None, wf=None):
+    """Why a build is a generic service agent rather than a debt-collection agent, '' when it is not: the
+    generator's marker, else the tools (policy + tool API) lack a role the collection workflow needs. A build with no
+    tools at all gives no evidence either way and counts as collection (the old behaviour)."""
+    if workflow_meta(wf).get("generic") is True:
+        return "marked generic by the generator"
+    names = schema_mod.tool_names(policy or {})
+    names += [n for n in openapi_tool_names(openapi) if n not in names]
+    if not names:
+        return ""
+    tools = {n: {} for n in names}
+    if not schema_mod.is_generic({"tools": tools}):
+        return ""
+    roles = schema_mod.role_tools({"tools": tools})
+    missing = [r for r in schema_mod.REQUIRED_ROLES if r not in roles]
+    return "no tool for %s among %d tools" % ("/".join(missing), len(names))
 
 
 QUIET = False
@@ -118,7 +185,7 @@ def log(msg):
 class Builder:
     def __init__(self, briefs, openapi, slot=None, budget_min=28.0, no_test=False, best_of=1, out_dir=None,
                  trace_dir=None, state_file=None, max_cases=None, repair_rounds=2, no_prompts=False,
-                 deps=None, clock=None, now=None, seed=None):
+                 deps=None, clock=None, now=None, seed=None, trace_out=None):
         self.brief_args = list(briefs)
         self.openapi_path = str(openapi)
         self.slot = slot or slot_from_paths(self.brief_args)
@@ -132,7 +199,10 @@ class Builder:
         self.no_prompts = no_prompts
         self.deps = deps or Deps()
         self.budget = Budget(budget_min * 60.0, clock=clock)
-        self.trace = Trace(self.slot, self.trace_dir, now=now, clock=clock)
+        trace_out = trace_out or os.environ.get(TRACE_OUT_ENV) or None
+        self.trace = Trace(self.slot, pathlib.Path(trace_out).parent if trace_out else self.trace_dir, now=now, clock=clock)
+        if trace_out:
+            self.trace_to(trace_out)
         self.seed = seed if seed is not None else random.randint(1, 10 ** 6)
         self.policy = None
         self.openapi = None
@@ -145,6 +215,23 @@ class Builder:
         self.stage_times = {}
 
     # ------------------------------------------------------------------ helpers
+    def trace_to(self, path):
+        """Write the trace text to exactly `path` (rewritten after every event, like the default
+        <trace_dir>/<slot>-<UTC time>.txt it replaces) and its JSON twin next to it (<path without suffix>.json)."""
+        path = pathlib.Path(path)
+        js = path.with_suffix(".json")
+        if js == path:
+            js = pathlib.Path(str(path) + ".trace.json")
+        old = (self.trace.path, self.trace.json_path)
+        self.trace.path, self.trace.json_path = path, js
+        self.trace.flush()
+        for f in old:
+            if f not in (path, js):
+                try:
+                    os.remove(str(f))
+                except OSError:
+                    pass
+
     def deadline(self, seconds):
         return time.time() + max(0.0, seconds)
 
@@ -243,12 +330,30 @@ class Builder:
         return policy
 
     def minimal_workflow(self):
-        """Last resort when the generator fails on every policy: one conversation step that carries the brief.
-        Valid and submittable, far from good."""
+        """Last resort when the generator fails on every policy: one conversation step that carries the brief (plus
+        the call language and the call variables when the policy names them). Valid and submittable, far from good."""
         text = re.sub(r"\{\{|\}\}", lambda m: m.group(0)[0] + " " + m.group(0)[1], self.brief_text or "")
-        return {"initial_node": "conversation", "system_prompt": "Follow the bank's brief below exactly.\n\n" + text[:60000],
-                "nodes": {"conversation": {"name": "conversation", "node_type": "conversation",
-                                           "task_message": "Handle the call as the brief requires.", "transitions": []}}}
+        head = ["Follow the bank's brief below exactly."]
+        variables = []
+        try:
+            raw = self.policy if isinstance(self.policy, dict) else {}
+            lang = schema_mod.language_name(raw.get("language"))
+            if lang:
+                head.append("Speak %s; keep the brief's quoted phrases verbatim." % lang)
+            variables = [v for v in schema_mod.normalise(raw)["variables"]
+                         if re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", v["name"])]
+        except Exception:  # noqa: BLE001
+            variables = []
+        if variables:
+            head.append("Call variables (set by the system; never ask the caller for them): "
+                        + ", ".join("%s = {{%s}}" % (v["name"], v["name"]) for v in variables))
+        wf = {"initial_node": "conversation", "system_prompt": "\n".join(head) + "\n\n" + text[:60000],
+              "nodes": {"conversation": {"name": "conversation", "node_type": "conversation",
+                                         "task_message": "Handle the call as the brief requires.", "transitions": []}}}
+        tv = {v["name"]: str(v["example"]) for v in variables if v.get("example") not in (None, "")}
+        if tv:
+            wf["test_variables"] = tv
+        return wf
 
     def validate_policy(self, policy):
         try:
@@ -347,7 +452,7 @@ class Builder:
     def dry_run(self, wf):
         """None when the platform accepts the workflow, else the error text."""
         try:
-            self.call_freya(CAP_DRY_RUN_S, self.deps.freya.validate_workflow, "%s dry-run" % self.slot, wf)
+            self.call_freya(CAP_DRY_RUN_S, self.deps.freya.validate_workflow, "%s dry-run" % self.slot, platform_workflow(wf))
             return None
         except CallTimeout as e:
             return "timeout: %s" % e
@@ -372,7 +477,8 @@ class Builder:
     def save_and_export(self, wf, label):
         t0 = self.stage_start("save")
         try:
-            info = self.call_freya(CAP_SAVE_S, self.deps.freya.save_workflow, self.slot, wf, state_file=self.state_file)
+            info = self.call_freya(CAP_SAVE_S, self.deps.freya.save_workflow, self.slot, platform_workflow(wf),
+                                   state_file=self.state_file)
         except Exception as e:
             self.stage_end("save", t0, "failed", one_line(e, 300))
             raise
@@ -517,8 +623,16 @@ class Builder:
 
             t0 = self.stage_start("generate")
             wf0, how = self.generate_safe()
-            self.stage_end("generate", t0, how, "%d nodes" % len(wf0.get("nodes") or {}))
-            prompts = self.do_prompts(wf0) if how != "minimal" else {}
+            generic = generic_reason(self.policy, self.openapi, wf0)
+            self.stage_end("generate", t0, how, "%d nodes%s" % (len(wf0.get("nodes") or {}),
+                                                             ("; generic service agent (%s)" % generic) if generic else ""))
+            prompts = {}
+            if how == "minimal":
+                pass
+            elif workflow_meta(wf0).get("prompts_complete") is True:
+                self.trace.note("prompts stage skipped: the generated workflow carries complete prompts")
+            else:
+                prompts = self.do_prompts(wf0)
             wf1 = None
             if prompts:
                 try:
@@ -537,6 +651,9 @@ class Builder:
 
             if self.no_test:
                 self.trace.note("self-test skipped (--no-test)")
+            elif generic:
+                self.trace.note("self-test skipped: generic service agent (%s); the synthetic cases and the test-mode "
+                                "bank cover debt-collection agents only" % generic)
             else:
                 self.self_test_and_repair()
             status = "ok"
