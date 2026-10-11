@@ -1,0 +1,263 @@
+PASS EDGE-01 edge   Dates          | verify > verify > get_account > promise > close_call
+PASS EDGE-02 edge   Dates          | verify > verify > get_account > promise > close_call
+PASS EDGE-03 edge   Dates          | verify > verify > get_account > promise > close_call
+PASS EDGE-04 edge   Dates          | verify > verify > get_account > promise > close_call
+FAIL EDGE-05 edge   Dates          | verify > verify > get_account > promise > close_call
+       - promises [('p1', 420.0, '2026-10-16')], expected [('p1', 420.0, '2026-11-02')]
+       - conversation: The agent failed to meet the second success criterion. While the agent correctly asked for the exact day in [Message 8], it proposed 16 October 2026 in [Message 10] instead of the required deadline of 2 November. The call ended properly via assis
+PASS EDGE-06 edge   Amounts        | verify > verify > get_account > promise > close_call
+PASS EDGE-07 edge   Amounts        | verify > verify > get_account > promise > close_call
+PASS EDGE-08 edge   Refusal        | verify > verify > get_account > close_call
+PASS EDGE-09 edge   Refusal        | verify > verify > get_account > promise > promise > close_call
+PASS EDGE-10 edge   Recorded       | verify > verify > get_account > promise > close_call
+PASS EDGE-11 edge   Already paid   | verify > verify > get_account > close_call
+PASS EDGE-12 edge   Dispute        | verify > verify > get_account > close_call
+PASS EDGE-13 edge   Hardship       | verify > verify > get_account > transfer_to_agent > close_call
+PASS EDGE-14 edge   Human          | transfer_to_agent > close_call
+PASS EDGE-15 edge   Scam           | verify > verify > get_account > promise > close_call
+PASS EDGE-16 edge   Identity       | close_call
+PASS EDGE-17 edge   Unclear        | close_call
+PASS EDGE-18 edge   Third party    | close_call
+PASS EDGE-19 edge   Third party    | close_call
+FAIL EDGE-20 edge   Third party    | close_call
+       - conversation: The agent failed the success criteria because it asked for 'another time' twice (Message 4 and Message 6) instead of exactly once. The prompt specified that the agent should ask once for another time, but the agent repeated the request when the s
+PASS EDGE-21 edge   Third party    | schedule_callback > close_call
+PASS EDGE-22 edge   Multi-product  | verify > verify > get_account > promise > promise > add_note > close_call
+PASS EDGE-23 edge   Multi-product  | verify > verify > get_account > transfer_to_agent > close_call
+PASS EDGE-24 edge   Opening        | verify > verify > get_account > promise > close_call
+PASS EDGE-25 edge   Opening        | verify > verify > get_account > promise > close_call
+PASS EDGE-26 edge   Identity       | verify > verify > get_account > promise > close_call
+PASS EDGE-27 edge   Identity       | verify > verify > get_account > promise > close_call
+PASS EDGE-28 edge   Identity       | verify > verify > get_account > promise > close_call
+PASS EDGE-29 edge   Identity       | verify > verify > get_account > promise > close_call
+PASS EDGE-30 edge   Identity       | verify > verify > verify > verify > get_account > promise > promise > close_call
+PASS EDGE-31 edge   Identity       | verify > verify > verify > verify > close_call
+PASS EDGE-32 edge   Identity       | close_call
+PASS EDGE-33 edge   Identity       | verify > verify > get_account > promise > close_call
+PASS EDGE-34 edge   Identity       | close_call
+PASS EDGE-35 edge   Dates          | verify > verify > get_account > promise > close_call
+PASS EDGE-36 edge   Dates          | verify > verify > get_account > promise > close_call
+PASS EDGE-37 edge   Dates          | verify > verify > get_account > promise > close_call
+PASS EDGE-38 edge   Dates          | verify > verify > get_account > promise > promise > close_call
+PASS EDGE-39 edge   Dates          | verify > verify > get_account > promise > close_call
+PASS EDGE-40 edge   Amounts        | verify > verify > get_account > promise > close_call
+PASS EDGE-41 edge   Amounts        | verify > verify > get_account > promise > close_call
+PASS EDGE-42 edge   Amounts        | verify > verify > get_account > close_call
+PASS EDGE-43 edge   Requests       | verify > verify > get_account > promise > close_call
+PASS EDGE-44 edge   Requests       | verify > verify > get_account > promise > close_call
+PASS EDGE-45 edge   Hardship       | verify > verify > get_account > promise > close_call
+PASS EDGE-46 edge   Recorded       | verify > verify > get_account > promise > transfer_to_agent > close_call
+PASS EDGE-47 edge   Third party    | schedule_callback > close_call
+PASS EDGE-48 edge   Third party    | schedule_callback > close_call
+PASS EDGE-49 edge   Third party    | schedule_callback > close_call
+PASS EDGE-50 edge   Third party    | close_call
+PASS EDGE-51 edge   Multi-product  | verify > verify > get_account > add_note > add_note > close_call
+PASS EDGE-52 edge   Multi-product  | verify > verify > get_account > add_note > add_note > close_call
+PASS EDGE-53 edge   Multi-product  | verify > verify > get_account > promise > promise > add_note > close_call
+PASS EDGE-54 edge   Multi-product  | verify > verify > get_account > transfer_to_agent > close_call
+PASS GEN-01-today edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-01-this-fri edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-01-next-fri edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-01-saturday edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-01-holiday edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-01-too-late edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-01-below-floor edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-01-partial edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-01-too-much edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-01-refuses edge   Generated      | verify > verify > verify > get_account > close_call
+PASS GEN-01-first-offer edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-07-today edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-07-this-fri edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-07-next-fri edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-07-saturday edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-07-holiday edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-07-too-late edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-07-below-floor edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-07-partial edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-07-too-much edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-07-refuses edge   Generated      | verify > verify > get_account > close_call
+PASS GEN-07-first-offer edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-05-today edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-05-this-fri edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-05-next-fri edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-05-saturday edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-05-holiday edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-05-too-late edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-05-below-floor edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-05-partial edge   Generated      | verify > verify > verify > get_account > promise > close_call
+PASS GEN-05-too-much edge   Generated      | verify > verify > get_account > promise > close_call
+FAIL GEN-05-refuses edge   Generated      | verify > verify > get_account > close_call
+       - conversation: The agent repeated the same offer (260.00 on Friday, 23 October 2026) in message 12 that was already proposed in message 10, violating the criterion that no offer should be repeated. Although the agent made two persuasion attempts (messages 8 and
+PASS GEN-05-last-offer edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-04-today edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-04-this-fri edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-04-next-fri edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-04-saturday edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-04-holiday edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-04-too-late edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-04-below-floor edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-04-partial edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-04-too-much edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-04-refuses edge   Generated      | verify > verify > get_account > close_call
+PASS GEN-04-last-offer edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-08-paid edge   Generated      | verify > verify > get_account > close_call
+PASS GEN-08-dispute edge   Generated      | verify > verify > get_account > close_call
+PASS GEN-08-closed edge   Generated      | verify > verify > get_account > close_call
+PASS GEN-08-hardship-no edge   Generated      | verify > verify > get_account > close_call
+PASS GEN-08-hardship-yes edge   Generated      | verify > verify > get_account > transfer_to_agent > close_call
+PASS GEN-08-restructure edge   Generated      | verify > verify > get_account > transfer_to_agent > close_call
+PASS GEN-08-human edge   Generated      | verify > verify > get_account > transfer_to_agent > close_call
+PASS GEN-08-declines-id edge   Generated      | close_call
+PASS GEN-08-wrong-id edge   Generated      | verify > verify > verify > close_call
+PASS GEN-08-no-talk edge   Generated      | verify > verify > get_account > close_call
+PASS GEN-09-paid edge   Generated      | verify > verify > get_account > close_call
+PASS GEN-09-dispute edge   Generated      | verify > verify > get_account > close_call
+PASS GEN-09-closed edge   Generated      | verify > verify > get_account > close_call
+PASS GEN-09-hardship-no edge   Generated      | verify > verify > get_account > close_call
+PASS GEN-09-hardship-yes edge   Generated      | verify > verify > get_account > transfer_to_agent > close_call
+PASS GEN-09-restructure edge   Generated      | verify > verify > get_account > transfer_to_agent > close_call
+PASS GEN-09-human edge   Generated      | verify > verify > get_account > transfer_to_agent > close_call
+PASS GEN-09-declines-id edge   Generated      | close_call
+PASS GEN-09-wrong-id edge   Generated      | verify > verify > verify > close_call
+FAIL GEN-09-no-talk edge   Generated      | verify > verify > get_account > close_call
+       - conversation: The call did not end after the second refusal to talk as required by the success criteria. The user first refused to discuss the matter in [Message 9] and repeated the refusal for the second time in [Message 11] ('I already told you I do not want
+PASS GEN-3P-wrong-number edge   Third party    | close_call
+PASS GEN-3P-deceased edge   Third party    | close_call
+PASS GEN-3P-cb-tomorrow edge   Third party    | schedule_callback > close_call
+PASS GEN-3P-cb-today edge   Third party    | schedule_callback > close_call
+PASS GEN-3P-cb-second edge   Third party    | schedule_callback > close_call
+PASS GEN-3P-cb-never edge   Third party    | close_call
+PASS GEN-3P-offers-pay edge   Third party    | schedule_callback > close_call
+PASS GEN-11-all-today edge   Multi-product  | verify > verify > get_account > promise > promise > promise > close_call
+PASS GEN-11-refuses-all edge   Multi-product  | verify > verify > get_account > add_note > add_note > add_note > close_call
+PASS GEN-12-one-date edge   Multi-product  | verify > verify > get_account > promise > promise > promise > close_call
+PASS GEN-13-paid-and-pay edge   Multi-product  | verify > verify > get_account > promise > add_note > close_call
+PASS GEN-13-dispute-refuse edge   Multi-product  | verify > verify > get_account > add_note > add_note > close_call
+PASS FOC-NOTALK-01 edge   No talk (verified) | verify > verify > get_account > close_call
+PASS FOC-NOTALK-04 edge   No talk (verified) | verify > verify > get_account > close_call
+PASS FOC-NOTALK-05 edge   No talk (verified) | verify > verify > get_account > close_call
+PASS FOC-NOTALK-07 edge   No talk (verified) | verify > verify > get_account > close_call
+PASS FOC-NOTALK-08 edge   No talk (verified) | verify > verify > get_account > close_call
+PASS FOC-NOTALK-09 edge   No talk (verified) | verify > verify > get_account > close_call
+PASS FOC-NOTALK-10 edge   No talk (verified) | verify > verify > get_account > close_call
+PASS FOC-NOTALK-11 edge   No talk (verified) | verify > verify > get_account > add_note > add_note > add_note > close_call
+PASS FOC-NOTALK-PRE-03 edge   No talk (before id) | close_call
+PASS FOC-NOTALK-PRE-06 edge   No talk (before id) | close_call
+PASS FOC-CHG-01 edge   Change recorded | verify > verify > get_account > promise > close_call
+PASS FOC-CHG-04 edge   Change recorded | verify > verify > get_account > promise > close_call
+PASS FOC-CHG-07 edge   Change recorded | verify > verify > get_account > promise > close_call
+PASS FOC-CHG-10 edge   Change recorded | verify > verify > get_account > promise > promise > close_call
+PASS FOC-CHG-13 edge   Change recorded | verify > verify > get_account > promise > promise > close_call
+PASS FOC-DONE-05 edge   Nothing else   | verify > verify > get_account > promise > close_call
+PASS FOC-DONE-06 edge   Nothing else   | verify > verify > get_account > promise > close_call
+PASS FOC-3P-pays-02 edge   Third party    | schedule_callback > close_call
+PASS FOC-3P-what-02 edge   Third party    | schedule_callback > close_call
+PASS FOC-3P-money-06 edge   Third party    | schedule_callback > close_call
+PASS FOC-3P-finances-10 edge   Third party    | schedule_callback > close_call
+PASS FOC-HOL-01 edge   Holiday        | verify > verify > get_account > promise > close_call
+PASS FOC-HOL-07 edge   Holiday        | verify > verify > get_account > promise > close_call
+PASS FOC-HOL-08 edge   Holiday        | verify > verify > get_account > promise > close_call
+PASS FOC-SAT-01 edge   Holiday        | verify > verify > get_account > promise > close_call
+PASS FOC-HOL-AFTER-01 edge   Holiday        | verify > verify > get_account > promise > close_call
+PASS FOC-HOL-LATE-04 edge   Holiday        | verify > verify > get_account > promise > close_call
+PASS FOC-3P-card-04 edge   Third party    | schedule_callback > close_call
+PASS MIX-01 edge   Mid-call change | verify > verify > get_account > close_call
+PASS MIX-02 edge   Mid-call change | verify > verify > get_account > transfer_to_agent > close_call
+PASS MIX-03 edge   Mid-call change | verify > verify > get_account > transfer_to_agent > close_call
+PASS MIX-04 edge   Mid-call change | verify > verify > get_account > promise > close_call
+PASS MIX-05 edge   Mid-call change | verify > verify > get_account > promise > promise > close_call
+PASS MIX-06 edge   Mid-call change | verify > verify > get_account > transfer_to_agent > close_call
+PASS MIX-07 edge   Mid-call change | verify > verify > get_account > close_call
+PASS MIX-08 edge   Mid-call change | verify > verify > get_account > promise > close_call
+FAIL MIX-09 edge   Mid-call change | verify > verify > get_account > close_call
+       - conversation: The agent failed to follow the constraint of making exactly one offer after the customer's non-answer. In Message 8, the agent made the required offer (full amount on Friday, October 16th). However, after that was refused, the agent made a second
+PASS MIX-10 edge   Mid-call change | verify > verify > get_account > close_call
+PASS MIX-11 edge   Mid-call change | verify > verify > get_account > promise > close_call
+PASS MIX-12 edge   Mid-call change | verify > verify > get_account > promise > close_call
+PASS MIX-13 edge   Mid-call change | verify > verify > get_account > promise > promise > close_call
+FAIL MIX-14 edge   Mid-call change | verify > verify > get_account > close_call
+       - conversation: The assistant failed both specific success criteria and exhibited significant logic errors. 1. The requirement for 'one sentence of sympathy' was not met; turns 16, 18, 20, and 22 all contained two sentences, combining an expression of sympathy o
+PASS MIX-15 edge   Mid-call change | verify > verify > get_account > promise > close_call
+PASS AD-01 edge   Amounts and dates | verify > verify > get_account > promise > close_call
+PASS AD-02 edge   Amounts and dates | verify > verify > get_account > promise > close_call
+PASS AD-03 edge   Amounts and dates | verify > verify > get_account > promise > close_call
+PASS AD-04 edge   Amounts and dates | verify > verify > get_account > promise > close_call
+PASS AD-05 edge   Amounts and dates | verify > verify > get_account > promise > close_call
+PASS AD-06 edge   Amounts and dates | verify > verify > get_account > promise > promise > close_call
+PASS AD-07 edge   Amounts and dates | verify > verify > get_account > promise > close_call
+PASS AD-08 edge   Amounts and dates | verify > verify > get_account > promise > close_call
+PASS AD-09 edge   Amounts and dates | verify > verify > get_account > promise > close_call
+PASS AD-10 edge   Amounts and dates | verify > verify > get_account > promise > close_call
+PASS AD-11 edge   Amounts and dates | verify > verify > get_account > promise > close_call
+PASS AD-12 edge   Amounts and dates | verify > verify > get_account > promise > close_call
+PASS AD-13 edge   Amounts and dates | verify > verify > get_account > promise > close_call
+PASS AD-14 edge   Amounts and dates | verify > verify > get_account > promise > close_call
+PASS AD-15 edge   Amounts and dates | verify > verify > get_account > promise > promise > close_call
+FAIL AD-16 edge   Amounts and dates | verify > verify > get_account > promise > close_call
+       - promises [('p1', 310.5, '2026-10-15')], expected [('p1', 310.5, '2026-10-22')]
+       - conversation: The agent correctly asked for the exact day once in Message 8 after the user gave a vague timeframe. However, the agent used the date 'Thursday 15 October 2026' in its read-back (Message 10) and final confirmation (Message 12). This contradicts t
+PASS AD-17 edge   Amounts and dates | verify > verify > get_account > promise > close_call
+PASS AD-18 edge   Amounts and dates | verify > verify > get_account > promise > close_call
+PASS MP-01 edge   Multi-product  | verify > verify > get_account > promise > promise > close_call
+PASS MP-02 edge   Multi-product  | verify > verify > get_account > promise > promise > close_call
+PASS MP-03 edge   Multi-product  | verify > verify > get_account > promise > promise > close_call
+PASS MP-04 edge   Multi-product  | verify > verify > get_account > promise > promise > close_call
+PASS MP-05 edge   Multi-product  | verify > verify > get_account > add_note > add_note > close_call
+PASS MP-06 edge   Multi-product  | verify > verify > get_account > promise > add_note > close_call
+PASS MP-07 edge   Multi-product  | verify > verify > get_account > transfer_to_agent > close_call
+PASS MP-08 edge   Multi-product  | verify > verify > get_account > transfer_to_agent > close_call
+PASS MP-09 edge   Multi-product  | verify > verify > get_account > promise > promise > add_note > close_call
+PASS MP-10 edge   Multi-product  | verify > verify > get_account > promise > promise > promise > close_call
+PASS MP-11 edge   Multi-product  | verify > verify > get_account > add_note > add_note > add_note > close_call
+PASS MP-12 edge   Multi-product  | verify > verify > get_account > promise > promise > add_note > close_call
+PASS MP-13 edge   Multi-product  | verify > verify > get_account > promise > add_note > add_note > close_call
+PASS MP-14 edge   Multi-product  | verify > verify > get_account > promise > promise > promise > close_call
+PASS MP-15 edge   Multi-product  | verify > verify > get_account > transfer_to_agent > close_call
+PASS MP-16 edge   Multi-product  | verify > verify > get_account > add_note > add_note > add_note > close_call
+PASS TP-01 edge   Third party    | schedule_callback > close_call
+PASS TP-02 edge   Third party    | schedule_callback > close_call
+PASS TP-03 edge   Third party    | schedule_callback > close_call
+PASS TP-04 edge   Third party    | schedule_callback > close_call
+PASS TP-05 edge   Third party    | close_call
+PASS TP-06 edge   Third party    | close_call
+PASS TP-07 edge   Third party    | close_call
+PASS TP-08 edge   Third party    | schedule_callback > close_call
+PASS TP-09 edge   Third party    | close_call
+PASS TP-10 edge   Third party    | schedule_callback > close_call
+PASS ID-01 edge   Identity       | verify > verify > get_account > promise > close_call
+PASS ID-02 edge   Identity       | verify > verify > verify > get_account > promise > close_call
+PASS ID-03 edge   Identity       | verify > verify > verify > get_account > promise > close_call
+PASS ID-04 edge   Identity       | verify > verify > get_account > promise > close_call
+PASS ID-05 edge   Identity       | verify > close_call
+PASS ID-06 edge   Identity       | verify > verify > verify > close_call
+PASS ID-07 edge   Identity       | verify > verify > get_account > promise > promise > close_call
+PASS ID-08 edge   Identity       | verify > verify > get_account > promise > close_call
+PASS ID-09 edge   Identity       | verify > verify > get_account > promise > close_call
+PASS ID-10 edge   Identity       | verify > verify > verify > verify > get_account > promise > close_call
+PASS GEN-03-today edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-03-this-fri edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-03-next-fri edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-03-saturday edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-03-holiday edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-03-too-late edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-03-below-floor edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-03-partial edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-03-too-much edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-03-refuses edge   Generated      | verify > verify > get_account > close_call
+PASS GEN-03-first-offer edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-06-today edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-06-this-fri edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-06-next-fri edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-06-saturday edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-06-holiday edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-06-too-late edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-06-below-floor edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-06-partial edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-06-too-much edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-06-refuses edge   Generated      | verify > verify > verify > get_account > close_call
+PASS GEN-06-last-offer edge   Generated      | verify > verify > get_account > promise > close_call
+PASS GEN-12-all-today edge   Multi-product  | verify > verify > get_account > promise > promise > promise > close_call
+
+slowest agent turn per call: median 4 s, worst 24 s. Failed calls where the customer hung up: 0.
+
+243 / 250 passed (bank records and conversation checks). Last simulation 83c8c7b2-9056-41cc-a1ee-5d733260116b, status completed, 2307 s.

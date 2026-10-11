@@ -1,0 +1,164 @@
+PASS DAY1016-01-today edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1016-01-tomorrow edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1016-01-next-fri edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1016-01-too-late edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1016-01-first-offer edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1016-10-today edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1016-10-tomorrow edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1016-10-next-fri edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1016-10-too-late edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1016-10-second-offer edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1019-01-today edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1019-01-tomorrow edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1019-01-next-fri edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1019-01-too-late edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1019-01-first-offer edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1019-10-today edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1019-10-tomorrow edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1019-10-next-fri edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1019-10-too-late edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1019-10-second-offer edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1023-01-today edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1023-01-tomorrow edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1023-01-next-fri edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1023-01-too-late edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1023-01-first-offer edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1023-10-today edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1023-10-tomorrow edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1023-10-next-fri edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1023-10-too-late edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1023-10-second-offer edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1110-01-today edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1110-01-tomorrow edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1110-01-next-fri edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1110-01-too-late edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1110-01-first-offer edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1110-10-today edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1110-10-tomorrow edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1110-10-next-fri edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1110-10-too-late edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1110-10-second-offer edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1224-01-today edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1224-01-tomorrow edge   Call day       | verify > verify > get_account > promise > close_call
+FAIL DAY1224-01-next-fri edge   Call day       | verify > verify > get_account > promise > close_call
+       - promises [('p1', 420.0, '2026-12-31')], expected [('p1', 420.0, '2027-01-04')]
+PASS DAY1224-01-too-late edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1224-01-first-offer edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1224-10-today edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1224-10-tomorrow edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1224-10-next-fri edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1224-10-too-late edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1224-10-second-offer edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1016-12-all-today edge   Call day       | verify > verify > get_account > promise > promise > promise > close_call
+PASS DAY1016-12-next-fri edge   Call day       | verify > verify > get_account > promise > promise > promise > close_call
+PASS DAY1016-12-first-only edge   Call day       | verify > verify > get_account > promise > add_note > add_note > close_call
+PASS DAY1016-13-all-today edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1016-13-next-fri edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1016-13-first-only edge   Call day       | verify > verify > get_account > promise > add_note > close_call
+PASS DAY1019-12-all-today edge   Call day       | verify > verify > get_account > promise > promise > promise > close_call
+PASS DAY1019-12-next-fri edge   Call day       | verify > verify > get_account > promise > promise > promise > close_call
+PASS DAY1019-12-first-only edge   Call day       | verify > verify > get_account > promise > add_note > add_note > close_call
+PASS DAY1019-13-all-today edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1019-13-next-fri edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1019-13-first-only edge   Call day       | verify > verify > get_account > promise > add_note > close_call
+PASS DAY1023-12-all-today edge   Call day       | verify > verify > get_account > promise > promise > promise > close_call
+PASS DAY1023-12-next-fri edge   Call day       | verify > verify > get_account > promise > promise > promise > close_call
+PASS DAY1023-12-first-only edge   Call day       | verify > verify > get_account > promise > add_note > add_note > close_call
+PASS DAY1023-13-all-today edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1023-13-next-fri edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1023-13-first-only edge   Call day       | verify > verify > get_account > promise > add_note > close_call
+PASS DAY1110-12-all-today edge   Call day       | verify > verify > get_account > promise > promise > promise > close_call
+PASS DAY1110-12-next-fri edge   Call day       | verify > verify > get_account > promise > promise > promise > close_call
+PASS DAY1110-12-first-only edge   Call day       | verify > verify > get_account > promise > add_note > add_note > close_call
+PASS DAY1110-13-all-today edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1110-13-next-fri edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1110-13-first-only edge   Call day       | verify > verify > get_account > promise > add_note > close_call
+PASS DAY1224-12-all-today edge   Call day       | verify > verify > get_account > promise > promise > promise > close_call
+PASS DAY1224-12-next-fri edge   Call day       | verify > verify > get_account > promise > promise > promise > close_call
+PASS DAY1224-12-first-only edge   Call day       | verify > verify > get_account > promise > add_note > add_note > close_call
+PASS DAY1224-13-all-today edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1224-13-next-fri edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1224-13-first-only edge   Call day       | verify > verify > get_account > promise > add_note > close_call
+PASS DAYCB-1014-evening-ok edge   Third party    | schedule_callback > close_call
+PASS DAYCB-1014-evening-past edge   Third party    | schedule_callback > close_call
+PASS DAYCB-1016-saturday edge   Third party    | schedule_callback > close_call
+PASS DAYCB-1023-holiday edge   Third party    | schedule_callback > close_call
+
+slowest agent turn per call: median 5 s, worst 32 s. Failed calls where the customer hung up: 0.
+-- run 1 of 2: 83 / 84 passed, 1032 s
+
+simulation 99f9ab2c-3f54-4713-8ce6-b4c6bc8e7b44 stalled (83 of 84 calls done, 1 still analyzing, no progress for 1938 s): cancelling it
+PASS DAY1016-01-today edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1016-01-tomorrow edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1016-01-next-fri edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1016-01-too-late edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1016-01-first-offer edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1016-10-today edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1016-10-tomorrow edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1016-10-next-fri edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1016-10-too-late edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1016-10-second-offer edge   Call day       | verify > verify > get_account > promise > promise > close_call
+PASS DAY1019-01-today edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1019-01-tomorrow edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1019-01-next-fri edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1019-01-too-late edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1019-01-first-offer edge   Call day       | verify > verify > get_account > promise > close_call
+PASS DAY1019-10-today edge   Call day       | verify > verify > get_account > promise > promise > close_call
+Traceback (most recent call last):
+  File "/Users/meteserpil/.local/share/uv/python/cpython-3.12.15-macos-aarch64-none/lib/python3.12/urllib/request.py", line 1357, in do_open
+    h.request(req.get_method(), req.selector, req.data, headers,
+  File "/Users/meteserpil/.local/share/uv/python/cpython-3.12.15-macos-aarch64-none/lib/python3.12/http/client.py", line 1386, in request
+    self._send_request(method, url, body, headers, encode_chunked)
+  File "/Users/meteserpil/.local/share/uv/python/cpython-3.12.15-macos-aarch64-none/lib/python3.12/http/client.py", line 1432, in _send_request
+    self.endheaders(body, encode_chunked=encode_chunked)
+  File "/Users/meteserpil/.local/share/uv/python/cpython-3.12.15-macos-aarch64-none/lib/python3.12/http/client.py", line 1381, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+  File "/Users/meteserpil/.local/share/uv/python/cpython-3.12.15-macos-aarch64-none/lib/python3.12/http/client.py", line 1141, in _send_output
+    self.send(msg)
+  File "/Users/meteserpil/.local/share/uv/python/cpython-3.12.15-macos-aarch64-none/lib/python3.12/http/client.py", line 1085, in send
+    self.connect()
+  File "/Users/meteserpil/.local/share/uv/python/cpython-3.12.15-macos-aarch64-none/lib/python3.12/http/client.py", line 1527, in connect
+    self.sock = self._context.wrap_socket(self.sock,
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/meteserpil/.local/share/uv/python/cpython-3.12.15-macos-aarch64-none/lib/python3.12/ssl.py", line 457, in wrap_socket
+    return self.sslsocket_class._create(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/meteserpil/.local/share/uv/python/cpython-3.12.15-macos-aarch64-none/lib/python3.12/ssl.py", line 1066, in _create
+    self.do_handshake()
+  File "/Users/meteserpil/.local/share/uv/python/cpython-3.12.15-macos-aarch64-none/lib/python3.12/ssl.py", line 1344, in do_handshake
+    self._sslobj.do_handshake()
+ConnectionResetError: [Errno 54] Connection reset by peer
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/meteserpil/Desktop/freya-build-the-builder/build-the-builder-v3/build-the-builder/tools/run_cases.py", line 125, in <module>
+    if __name__ == "__main__": main()
+                               ^^^^^^
+  File "/Users/meteserpil/Desktop/freya-build-the-builder/build-the-builder-v3/build-the-builder/tools/run_cases.py", line 67, in main
+    rows, sim_id, it_id, status, took, med = run_once(a.agent_id, cases, ids)
+                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/meteserpil/Desktop/freya-build-the-builder/build-the-builder-v3/build-the-builder/tools/run_cases.py", line 97, in run_once
+    led = http("/v1/practice/ledger/" + sessions[c["id"]]["customer_id"])
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/meteserpil/Desktop/freya-build-the-builder/build-the-builder-v3/build-the-builder/tools/score.py", line 14, in http
+    try: return json.load(urllib.request.urlopen(req, timeout=20))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/meteserpil/.local/share/uv/python/cpython-3.12.15-macos-aarch64-none/lib/python3.12/urllib/request.py", line 215, in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/meteserpil/.local/share/uv/python/cpython-3.12.15-macos-aarch64-none/lib/python3.12/urllib/request.py", line 515, in open
+    response = self._open(req, data)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/meteserpil/.local/share/uv/python/cpython-3.12.15-macos-aarch64-none/lib/python3.12/urllib/request.py", line 532, in _open
+    result = self._call_chain(self.handle_open, protocol, protocol +
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/meteserpil/.local/share/uv/python/cpython-3.12.15-macos-aarch64-none/lib/python3.12/urllib/request.py", line 492, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "/Users/meteserpil/.local/share/uv/python/cpython-3.12.15-macos-aarch64-none/lib/python3.12/urllib/request.py", line 1405, in https_open
+    return self.do_open(http.client.HTTPSConnection, req,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/meteserpil/.local/share/uv/python/cpython-3.12.15-macos-aarch64-none/lib/python3.12/urllib/request.py", line 1360, in do_open
+    raise URLError(err)
+urllib.error.URLError: <urlopen error [Errno 54] Connection reset by peer>

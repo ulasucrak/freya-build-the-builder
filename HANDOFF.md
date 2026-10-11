@@ -187,3 +187,37 @@ ls ../../shared-results/2026-10-11/tx-250b/      # one transcript per failed cas
 7. Decide with the team about branch `wip-t22` (hard attempt limits in code; overlaps the MIX-09 approach).
 8. Final-day rehearsal: `git tag pre-final`, timed RUNBOOK dry run, final `ANTHROPIC_API_KEY`, package without `env.sh`
    (`tools/package_submission.py`), workspace reserved for the final runs.
+
+## 15. Results of the chain (appended automatically 11 Oct 12:28)
+
+```
+--- 250 re-run (compare: 222/250 before the fixes)
+slowest agent turn per call: median 4 s, worst 24 s. Failed calls where the customer hung up: 0.
+243 / 250 passed (bank records and conversation checks). Last simulation 83c8c7b2-9056-41cc-a1ee-5d733260116b, status completed, 2307 s.
+--- failed in the 250 re-run:
+FAIL EDGE-05 edge   Dates         
+FAIL EDGE-20 edge   Third party   
+FAIL GEN-05-refuses edge   Generated     
+FAIL GEN-09-no-talk edge   Generated     
+FAIL MIX-09 edge   Mid-call change
+FAIL MIX-14 edge   Mid-call change
+FAIL AD-16 edge   Amounts and dates
+--- call days x2 (84 cases, 30 Brief B)
+slowest agent turn per call: median 5 s, worst 32 s. Failed calls where the customer hung up: 0.
+-- run 1 of 2: 83 / 84 passed, 1032 s
+--- failed on call days:
+--- S6 rebuild with the fixed self-test bank (compare: self-test 1/10 with the broken bank)
+[build 12:25:04] stage save: ok (4.2 s) generated + LLM prompts -> 593e6140-117f-40f5-92a4-4b03dc27e07e
+[build 12:27:36] stage self-test v1: error (131.2 s) WorkspaceBusy: another simulation kept the workspace busy for 120 s
+--- turn latency
+all turns                                    n= 1508 median   0.6s  p90   4.3s  max  23.7s
+node negotiate                               n=  906 median   0.8s  p90   5.3s  max  23.7s
+node greet_verify                            n=  602 median   0.0s  p90   2.9s  max  11.7s
+tools (no tool)                              n=  783 median   0.0s  p90   0.0s  max   9.8s
+tools verify_identity                        n=  228 median   1.8s  p90   4.4s  max  11.7s
+tools api_call,verify_identity               n=  206 median   3.5s  p90  10.3s  max  16.3s
+tools create_promise                         n=  153 median   2.4s  p90   6.7s  max  23.7s
+tools check_offer                            n=  107 median   1.4s  p90   7.1s  max  22.6s
+```
+
+Transcripts of every failure: `shared-results/2026-10-11/tx-250b/`, `tx-days/`. Next: §12 step 2.

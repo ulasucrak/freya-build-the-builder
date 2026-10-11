@@ -1,0 +1,50 @@
+[build 09:24:02] stage extract (1680 s left)
+[extract] round 1 done in 10823s
+[extract] replicates disagree on: bands, identity, triggers -> resolve call
+[extract] extraction done in 10823s
+[build 12:24:26] stage extract: ok (164.9 s) 2 warnings: no time left to resolve bands, identity, triggers; kept replicate 1; validate: identity question 2: normalise must be one of ['dmy_to_iso', 'mdy_to_iso', 'digits_only', 'none']
+[build 12:24:26] stage validate (1515 s left)
+[build 12:24:33] stage validate: ok (6.7 s) 
+[build 12:24:33] stage generate (1508 s left)
+[build 12:24:33] stage generate: ok (0.1 s) 12 nodes
+[build 12:24:33] stage prompts (1508 s left)
+[build 12:24:59] stage prompts: ok (26.4 s) 11 edits kept (greet_verify, negotiate, system_prompt); 0 dropped
+[build 12:24:59] stage dry_run (1482 s left)
+[build 12:25:00] stage dry_run: ok (1.1 s) generated + LLM prompts
+[build 12:25:00] stage save (1481 s left)
+[build 12:25:04] stage save: ok (4.2 s) generated + LLM prompts -> 593e6140-117f-40f5-92a4-4b03dc27e07e
+[build 12:25:04] stage casegen (1477 s left)
+[build 12:25:25] stage casegen: ok (20.6 s) 10 cases
+[build 12:25:25] stage self-test v1 (1456 s left)
+another simulation is running in this workspace, waiting 30 s
+another simulation is running in this workspace, waiting 30 s
+another simulation is running in this workspace, waiting 30 s
+another simulation is running in this workspace, waiting 30 s
+[build 12:27:36] stage self-test v1: error (131.2 s) WorkspaceBusy: another simulation kept the workspace busy for 120 s
+[build 12:27:36] trace: /Users/meteserpil/Desktop/freya-build-the-builder/build-the-builder-v3/build-the-builder/traces/s6-audit-20261011T062402Z.txt
+{
+ "status": "ok",
+ "error": "",
+ "saved": {
+  "workflow_id": "593e6140-117f-40f5-92a4-4b03dc27e07e",
+  "agent_id": "4a14eb29-f4bf-4f1e-8398-f39f0ae1f644",
+  "version": 2
+ },
+ "export": "/Users/meteserpil/Desktop/freya-build-the-builder/build-the-builder-v3/build-the-builder/out/s6-audit.workflow.json",
+ "trace": "/Users/meteserpil/Desktop/freya-build-the-builder/build-the-builder-v3/build-the-builder/traces/s6-audit-20261011T062402Z.txt",
+ "best": {
+  "passed": null,
+  "total": null,
+  "label": "v1"
+ },
+ "stages": {
+  "extract": 164.9,
+  "validate": 6.7,
+  "generate": 0.1,
+  "prompts": 26.4,
+  "dry_run": 1.1,
+  "save": 4.2,
+  "casegen": 20.6,
+  "self-test v1": 131.2
+ }
+}

@@ -14,3 +14,9 @@ BUILD S6 FAILED
 [build 05:52:16] stage casegen: ok (25.4 s) 10 cases
 [build 05:57:27] stage self-test v1: ok (311.5 s) 1/10
 === 3 full 250 Sun Oct 11 05:57:40 +03 2026
+slowest agent turn per call: median 4 s, worst 24 s. Failed calls where the customer hung up: 0.
+243 / 250 passed (bank records and conversation checks). Last simulation 83c8c7b2-9056-41cc-a1ee-5d733260116b, status completed, 2307 s.
+=== 4 call days x2 Sun Oct 11 06:45:07 +03 2026
+slowest agent turn per call: median 5 s, worst 32 s. Failed calls where the customer hung up: 0.
+-- run 1 of 2: 83 / 84 passed, 1032 s
+=== DONE Sun Oct 11 08:36:00 +03 2026
