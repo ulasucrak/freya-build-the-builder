@@ -16,6 +16,7 @@ Graph (every value comes from the policy; nothing here knows a brief):
          -> negotiate       debt statement, negotiation, read-back, promises, notes, triggers, closing
                             tools: create_promise, add_note, transfer_to_agent, close_call
       close_call result     -> end_closed (end_call)
+      goodbye without close -> goodbye_close (code) -> close_check -> finish -> close_api (routing intent; option goodbye_close)
       turn cap reached      -> force_close (code) -> close_api (api_request close_call) -> end_forced
     workflow tool final_close (end_of_call): safety-net close_call when none was sent (stopped otherwise).
 
@@ -68,7 +69,15 @@ DEFAULT_OPTIONS = {
     "negotiate_max_turns": 80,
     "timeout_ms": 12000,
     "check_tool": True,            # check_offer: code_exec tool that checks a customer's own date/amount before the read-back
+    "goodbye_close": False,        # both sides said goodbye but no close_call came: the engine closes. Off: needs a
+                                   # routing-model call (matches_intent) on every turn; no deterministic signal exists
 }
+
+# Safety net (HANDOFF TP-09: a goodbye loop of ~50 turns without close_call). Judged by the routing model on the
+# conversation; it fires only after the agent's own goodbye, so a customer's early "bye" mid-call does not end it.
+GOODBYE_CLOSE = 'vset(vs, "w_goodbye_close", "yes")\n'   # code node: marks the call, then close_check
+GOODBYE_INTENT = ("The agent's previous message already said goodbye to end the call, and the user's last message only "
+                  "says goodbye, thanks or a similar farewell back, with no question, request or new information.")
 
 
 # ----------------------------------------------------------------------------------------------- code embedding
@@ -142,12 +151,12 @@ def _py_literal(text):
     return "'" + lit + "'"
 
 
-def build_code(body_name, rt, mode):
+def build_code(body_name, rt, mode, source=None):
     """Python source for a code node ('node'), pre-hook ('pre') or post-hook ('post').
 
     Everything runs inside one function so that helper functions see each other whatever globals/locals the
     sandbox uses; the call is wrapped in try/except so a snippet never raises."""
-    body = (CODEGEN / (body_name + ".py")).read_text()
+    body = source if source is not None else (CODEGEN / (body_name + ".py")).read_text()
     lib = _library()
     need = {n.id for n in ast.walk(ast.parse(body)) if isinstance(n, ast.Name)}
     defined = set()
@@ -372,7 +381,9 @@ def _field_desc(spec, extra=""):
     d = (spec.get("description") or "").strip()
     if spec.get("enum"):
         d = (d + " " if d else "") + "One of: " + ", ".join(spec["enum"]) + "."
-    if extra:
+    if extra and d and d.rstrip(".").lower() in extra.lower():
+        d = extra                       # the hint already says it all ("HH:MM" + "HH:MM, 24 h")
+    elif extra and extra.rstrip(".").lower() not in d.lower():
         d = (d + " " if d else "") + extra
     return d
 
@@ -441,14 +452,14 @@ def _code_tool(name, description, fields, body, rt):
         "parameters": {"type": "object", "properties": props, "required": [next(iter(fields))]}}}
 
 
-def _code_node(name, body, rt, target, on_enter=None):
+def _code_node(name, body, rt, target, on_enter=None, source=None):
     return {
         "name": name, "node_type": "code", "passthrough": True, "passthrough_default_transition": target,
         "on_enter": on_enter or {"type": "silent"}, "disable_inactivity_monitor": True,
         "pre_actions": [{"type": "function", "function": {
             "name": "code_exec", "handler": "__function__:code_exec",
             "parameters": {"type": "object", "properties": {
-                "code": {"type": "string", "default": build_code(body, rt, "node")},
+                "code": {"type": "string", "default": build_code(body, rt, "node", source)},
                 "timeout_ms": {"type": "number", "default": 10000}}}}}],
         "transitions": [{"target_node": target, "description": "always", "condition": {"operator": "always"}}],
     }
@@ -514,19 +525,50 @@ def _pre_verification_outcomes(p):
     return out
 
 
+def _trigger_phases(p, t, ph):
+    """Phases of the rules a trigger's notes come from (empty when none matches)."""
+    notes = [_norm_rule(n) for n in (t.get("notes") or []) if isinstance(n, str) and len(n) > 25]
+    out = set()
+    for r in p["rules"]:
+        x = _norm_rule(r["text"])
+        if any(x[:60] in n or n[:60] in x for n in notes):
+            out.add(ph.get(r["id"]))
+    return out
+
+
 def _trigger_lines(p, cl, verified):
-    """One short line per trigger that can happen in this phase. The verbatim rule text is in the system prompt or the step's rules;
-    trigger notes are added only when the policy has no rules list."""
+    """One short line per trigger that can happen in this phase and needs an action (a tool, a note, an outcome).
+    The verbatim rule text is in the system prompt or the step's rules, so a trigger that only says something is
+    left to its rule, and a trigger whose rules all belong to the other step is left out; trigger notes are added
+    only when the policy has no rules list."""
     out = []
     pre_out = _pre_verification_outcomes(p)
     case_pairs = {(c["outcome"], c["reason"]) for c in p["third_party"]["cases"]}
+    ph = rule_phases(p) if p["rules"] else {}
+    other = "greet" if verified else "negotiate"
     for t in p["triggers"]:
         act = t["action"]
         if verified and t["outcome"] in pre_out:
             continue            # third-party / identity situations cannot happen after verification
         if not verified and (act == "note" or (t["outcome"], t["reason"]) in case_pairs):
             continue            # product notes need the account; third-party cases are listed separately
-        line = t["name"] + " (" + (t["detect"] or "when it applies") + "): follow its rule."
+        fail = p["identity"]["fail"]
+        if not verified and act == "close" and not t["say"] and fail["outcome"] and (t["outcome"], t["reason"]) == (fail["outcome"], fail["reason"]):
+            continue            # the failed identity check has its own line in the step
+        if ph:
+            if not (t["outcome"] or t["say"] or (act == "transfer" and t["queue"]) or (act == "note" and t["note_reason"])):
+                continue        # nothing to do beyond its rule, which is in the prompt
+            tph = _trigger_phases(p, t, ph)
+            if tph == {other}:
+                continue        # every rule of it applies only in the other step
+        else:
+            tph = set()
+        here = "negotiate" if verified else "greet"
+        # the situation is described by its rule when that rule is in this prompt; the name is enough to point at it
+        twice = re.search(r"\btwice\b|\bsecond time\b|\btwo times\b", t["detect"] or "")
+        # a transfer or a close is final: its exact condition stays next to it (e.g. "insists after being asked once")
+        full = twice or act in ("transfer", "close") or not (tph & {here, "all"})
+        line = t["name"] + ((" (" + (t["detect"] or "when it applies") + ")") if full else "") + ":"
         if t["say"]:
             line += " Say: \"" + t["say"] + "\"."
         if act == "transfer" and t["queue"]:
@@ -535,8 +577,9 @@ def _trigger_lines(p, cl, verified):
         elif act == "note" and t["note_reason"] and p["notes"]["enabled"]:
             line += " Note reason '" + t["note_reason"] + "'."
         elif t["outcome"]:
-            line += " Close: " + t["outcome"] + (" / " + t["reason"] if t["reason"] else "") + "."
-            if re.search(r"\btwice\b|\bsecond time\b|\btwo times\b", t["detect"] or ""):
+            pr_ = t["outcome"] + (" / " + t["reason"] if t["reason"] else "")
+            line += (" Close: " + pr_ + ".") if act != "continue" else (" When it ends the call, the outcome is " + pr_ + ".")
+            if twice:
                 line += (" The first time: do not mention security; acknowledge it and make the current product's next offer." if verified else
                          " The first time: explain once, as the rules say, why the security questions are asked, and ask again.")
                 line += " The second time: close at once (thank, goodbye and close_call in that message)."
@@ -578,18 +621,40 @@ def _norm_rule(t):
 def rule_phases(p):
     """rule id -> 'greet' | 'negotiate' | 'all' | 'drop', from where the extracted policy files the same text.
 
-    Filed only under opening/third party/identity: needed only before verification ('greet'). Filed only under
-    products/amounts/dates/promise/notes: needed only after it ('negotiate'). Filed under triggers/outcomes/closing
-    (it can happen in any step), under both phases or nowhere: kept in the system prompt ('all'). A row of the call
-    variables table repeats the system prompt's own variable list ('drop'). Nothing else is left out."""
+    Before verification ('greet'): filed only under opening/third party/identity or a trigger that ends the call
+    with a pre-verification outcome; or a rule whose only outcome codes are pre-verification ones (they cannot apply
+    after it). After verification ('negotiate'): filed under products/bands/amounts/dates/promise/notes (a trigger
+    that refers to such a rule, e.g. a refusal of an offer, happens there too), or only under a product-note
+    trigger. A rule filed for both phases, only under triggers/outcomes/closing that can happen in any step, or
+    nowhere, stays in the system prompt ('all'). A row of the call variables table repeats
+    the system prompt's own variable list ('drop'). Nothing else is left out (a test enforces it)."""
     def filed(objs):
         return [_norm_rule(t) for o in objs for t in _texts_in(o) if len(t) > 25]
     pre_out = _pre_verification_outcomes(p)
     early = [t for t in p["triggers"] if t["outcome"] in pre_out]      # third-party / identity endings: before verification only
+    noted = [t for t in p["triggers"] if t not in early and t["action"] == "note"]   # product notes need the account
     pre = filed([p.get(s) for s in _PRE_SECTIONS] + early)
     post = filed([p.get(s) for s in _POST_SECTIONS])
-    any_ = filed([t for t in p["triggers"] if t not in early] + [p.get(s) for s in _ANY_SECTIONS if s != "triggers"])
+    post_trig = filed(noted)
+    rest = [t for t in p["triggers"] if t not in early and t not in noted]
+    # a trigger that only continues the conversation (e.g. a refusal of an offer) does not pull an offer rule
+    # back into every step; one that closes, transfers or answers something does
+    cont = filed([t for t in rest if t["action"] == "continue"])
+    any_trig = filed([t for t in rest if t["action"] != "continue"])
+    any_ = any_trig + filed([p.get(s) for s in _ANY_SECTIONS if s != "triggers"])
+    # outcomes that need the account (a promise, a product note, a refused offer, a failed recording)
+    cl = p["closing"]
+    post_out = {(cl.get(k) or {}).get("outcome") for k in ("promise", "promise_mixed", "service_error", "refused")}
+    post_out |= {(v or {}).get("outcome") for v in (cl.get("note_map") or {}).values() if isinstance(v, dict)}
+    post_out -= {(v or {}).get("outcome") for v in (cl.get("transfer") or {}).values() if isinstance(v, dict)}
+    post_out = {o for o in post_out if o} - pre_out
+    all_out = {r["outcome"] for r in p["outcomes"]["table"] if r["outcome"]} | pre_out
     calls = set(_var_names(p))
+    pr = p["products"]
+    acct_fields = {pr.get(k) for k in ("id_field", "type_field", "days_late_field", "list_field") if pr.get(k)}
+    for t in (pr.get("types") or {}).values():
+        acct_fields |= {t.get(k) for k in ("floor_field", "full_field") if t.get(k)}
+    free = {}
 
     def hit(x, texts):
         return any(x[:60] in t or t[:60] in x for t in texts)
@@ -600,8 +665,28 @@ def rule_phases(p):
             out[r["id"]] = "drop"
             continue
         x = _norm_rule(r["text"])
-        g, n = hit(x, pre), hit(x, post)
-        out[r["id"]] = "all" if hit(x, any_) or g == n else ("greet" if g else "negotiate")
+        # outcome codes the rule names (quoted, or a code with an underscore: a plain word may be ordinary prose)
+        said = {o for o in all_out if ("`" + o.lower() + "`") in r["text"].lower()
+                or ("_" in o and re.search(r"(?<![\w-])" + re.escape(o.lower()) + r"(?![\w-])", x))}
+        g, n_sec, n_trig, b = hit(x, pre), hit(x, post), hit(x, post_trig), hit(x, any_)
+        only_pre = bool(said) and said <= pre_out
+        acct = bool(set(re.findall(r"`(\w+)`", r["text"])) & acct_fields)
+        if not (n_sec or n_trig) and (only_pre or (g and not b and not hit(x, cont))) or (g and only_pre and not n_trig and not b):
+            out[r["id"]] = "greet"
+        elif not g and not only_pre and (not b and (n_sec or n_trig or (acct and not hit(x, cont)))
+                                         or (said and said <= post_out and not hit(x, any_trig))):
+            # an account field in a rule filed nowhere, or only outcomes that need the account: after verification
+            out[r["id"]] = "negotiate"
+        else:
+            out[r["id"]] = "all"
+        free[r["id"]] = not (g or n_sec or n_trig or b)
+    # "[overrides <ids>]": a rule filed nowhere that replaces rules of one step belongs to that step
+    for r in p["rules"]:
+        m = re.search(r"\[overrides ([^\]]+)\]", r["text"])
+        if m and out.get(r["id"]) == "all" and free.get(r["id"]):
+            targets = {out.get(t.strip()) for t in m.group(1).split(",")}
+            if len(targets) == 1 and targets <= {"greet", "negotiate"}:
+                out[r["id"]] = targets.pop()
     return out
 
 
@@ -613,26 +698,27 @@ def _phase_rules(p, phase):
 def default_system_prompt(p):
     vars_ = _bul(["%s = {{%s}}%s" % (v["name"], v["name"], (" (" + v["meaning"] + ")") if v["meaning"] else "") for v in p["variables"]])
     rules = _phase_rules(p, "all")
-    phrases = _bul(["%s: \"%s\"" % (k, v) for k, v in p["phrases"].items() if isinstance(v, str)])
+    ph = rule_phases(p)
+    # a phrase quoted word for word in a rule is already in the prompt of every step where that rule applies
+    kept = " ".join(r["text"] for r in p["rules"] if ph.get(r["id"]) != "drop")
+    phrases = _bul(["%s: \"%s\"" % (k, v) for k, v in p["phrases"].items() if isinstance(v, str) and v.strip() not in kept])
     return "\n".join(x for x in [
-        "You are a bank's digital phone agent on a live call. Speak %s. Say one to three short sentences per turn and ask one question at a time." % p["language"],
-        "Use only facts from this prompt, the call variables and tool results. Never invent amounts, dates, reasons, policies or offers.",
+        "You are a bank's digital phone agent on a live call. Speak %s: one to three short sentences per turn, one question at a time." % p["language"],
+        "Use only facts from this prompt, the call variables and tool results; never invent amounts, dates, reasons, policies or offers.",
         "",
         "Call variables:",
         vars_,
         "",
-        "How to use tools:",
-        "- When a rule says to call a tool, call it. Saying that you did something is not enough.",
-        "- Call at most one tool per message, and wait for its result before the next one. Several tool calls in one message run at the same time and can be lost.",
-        "- A tool result usually contains what_to_do_next. Follow it exactly and speak to the customer in the same turn. Never end a turn with nothing to say.",
-        "- When a tool call fails or was not sent, nothing was recorded: read 'Status of your last tool request' in the step instructions and act on it.",
-        "- Never say that something was recorded, scheduled or transferred unless the tool result says it worked. In a read-back say what you are going to record and ask for confirmation; never say 'I have recorded' before the tool result.",
-        "- close_call is always the very last action, after the results of all other tool calls: in one message thank the customer, say goodbye and call close_call, with no other tool call in that message. Call it exactly once.",
+        "Tools:",
+        "- When a rule says to call a tool, call it; saying you did is not enough. One tool call per message; wait for its result (several calls in one message run at once and results can be lost).",
+        "- Follow a result's what_to_do_next exactly and speak in the same turn; never end a turn with nothing to say.",
+        "- A failed or stopped call recorded nothing: act on 'Status of your last tool request'. Say something was recorded, scheduled or transferred only after a result says it worked; a read-back asks for confirmation, never 'I have recorded' before the result.",
+        "- close_call comes last and once: after all other results, in the message with your thanks and goodbye, with no other tool call.",
         "",
-        "The bank's rules for the whole call (follow every one of them; the current step's instructions add the rules for that step):",
+        "The bank's rules for every step (each step adds its own):",
         rules,
         "",
-        ("Fixed phrases (use them word for word where they apply):\n" + phrases) if phrases else "",
+        ("Fixed phrases (word for word where they apply):\n" + phrases) if phrases else "",
     ] if x is not None)
 
 
@@ -663,27 +749,27 @@ def default_greet_task(p, cl):
     fail = p["identity"]["fail"]
     forb = p["opening"]["forbidden_before_verification"]
     wins = "Allowed callback windows: {{w_callback_windows}}" if p["callback"]["days"] else ""
+    opening = p["opening"]["text"]
+    said_in_rules = opening and any(_norm_rule(opening)[:60] in _norm_rule(r["text"]) for r in p["rules"])
     return "\n".join(x for x in [
-        "Current step: make sure you speak with the right person, then check identity, following the bank's rules. The account is not loaded and nothing about it may be said in this step.",
+        "Current step: make sure you speak with the right person, then check identity, by the bank's rules. The account is not loaded: say nothing about it.",
         ("Never say these words before identity is verified: " + ", ".join(forb) + ".") if forb else "",
-        "Opening: " + p["opening"]["text"],
+        ("Opening: " + opening) if opening and not said_in_rules else "",
         _bul([x for x in (p["opening"].get("notes") or []) if isinstance(x, str)]) if verbatim else "",
         _bul(tp["rules"]) if verbatim else "",
         _bul(cases),
         ("With anyone who is not the customer, say nothing about an account, a product, money or a payment, not even that you cannot discuss them. "
          "If they ask what the call is about or offer to pay, say only that you need to speak with the customer personally, then ask when the customer can be reached.") if tp["cases"] else "",
         wins,
-        "Security questions, only to the customer, once they confirmed who they are, one at a time. Customers often give an answer in pieces over several turns (day and month, then the year; two digits, then two more): that is not a refusal and not a wrong answer. Call verify_identity with each piece as it comes; the pieces are joined automatically, and you ask only for the missing part. Count wrong answers only from verify_identity results.",
+        "Security questions: only to the customer, after they confirmed who they are, one at a time. An answer given in pieces over several turns (day and month, then the year; two digits, then two more) is not a refusal and not a wrong answer: call verify_identity with each piece; pieces are joined automatically; ask only for the missing part. Count wrong answers only from verify_identity results.",
         _bul(qlines, ""),
         "Ask each question without giving a reason. Explain why only if the customer will not answer or asks why, and only once in the call.",
         _bul(p["identity"]["wrong_counts_rules"]) if verbatim else "",
         ("If the check fails: " + fail["say"] + " Close " + fail["outcome"] + (" / " + fail["reason"] if fail["reason"] else "") + ".") if fail["outcome"] else "",
         "Other situations:",
         _bul(_trigger_lines(p, cl, False)),
-        ("The bank's rules for this step (follow every one of them):\n" + _phase_rules(p, "greet")) if _phase_rules(p, "greet") else "",
+        ("Rules for this step:\n" + _phase_rules(p, "greet")) if _phase_rules(p, "greet") else "",
         STATUS_LINE,
-        "Tools in this step: verify_identity, " + ("schedule_callback, " if _tool_name(p, "callback") else "")
-        + ("transfer_to_agent, " if _tool_name(p, "transfer") else "") + "close_call.",
     ] if x)
 
 
@@ -694,37 +780,36 @@ def default_negotiate_task(p, cl, check=False):
     verbatim = not p["rules"]
     pre_out = _pre_verification_outcomes(p)
     lines = [
-        "Current step: the customer is verified. Handle the late products below, from stating the debt to closing the call, by the bank's rules.",
+        "Current step: the customer is verified. Handle the late products below by the bank's rules, from stating the debt to closing the call.",
         "The security questions are over: never mention them or why they were asked.",
         "{{w_account_facts}}",
         "{{w_date_facts}}",
-        "Use only these product ids. Deadlines, floors and attempt offers are already computed: use them as given.",
-        "Before create_promise, check the amount (floor to full) and the date (a business day from today up to that product's deadline) against these facts. Weekdays and years come only from the calendar facts.",
+        "Use only these product ids. Deadlines, floors and attempt offers are computed: use them as given; weekdays and years come only from the calendar facts. "
+        "A promise needs an amount from the floor to the full amount and a business day from today up to that product's deadline.",
         "Count persuasion attempts per product; when they are used up, make no further offer for that product. Say sympathy at most once.",
         _bul(p["amounts"]["rules"] + [p["dates"]["customer_date_after_deadline"], p["dates"]["vague_date"]] + p["dates"]["rules"]) if verbatim else "",
         "Read-back: " + pm["readback"] if verbatim else "",
-        "Recording: after a clear yes to the read-back, call create_promise once per product, one per message, after each result. If it fails, call it again with the same values, at most %d more time(s); if it still fails: %s."
-        % (pm["retry_on_failure"], pm["failure_say"] or "say it could not be recorded"),
     ]
+    if check:
+        lines.append("When the customer names a date, a period ('in two weeks', 'end of the month') or an amount themselves, call check_offer before you answer and follow its what_to_do_next. "
+                     "No check for the full amount today, for an offer from the account facts, or for a value check_offer already accepted: go straight to the read-back.")
+    lines.append("Recording: after a clear yes to the read-back, call create_promise once per product, one per message, after each result. "
+                 "If it fails, call it again with the same values, at most %d more time(s); if it still fails: %s."
+                 % (pm["retry_on_failure"], pm["failure_say"] or "say it could not be recorded"))
     if notes["enabled"]:
         lines.append("Notes: {{w_notes_rule}} Only after the last note result call close_call, in a separate message."
                      + (" Unless a rule says to send notes before a transfer, a transfer means no notes at all; never send a note after a transfer."
                         if notes["forbidden_on_transfer"] else " Before a transfer, follow the rules on whether notes are sent first."))
     else:
         lines.append("Do not call add_note in this call.")
-    rows = [r for r in _outcome_lines(p)]
-    rows = [r for r, t in zip(rows, p["outcomes"]["table"]) if t["outcome"] not in pre_out]
-    if check:
-        lines.append("When the customer names a date, a period ('in two weeks', 'end of the month') or an amount themselves, call check_offer with the product_id, the date or period as the customer said it "
-                     "and the amount, before you answer, and follow its what_to_do_next. No check for the full amount today or for an offer from the account facts.")
+    rows = [r for r, t in zip(_outcome_lines(p), p["outcomes"]["table"]) if t["outcome"] not in pre_out]
     lines += ["Things the customer may say:", _bul(_trigger_lines(p, cl, True)),
-              "Closing (outcome / reason): " + "; ".join(rows) + ".",
+              # with a rules list the outcome table is in the rules (system prompt or this step) and in close_call
+              ("Closing (outcome / reason): " + "; ".join(rows) + ".") if verbatim else "",
               _bul(p["outcomes"]["precedence"]) if verbatim else "",
               p["outcomes"]["multi_product"] if multi and verbatim else "",
-              ("The bank's rules for this step (follow every one of them):\n" + _phase_rules(p, "negotiate")) if _phase_rules(p, "negotiate") else "",
-              STATUS_LINE,
-              "Tools in this step: " + ("check_offer, " if check else "") + "create_promise, " + ("add_note, " if notes["enabled"] else "")
-              + ("transfer_to_agent, " if _tool_name(p, "transfer") else "") + "close_call."]
+              ("Rules for this step:\n" + _phase_rules(p, "negotiate")) if _phase_rules(p, "negotiate") else "",
+              STATUS_LINE]
     return "\n".join(x for x in lines if x)
 
 
@@ -735,7 +820,7 @@ def _close_reason_desc(p):
         if r["reason"]:
             by[r["outcome"]].append(r["reason"])
     parts = ["%s: %s" % (o, ", ".join(rs) if rs else "no reason") for o, rs in by.items()]
-    return "Reason for the outcome, exactly as in the bank's outcome table. " + "; ".join(parts) + "."
+    return "Exactly as in the outcome table: " + "; ".join(parts) + "."
 
 
 # ----------------------------------------------------------------------------------------------- main
@@ -765,38 +850,42 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
         return d + ((" " + note) if note and note not in d else "")
 
     # --- tools
-    t_verify = _api_tool(p, tn["verify"], tdesc("verify", "Check ONE security answer. CALL it every time the customer answers a security question, with that question's field and the answer as the customer gave it. Never call it for anyone but the customer."),
-                         {names["verify_answer"]: "The customer's answer to this one question."},
+    t_verify = _api_tool(p, tn["verify"], tdesc("verify", "CALL it each time the customer answers a security question (each piece too), with that question's field and the answer as given. Only for the customer."),
+                         {names["verify_answer"]: "The answer to this one question."},
                          pre="verify_pre", post="verify_post", rt=rt, timeout=to)
     # the model's close_call is a close REQUEST: the pre-hook records it and stops it; the engine closes the call
     # from close_api after close_check/finish, so close_call is always the last call and never runs in parallel
-    t_close = _api_tool(p, tn["close"], tdesc("close", "End the call. CALL it once, at the very end, in the same message as your goodbye, after the results of all other tool calls; the system then records the outcome."),
-                        {names["close_reason"]: _close_reason_desc(p), names["close_outcome"]: "The call's outcome from the bank's outcome table."},
+    t_close = _api_tool(p, tn["close"], tdesc("close", "End the call: once, last, in the message with your goodbye, after all other results. The system records the outcome."),
+                        {names["close_reason"]: _close_reason_desc(p), names["close_outcome"]: "From the bank's outcome table."},
                         pre="close_request", rt=rt, retries=0, timeout=to)
-    t_transfer = _api_tool(p, tn["transfer"], tdesc("transfer", "Hand the call to a person. CALL it only when a rule says to transfer, with the queue that rule names."),
+    t_transfer = _api_tool(p, tn["transfer"], tdesc("transfer", "Hand the call to a person. CALL it only when a rule says to transfer, with that rule's queue."),
                            pre="transfer_pre", post="transfer_post", rt=rt, timeout=to) if tn["transfer"] else None
-    t_callback = _api_tool(p, tn["callback"], tdesc("callback", "Book a callback. CALL it when the person who answered gives a day and a time to reach the customer, with the date as YYYY-MM-DD and the time as HH:MM (24 h)."),
+    t_callback = _api_tool(p, tn["callback"], tdesc("callback", "Book a callback. CALL it with each day and time offered to reach the customer."),
                            {names["callback_date"]: "YYYY-MM-DD", names["callback_time"]: "HH:MM, 24 h"},
                            pre="callback_pre", post="callback_post", rt=rt, timeout=to) if tn["callback"] else None
-    t_promise = _api_tool(p, tn["promise"], tdesc("promise", "Record ONE payment promise for ONE product. CALL it only after the customer clearly confirmed the read-back; one call per product."),
-                          {names["promise_product"]: "product_id exactly as listed in the account facts.",
-                           names["promise_amount"]: "Amount as a number, e.g. 420.5.",
-                           names["promise_date"]: "Payment date as YYYY-MM-DD."},
+    t_promise = _api_tool(p, tn["promise"], tdesc("promise", "Record ONE product's payment promise. CALL it only after a clear yes to the read-back."),
+                          {names["promise_product"]: "As in the account facts.",
+                           names["promise_amount"]: "A number, e.g. 420.5.",
+                           names["promise_date"]: "YYYY-MM-DD."},
                           pre="promise_pre", post="promise_post", rt=rt, timeout=to)
-    t_note = _api_tool(p, tn["note"], tdesc("note", "Record why ONE product ended without a promise. CALL it only at the end of the call, once per product without a promise, when every product is handled and no transfer happened."),
-                       {names["note_product"]: "product_id exactly as listed in the account facts."},
+    t_note = _api_tool(p, tn["note"], tdesc("note", "Record why ONE product ended without a promise. CALL it at the end, once per product without a promise, when every product is handled and there was no transfer."),
+                       {names["note_product"]: "As in the account facts."},
                        pre="note_pre", post="note_post", rt=rt, timeout=to) if tn["note"] and p["notes"]["enabled"] else None
 
-    t_check = _code_tool("check_offer", "Check a date and/or an amount the customer named for one product, before the read-back. CALL it whenever the customer names a day or an amount themselves.",
-                         {"product_id": "product_id exactly as listed in the account facts.",
-                          "date": "The day as the customer said it (words are fine), or YYYY-MM-DD. Leave empty if they named no day.",
-                          "amount": "The amount as a number, e.g. 420.5. Leave empty if they named no amount."},
+    t_check = _code_tool("check_offer", "Check a day and/or an amount the customer named for one product. CALL it before you answer them.",
+                         {"product_id": "As in the account facts.",
+                          "date": "As the customer said it (words are fine) or YYYY-MM-DD; empty if none.",
+                          "amount": "The amount as the customer said it (words are fine), or a number. Leave empty if they named no amount."},
                          "check_offer", rt) if opts["check_tool"] else None
 
     # leave on a successful close, or after two close_call requests that really went out (counted in the
     # pre-hook: a held-back close is not a send, and the engine does not retry, maxRetries 0)
     closed = {"target_node": "close_check", "description": "the model asked to close the call",
               "condition": _or(_eq("w_close_requested", "yes"))}
+    # both sides said goodbye and no close_call came: close_check / finish close from the recorded facts (a missing
+    # note still gets its one wrap-up round). Listed after the deterministic close request.
+    goodbye = [{"target_node": "goodbye_close", "description": "both sides said goodbye but close_call was not called",
+                "condition": {"operator": "matches_intent", "description": GOODBYE_INTENT}}] if opts["goodbye_close"] else []
 
     # --- nodes
     nodes = {}
@@ -824,7 +913,7 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
              "condition": _or(_eq(verify_tool + "_response.data." + names["verify_all"], "true"),
                               _eq(verify_tool + "_response.data." + names["verify_all"], "True"),
                               _eq("w_id_state", "verified"))},
-        ],
+        ] + goodbye,
     }
 
     account_tool = _api_tool(p, tn["account"], "Get the late products.", rt=rt, retries=2, timeout=to)
@@ -849,10 +938,12 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
         "task_message": task + (("\n\n" + extra) if extra else ""),
         "tools": neg_tools,
         "max_node_turns": opts["negotiate_max_turns"], "max_turn_transition": "turn_cap",
-        "transitions": [closed],
+        "transitions": [closed] + goodbye,
     }
 
     nodes["turn_cap"] = _code_node("turn_cap", "turn_cap", rt, "close_check")
+    if opts["goodbye_close"]:
+        nodes["goodbye_close"] = _code_node("goodbye_close", "goodbye_close", rt, "close_check", source=GOODBYE_CLOSE)
     close_check = _code_node("close_check", "close_check", rt, "finish")
     close_check["transitions"] = [
         {"target_node": "wrap_up", "description": "something is missing before the close",
@@ -860,13 +951,17 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
         {"target_node": "finish", "description": "always", "condition": {"operator": "always"}}]
     nodes["close_check"] = close_check
     wrap_tools = [t for t in (t_note, t_transfer, t_promise) if t] + [t_close]
+    # the to-do asks for notes "with the reason that applies" and the outcome follows the notes: the step's rules
+    # (note reasons, refusals, outcome table) are needed here; this step is entered at most once per call
+    neg_rules = _phase_rules(p, "negotiate")
+    wrap_rules = ("\nRules for the notes and the outcome:\n" + neg_rules) if neg_rules else ""
     nodes["wrap_up"] = {
         "name": "wrap_up", "node_type": "conversation",
         "on_enter": {"type": "llm", "prompt": P.get("wrap_up.on_enter",
                                                    "Before the call can be closed: {{w_wrap_todo}} Do it now with the tools, one tool call per message. The customer already heard your goodbye: do not say it again or describe what you record; if you must speak, say only 'One moment, please.'")},
         "task_message": P.get("wrap_up.task", "The call is about to be closed. Before that: {{w_wrap_todo}}\n"
                               "Use the tools for it, one tool call per message, and wait for each result. The customer already heard your goodbye: do not say it again or describe what you record; if you must speak, say only 'One moment, please.' "
-                              "Then call close_call again with the outcome that applies.\n" + STATUS_LINE),
+                              "Then call close_call again with the outcome that applies.\n" + STATUS_LINE + wrap_rules),
         "tools": wrap_tools,
         "max_node_turns": 4, "max_turn_transition": "finish",
         "transitions": [{"target_node": "finish", "description": "the model asked to close the call",
