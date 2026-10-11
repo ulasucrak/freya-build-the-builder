@@ -479,8 +479,10 @@ CONTRACT = {
                 'captured]}',
     "opening": '{"text": the required first sentence / its required content, "disclosures": [things that must '
                'be said up front], "forbidden_before_verification": [words/topics that must not be said before '
-               'identity is verified], "notes": [verbatim rules about confirming who is on the line and any other '
-               'opening rules]}',
+               'identity is verified], "line": the exact first words of the call ONLY when the documents quote them '
+               'word for word: the quoted opening sentence, a space, then the quoted question that asks for the customer, '
+               'with the documents\' {placeholders}; null when the opening is described rather than quoted, "notes": '
+               '[verbatim rules about confirming who is on the line and any other opening rules]}',
     "third_party": '{"cases": [{"trigger": each situation the documents describe where the customer is not '
                    'reached or not confirmed on the line, "say": verbatim text to say or null, "action": "callback"|'
                    '"end"|"ask_again"|text, "outcome": exact close outcome the documents give, "reason": exact '
@@ -618,8 +620,10 @@ def rules_prompt(docs_text):
         "extension>.<short section slug>.<k>\".\n"
         "- Tables: one entry per table row, written as the header names with that row's values, verbatim.\n"
         "- Include sub-bullets inside their rule's text. Keep the exact wording, numbers, quotes and placeholders.\n"
-        "- If a later document or memo replaces a rule, keep both, and start the later one's text with "
-        "\"[overrides <id>] \".\n\nDocuments:\n%s\n" % docs_text)
+        "- If a later document or memo replaces or changes a rule, keep both, and start the later one's text with "
+        "\"[overrides <id>] \" (several ids comma-separated). The replaced rule is then left out of the agent's "
+        "prompt, so mark it only when the later rule really replaces or contradicts it, not when it merely adds "
+        "to it.\n\nDocuments:\n%s\n" % docs_text)
 
 
 def resolve_prompt(conflicts, docs_text, tools):

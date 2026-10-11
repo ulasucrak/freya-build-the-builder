@@ -1373,3 +1373,126 @@ class JudgeReasonFixes(unittest.TestCase):
             self.assertEqual(len(ask), 1, name)
             self.assertIn("no_callback", ask[0], name)
             self.assertNotIn("ask for another time only once", wf["nodes"]["negotiate"]["task_message"], name)
+
+
+class PromptBudgetV3(unittest.TestCase):
+    """T06: per-node per-turn prompt (system + task + model-visible tool schemas) trimmed: rules another rule replaces,
+    struck-through rules, rules the hooks compute (calendar, deadline tables, offer ladder, floor definitions) and
+    outcome-table rows are left out of the step prompts; wrap_up keeps only the note and outcome rules; a privacy line;
+    the {{w_next_action}} state hint; a fixed opening spoken without a model call when the brief quotes it."""
+
+    POLICIES = sorted((KIT / "policies").glob("*.policy.json")) + sorted(FIX.glob("*.policy.json"))
+    OPENAPI = json.loads((KIT / "tools" / "openapi.json").read_text())
+    # before T06 (chars / 4, policies/): brief-a greet 3366, negotiate 3402, wrap_up 2747; brief-b 3291, 4149, 3476
+    TARGET_TOKENS = 2500        # goal per node; the verbatim rules of the longer briefs still exceed it (see CEILING)
+    CEILING_TOKENS = 3700       # regression guard for every policy
+
+    def sizes(self, path):
+        pol = json.loads(path.read_text())
+        wf = G.generate_workflow(pol, None, self.OPENAPI)
+        calls = [v["name"] for v in S.normalise(pol)["variables"]]
+        return wf, {k: v / 4.0 for k, v in G.prompt_sizes(wf, calls).items()}
+
+    def test_per_node_budget(self):
+        for path in self.POLICIES:
+            _wf, sz = self.sizes(path)
+            for node, tok in sz.items():
+                self.assertLessEqual(tok, self.CEILING_TOKENS, (path.name, node, tok))
+        for name, before in (("brief-a", (3366, 3402, 2747)), ("brief-b", (3291, 4149, 3476))):
+            _wf, sz = self.sizes(KIT / "policies" / (name + ".policy.json"))
+            for node, b in zip(("greet_verify", "negotiate", "wrap_up"), before):
+                self.assertLess(sz[node], 0.92 * b, (name, node, sz[node]))
+            self.assertLess(sz["negotiate"], 3200, name)
+            self.assertLess(sz["wrap_up"], 0.75 * before[2], name)
+            self.assertLessEqual(sz["wrap_up"], self.TARGET_TOKENS, name)
+        for name in ("fixture-a", "fixture-x"):
+            _wf, sz = self.sizes(FIX / (name + ".policy.json"))
+            self.assertTrue(all(v <= self.TARGET_TOKENS for v in sz.values()), (name, sz))
+
+    def test_wrap_up_keeps_note_and_outcome_rules_only(self):
+        p = S.normalise(raw("brief-b"))
+        wf = G.generate_workflow(raw("brief-b"))
+        wrap = wf["nodes"]["wrap_up"]["task_message"]
+        self.assertIn("add_note", wrap)
+        self.assertIn("Outcome: `transferred`", wrap)                         # an outcome-table row
+        self.assertIn("close as `no_promise` with the reason of the first product", wrap)
+        self.assertIn("{{w_wrap_todo}}", wrap)
+        neg_only = [r for r in p["rules"] if r["text"].startswith("Ask for the full past-due amount first")]
+        self.assertTrue(neg_only)
+        self.assertNotIn(neg_only[0]["text"], wrap)                           # negotiation rules are not repeated
+        self.assertNotIn("Persuasion attempts", wrap)
+
+    def test_rule_roles(self):
+        p = S.normalise(raw("brief-b"))
+        roles = G.rule_roles(p)
+        by = {r["text"][:40]: roles.get(r["id"]) for r in p["rules"]}
+        role = lambda start: next(v for k, v in by.items() if k.startswith(start))
+        self.assertEqual(role("Brief A never uses `add_note`"), "over")        # replaced by the Brief B note rule
+        self.assertIsNone(role("Say that you are calling from the collec"))  # replaced in part: it still says what to say
+        self.assertEqual(role("`days_late`: 1 to 7"), "hook")                  # deadline table row: computed per product
+        self.assertEqual(role("Business days are Monday to Friday"), "hook")
+        self.assertEqual(role("Outcome: `transferred`"), "outcome")
+        self.assertIsNone(role("A request for a human"))
+        s6 = S.normalise(json.loads((KIT / "policies" / "S6.policy.json").read_text()))
+        r6 = G.rule_roles(s6)
+        struck = [r["id"] for r in s6["rules"] if r["text"].count("~~") >= 6]
+        self.assertTrue(struck and all(r6.get(i) == "void" for i in struck), struck)
+        # the text of a shown rule carries no "[overrides ...]" mark; a rule that changes a shown rule says so
+        wf = G.generate_workflow(raw("brief-b"))
+        neg = wf["nodes"]["negotiate"]["task_message"]
+        self.assertNotIn("[overrides", neg + wf["system_prompt"])
+        self.assertIn("(changes ", neg)
+
+    def test_privacy_line(self):
+        for path in self.POLICIES:
+            wf, _sz = self.sizes(path)
+            self.assertIn(G.PRIVACY_LINE, wf["system_prompt"], path.name)
+        self.assertIn("never read back or repeat an identity answer", G.PRIVACY_LINE)
+        self.assertNotIn("name", G.PRIVACY_LINE.lower().replace("names", ""))  # asking for {title} {last_name} stays allowed
+        greet = G.generate_workflow(raw("brief-b"))["nodes"]["greet_verify"]["task_message"]
+        self.assertIn("{{title}} {{last_name}}", greet)
+
+    def test_next_action_hint(self):
+        from builder import testmode as T
+        for name in ALL:
+            wf = G.generate_workflow(raw(name))
+            for node in ("greet_verify", "negotiate"):
+                self.assertEqual(wf["nodes"][node]["task_message"].count("{{w_next_action}}"), 1, (name, node))
+            self.assertNotIn("{{w_next_action}}", wf["nodes"]["wrap_up"]["task_message"])
+            vs = {"now": "2026-10-14T11:00"}
+            T.run_code_locally(code_of(wf["nodes"]["setup"]), {}, vs)
+            self.assertEqual(vs.get("w_next_action"), "", name)           # set at call start: never shown literally
+        self.assertIn('"w_next_action"', G._setup_source())
+
+    def test_static_opening(self):
+        s2 = json.loads((KIT / "policies" / "S2.policy.json").read_text())
+        oe = G.generate_workflow(s2, None, self.OPENAPI)["nodes"]["greet_verify"]["on_enter"]
+        self.assertEqual(oe["type"], "tts")
+        self.assertEqual(oe["text"], "Hello, this is the automated assistant of Harbourline Savings Bank. This call is recorded."
+                                     " May I speak to {{title}} {{last_name}}?")
+        # an opening described rather than quoted ("say you are a digital assistant ...") stays with the model
+        self.assertEqual(G.generate_workflow(raw("brief-b"))["nodes"]["greet_verify"]["on_enter"]["type"], "llm")
+        # an extracted line is used only with known call variables
+        q = raw("brief-b")
+        q["opening"]["line"] = "Hello, Freya Bank's digital assistant here; this call is recorded. Am I speaking with {title} {last_name}?"
+        oe = G.generate_workflow(q)["nodes"]["greet_verify"]["on_enter"]
+        self.assertEqual(oe, {"type": "tts", "text": "Hello, Freya Bank's digital assistant here; this call is recorded."
+                                                     " Am I speaking with {{title}} {{last_name}}?"})
+        q["opening"]["line"] = "Hello {nickname}."
+        self.assertEqual(G.generate_workflow(q)["nodes"]["greet_verify"]["on_enter"]["type"], "llm")
+
+    def test_note_free_text_not_model_visible(self):
+        wf = G.generate_workflow(raw("brief-b"), None, self.OPENAPI)
+        vis = G.visible_tool_schema(tool(wf, "negotiate", "add_note"), {"customer_id"})
+        self.assertEqual(sorted(vis["parameters"]), ["product_id", "reason"])
+        self.assertEqual(G.lint_workflow(wf), [])
+
+    def test_earlier_review_fixes_kept(self):
+        pol = json.loads((KIT / "policies" / "brief-b.policy.json").read_text())
+        wf = G.generate_workflow(pol, None, self.OPENAPI)
+        for node in ("greet_verify", "negotiate"):
+            line = [x for x in wf["nodes"][node]["task_message"].splitlines() if x.startswith("- human_request")][0]
+            self.assertIn("insists after being asked once", line)
+        self.assertIn("never 'I have recorded' before the result", wf["system_prompt"])
+        self.assertIn("One tool call per message", wf["system_prompt"])
+        self.assertIn("results can be lost", wf["system_prompt"])

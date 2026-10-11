@@ -532,10 +532,13 @@ def static_opening(p):
     """The first words of the call when the brief fixes them completely: the opening sentence quoted word for word and
     the quoted question that asks for the customer, built only from call variables. '' when anything is left to the
     model (e.g. an opening given as content to convey), then the model speaks the opening."""
+    names = set(_var_names(p))
+    line = (p["opening"].get("line") or "").strip()
+    if line and set(re.findall(r"\{+(\w+)\}+", line)) <= names:
+        return line                         # extracted: quoted word for word in the brief
     opening = (p["opening"].get("text") or "").strip()
     if not opening or not _quoted_in_rules(p, opening):
         return ""
-    names = set(_var_names(p))
     for v in p["phrases"].values():
         if not isinstance(v, str) or not v.strip().endswith("?"):
             continue
@@ -756,6 +759,13 @@ def _rule_text(t):
 
 def _is_void(t):
     """Struck through as a whole (~~...~~): cancelled text, nothing left to follow."""
+    if "~~" not in t:
+        return False
+    cells = _cells(t)
+    if cells and any("~~" in v for _k, v in cells):
+        # a table row whose struck values leave nothing (a footnote mark or a row number at most)
+        return all(not any(c.isalpha() for c in re.sub(r"~~.*?~~", "", v, flags=re.S)) or "~~" not in v and len(v) < 4
+                   for _k, v in cells)
     rest = re.sub(r"~~.*?~~", "", t, flags=re.S)
     return "~~" in t and len(re.sub(r"[\W\d_]+", "", re.sub(r"\b\w+\s*:", "", rest))) < 12
 
@@ -1159,7 +1169,7 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
     nodes = {}
     nodes["setup"] = _code_node("setup", "setup", rt, "greet_verify", source=_setup_source())
 
-    opening_line = P.get("opening_line", p["opening"].get("line") or static_opening(p))
+    opening_line = P.get("opening_line", static_opening(p))
     greet_on_enter = {"type": "tts", "text": _brace_vars(opening_line, p)} if opening_line else {
         "type": "llm", "prompt": P.get("greet_verify.on_enter", "\n".join(
             ["This is the first sentence of the call. Say the opening exactly as the bank requires and then ask whether you are speaking with the customer, as the rules below say. Nothing else. Do not call a tool in this turn.",
@@ -1294,6 +1304,34 @@ def _strip_nulls(x):
     elif isinstance(x, list):
         for v in x:
             _strip_nulls(v)
+
+
+def visible_tool_schema(t, call_vars=()):
+    """What the dialogue model sees of a tool (docs/tools-and-code.md): name, description and the parameters without a
+    baked default. An api_call body field defaulting to its own unset {{name}} is model-filled; a call variable is baked."""
+    f = t["function"]
+    params = (f.get("parameters") or {}).get("properties") or {}
+    props = {}
+    if f.get("handler", "").endswith("api_call"):
+        for k, s in ((params.get("body") or {}).get("properties") or {}).items():
+            m = re.fullmatch(r"\{\{(\w+)\}\}", str(s.get("default", "")))
+            if m and m.group(1) not in call_vars:
+                props[m.group(1)] = {x: s[x] for x in ("type", "description", "enum") if x in s}
+    else:
+        props = {k: {x: s[x] for x in ("type", "description", "enum") if x in s} for k, s in params.items() if "default" not in s}
+    return {"name": f["name"], "description": f.get("description") or "", "parameters": props}
+
+
+def prompt_sizes(wf, call_vars=()):
+    """Per conversation node: characters of the per-turn prompt (system prompt + task + model-visible tool schemas).
+    Tokens are about characters / 4."""
+    sp = len(wf.get("system_prompt") or "")
+    out = {}
+    for k, n in wf["nodes"].items():
+        if n.get("node_type") == "conversation":
+            out[k] = sp + len(n.get("task_message") or "") + sum(
+                len(json.dumps(visible_tool_schema(t, set(call_vars)))) for t in n.get("tools") or [])
+    return out
 
 
 def lint_workflow(wf):
