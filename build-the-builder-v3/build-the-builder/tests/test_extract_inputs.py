@@ -392,7 +392,14 @@ class ChunkedRulesPass(unittest.TestCase):
     def test_failed_part_falls_back_to_numbered_rules(self):
         pol, _calls, warnings = self.run_flow(fail_part=2)
         self.assertEqual([r["id"] for r in pol["rules"]], ["m1.1", "m1.2", "doc1.1", "doc1.2", "m3.1", "m3.2"])
-        self.assertTrue(any("rules part 2 returned 0 rules" in w for w in warnings), warnings)
+        self.assertTrue(any("rules part 2 returned no rules" in w for w in warnings), warnings)
+
+    def test_failed_part_keeps_prose_documents_as_paragraphs(self):
+        docs = [("mail.txt", "Hi team,\n\nPlease say the due date twice.\n\nThanks"),
+                ("rules.md", "1. First rule.\n2. Second rule.")]
+        got = extract.document_rules(docs)
+        self.assertEqual([r["id"] for r in got], ["mail.p1", "mail.p2", "mail.p3", "rules.1", "rules.2"])
+        self.assertEqual(got[1]["text"], "Please say the due date twice.")
 
 
 @unittest.skipUnless(os.environ.get("EXTRACT_CASE_DIR"), "set EXTRACT_CASE_DIR to a case folder")

@@ -2088,6 +2088,21 @@ def numbered_rules(docs):
     return rules
 
 
+def document_rules(docs):
+    """Per document: its numbered rules, or (a document without numbered items, e.g. a mail or a meeting
+    transcript) its paragraphs verbatim. Used for a rules part whose model call failed, so no document's
+    rules are silently dropped."""
+    rules = []
+    for label, text in docs:
+        got = numbered_rules([(label, text)])
+        if not got:
+            stem = re.sub(r"\.[^.]+$", "", label.rsplit("/", 1)[-1])
+            paras = [x.strip() for x in re.split(r"\n\s*\n", text or "") if x.strip()]
+            got = [{"id": "%s.p%d" % (stem, i + 1), "text": t} for i, t in enumerate(paras)]
+        rules += got
+    return rules
+
+
 # =============================================================== main entry
 
 def _call_json(prompt, purpose, deadline, model=None):
@@ -2213,7 +2228,11 @@ def extract_policy(brief_paths, openapi_path, *, replicates=2, budget_s=None, wa
     rules = []
     for gi, g in enumerate(groups):
         part = normalise_section("rules", (results.get(("rules", gi)) or {}).get("rules"), warnings)
-        if len(groups) > 1:
+        if not part:  # the model call failed or listed nothing: keep these documents' text verbatim
+            part = document_rules([docs[i] for i in g])
+            warnings.append("rules part %d returned no rules; kept %d numbered rules/paragraphs of its documents "
+                            "verbatim" % (gi + 1, len(part)))
+        elif len(groups) > 1:
             det_g = numbered_rules([docs[i] for i in g])
             if len(part) < 0.8 * len(det_g):  # this part failed: its numbered rules at least
                 warnings.append("rules part %d returned %d rules, numbered parse found %d; using numbered parse"
