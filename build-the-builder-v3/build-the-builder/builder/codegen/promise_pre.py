@@ -16,7 +16,8 @@ if prod is not None:
 amt = to_number(body.get(af))
 if amt is not None:
     body[af] = round(amt, 2)
-dd = to_date(body.get(dfld)) or parse_spoken_date(body.get(dfld), today, nm("next_weekday", ""))
+# ISO first, then spoken forms
+dd = parse_spoken_date(body.get(dfld), today, nm("next_weekday", ""))
 dd = fix_year(dd, today)
 if dd is not None:
     body[dfld] = iso(dd)
@@ -55,7 +56,8 @@ if chk.get("ok"):
     tries += 1
     vset(vs, "w_cp_tries_" + pid, str(tries))
     if pid:
-        mark(vs, "w_cp_sent_", pid, "1")      # per product: survives parallel calls (see sent_ok)
+        # per product: survives parallel calls (see sent_ok)
+        mark(vs, "w_cp_sent_", pid, "1")
     if tries > 1:
         vset(vs, "w_last_event", "Retry " + str(tries - 1) + " of create_promise for " + pid + " is being sent.")
     else:

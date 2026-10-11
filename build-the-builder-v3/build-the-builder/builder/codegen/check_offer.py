@@ -7,7 +7,17 @@ today = today_of(vs)
 prods = products_of(vs)
 prod = find_product(prods, args.get("product_id"))
 said = str(args.get("date") or "").strip()
-amt = to_number(args.get("amount"))
+# corrections ('Friday, sorry, Monday') and relative days ('end of the month') are resolved here; check_promise
+# then gets an exact date, or a day that cannot be read ('?')
+if said:
+    said = iso(said_date(said, today, nm("next_weekday", ""), cal)) or "?"
+# words, both separator conventions, corrections: the last stated amount; 'the full amount' / 'the minimum' are the
+# product's full amount / floor; otherwise the old reading (digits only), and nothing readable is not checked
+named = str(args.get("amount") or "").strip().lower()
+amt = parse_amount(named) if named else None
+if amt is None and named and prod is not None:
+    amt = prod.get("floor") if re.search(r"\b(min|minimum|floor|lowest|least)\b", named) else (
+        prod.get("full") if re.search(r"\b(full|whole|all|everything|total)\b", named) else to_number(named))
 out = dict(ok=False, code="", date="", amount=None, suggest_date="", suggest_amount=None, what_to_do_next="")
 if prod is None:
     out["code"] = "unknown_product"

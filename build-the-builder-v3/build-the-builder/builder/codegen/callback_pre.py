@@ -7,7 +7,7 @@ tfld = nm("callback_time", "time")
 cal = make_calendar(RT)
 today = today_of(vs)
 now_time = now_time_of(vs)
-dd = to_date(body.get(dfld)) or parse_spoken_date(body.get(dfld), today, nm("next_weekday", ""))
+dd = to_date(body.get(dfld)) or said_date(body.get(dfld), today, nm("next_weekday", ""), cal)
 dd = fix_year(dd, today)
 if dd is not None:
     body[dfld] = iso(dd)
