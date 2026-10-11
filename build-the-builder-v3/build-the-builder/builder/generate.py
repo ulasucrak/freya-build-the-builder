@@ -1954,6 +1954,7 @@ def generic_system_prompt(p, language, tool_lines):
     return "\n".join([
         "You are a phone agent on a live call. Speak %s only: %s" % (language, GENERIC_SHORT),
         "Use only facts from this prompt, the call variables and tool results; never invent amounts, dates, names, reasons or service answers.",
+        "When the caller must choose (which item, which option, which date), first name the choices the service returned (up to two examples, named as the rules name them), then ask.",
         "",
         "Call variables (known before the call: never ask the caller for their values; the tools send them themselves):",
         _bul(var_lines),

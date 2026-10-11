@@ -259,8 +259,8 @@ if isinstance(result, dict):
             spoken = 0
         out["ok"] = True
         if spoken and "what_to_do_next" not in out:
-            out["what_to_do_next"] = ("To say a date or an amount, use the words of its _spoken field"
-                                      + (" (Turkish)" if TR else "") + "; it has no currency name, add the one the rules use.")
+            out["what_to_do_next"] = ("To say a date, use the words of its _spoken field" + (" (Turkish)" if TR else "") + ". "
+                                      "Read amounts using the _spoken words plus the currency's full name exactly as the rules write it; never say a currency code or abbreviation.")
             if GP_FLAGS.get("credit"):
                 out["what_to_do_next"] += (" A negative amount (marked _is_credit_not_debt) is money in the customer's"
                                            " favour, not a debt: never say it as a debt, never say a minus; follow the"
