@@ -93,7 +93,7 @@ def fails(vs, tool, add=0):
     return n
 
 
-SVC = "Do not call it again: tell the customer it cannot be done right now and close the call as the rules say for a service error."
+SVC = "Do not call it again; say it cannot be done now and close the call as the rules say for a service error."
 
 
 def svc_close():
@@ -140,10 +140,7 @@ def block_request(config, vs, flag, info, tool=""):
     """Stop a request before it reaches the bank: the URL cannot resolve and its host name says why. The reason
     also goes to w_last_event (every prompt shows it): no post-hook runs for a request without an HTTP response."""
     g = info.get
-    try:
-        config["url"] = "https://not-sent-" + (re.sub(r"[^a-z0-9]+", "-", str(g("code") or "rule").lower()).strip("-")[:30] or "rule") + "-nothing-recorded.invalid/"
-    except Exception:
-        pass
+    config["url"] = "https://not-sent-" + (re.sub(r"[^a-z0-9]+", "-", str(g("code") or "rule").lower()).strip("-")[:30] or "rule") + "-nothing-recorded.invalid/"
     vset(vs, flag, json.dumps(info))
     vset(vs, "w_last_event", "Your last " + (tool or "tool") + " request was NOT sent to the bank and nothing was recorded. " + str(g("message") or "") + " " + str(g("next") or ""))
 
@@ -274,17 +271,12 @@ def notes_of(vs):
 def transfers_of(vs):
     out = csv_list(vget(vs, "w_transfers"))
     try:
-        for k in list(vs.keys()):
-            q = str(vget(vs, k)) if str(k).startswith("w_transfer_q_") else ""
-            if q and q not in out:
-                out.append(q)
+        out += [str(vget(vs, k)) for k in list(vs.keys()) if str(k).startswith("w_transfer_q_") and vget(vs, k)]
     except Exception:
         pass
     t = nm("transfer_tool", "transfer_to_agent")
     q = vget(vs, t + "_args." + nm("queue_field", "queue"))
-    if not out and q and num(vget(vs, t + "_success_count", 0)) > 0 and truthy(vget(vs, t + "_response.data." + nm("transfer_ok", "ok"), "false")):
-        out = [str(q)]
-    return out
+    return out or ([str(q)] if q and cnt(vs, t + "_success_count") and truthy(vget(vs, t + "_response.data." + nm("transfer_ok", "ok"), "false")) else [])
 
 
 def id_state_of(vs):

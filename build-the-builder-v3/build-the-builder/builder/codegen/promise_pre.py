@@ -37,11 +37,11 @@ if g and str(vget(vs, "w_account_state")) == "failed":
 elif g and prods:
     chk = check_promise(prod, amt, dd, today, cal, promised_of(vs), nm("next_weekday", ""))
     if chk.get("ok") and transfers_of(vs):
-        chk = dict(ok=False, code="after-transfer", message="The call was transferred. No promise may be recorded after a transfer.")
+        chk = dict(ok=False, code="after-transfer", message="No promise may be recorded after a transfer.")
     if chk.get("ok") and str(vget(vs, key_of("w_dispute_", pid))) == "yes":
-        chk = dict(ok=False, code="disputed", message="The customer disputes this product: no promise may be recorded for it.")
+        chk = dict(ok=False, code="disputed", message="This product is disputed: no promise may be recorded for it.")
     if chk.get("ok") and tries > retry:
-        chk = dict(ok=False, code="no-more-retries", message="create_promise already failed for this product as often as the rules allow. Do not try again.")
+        chk = dict(ok=False, code="no-more-retries", message="create_promise failed for this product as often as the rules allow.")
 if not chk.get("ok"):
     c = chk.get("code")
     nxt = "Do not say it was recorded."
@@ -52,7 +52,7 @@ if not chk.get("ok"):
     if c == "account-failed":
         nxt += " " + SVC
     elif c == "no-more-retries":
-        nxt += " Tell the customer you could not record it, as the rules say."
+        nxt += " Do not try again; tell the customer you could not record it, as the rules say."
         sn = (RT.get("enforce") or dict()).get("service_note")
         if (RT.get("notes") or dict()).get("enabled") and pid and sn:
             mark(vs, "w_intent_", pid, sn)
