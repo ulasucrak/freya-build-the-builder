@@ -1882,7 +1882,7 @@ def generic_workflow(p, prompts=None, openapi=None, opts=None, language=None):
         call_keys.setdefault(name_key(v), v)
     rt_post = {"names": {"language": language, "lang": language, "now_var": now_var}, "language": language, "lang": language}
     post_src = _generic_post_source(language)
-    tools, tool_lines, used = [], [], {"end_conversation"}
+    tools, tool_lines, used, ready = [], [], {"end_conversation"}, []
     filled = set()
     for op in generic_operations(p, openapi):
         name = re.sub(r"[^A-Za-z0-9_]", "_", op["name"]).strip("_")[:60] or "service"
@@ -1894,7 +1894,9 @@ def generic_workflow(p, prompts=None, openapi=None, opts=None, language=None):
         t = generic_tool(p, op, name, desc, call_keys, post_src, rt_post, opts)
         tools.append(t)
         body = t["function"]["parameters"]["properties"]["body"]["properties"]
-        filled |= {f for f, s in body.items() if s.get("default") == "{{" + f + "}}"}
+        filled |= {f for f, s in body.items() if s.get("default") == "{{" + f + "}}" and f not in calls}
+        if not t["function"]["parameters"]["properties"]["body"]["required"] and t["config"]["maxRetries"]:
+            ready.append(name)          # read-only and nothing to ask the caller: can run at the start
         tool_lines.append("%s: %s" % (name, _short(op["summary"] or op["description"] or desc, 160)))
     reasons = list(END_REASONS)
     t_end = {"type": "function", "config": {"timeoutMs": 12000, "maxRetries": 0}, "function": {
@@ -1918,8 +1920,9 @@ def generic_workflow(p, prompts=None, openapi=None, opts=None, language=None):
         if said != language and not (said == "" and language == "English"):
             opening = ""
     on_enter = {"type": "tts", "text": _brace_vars(opening, p)} if opening else {"type": "llm", "prompt": P.get(
-        "assistant.on_enter", "This is the first message of the call, in %s: start as the rules say (when the rules begin with a"
-        " service call, call it now; otherwise greet briefly and ask how you can help). One short sentence." % language)}
+        "assistant.on_enter", "This is the start of the call; the caller is waiting. In %s, do now what the rules say comes first: when"
+        " they begin with a service call, make it now%s and speak from its result; otherwise greet briefly and ask how you can"
+        " help. Keep it short." % (language, (" (needing nothing from the caller: " + ", ".join(ready) + ")") if ready else ""))}
     nodes["assistant"] = {
         "name": "assistant", "node_type": "conversation", "on_enter": on_enter, "on_enter_first_entry_only": True,
         "task_message": P.get("assistant.task", "Help the caller as the rules say, one step at a time. Get every account fact"
