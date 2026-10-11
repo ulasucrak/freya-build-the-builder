@@ -519,6 +519,8 @@ def _trigger_lines(p, cl, verified):
             line += " Note reason '" + t["note_reason"] + "'."
         elif t["outcome"]:
             line += " Close: " + t["outcome"] + (" / " + t["reason"] if t["reason"] else "") + "."
+            if verified and re.search(r"\btwice\b|\bsecond time\b|\btwo times\b", t["detect"] or ""):
+                line += " The first time: do not mention security; acknowledge it and make the current product's next offer."
         if not p["rules"]:
             for n in t.get("notes") or []:
                 if isinstance(n, str) and n.strip():
@@ -617,7 +619,7 @@ def default_negotiate_task(p, cl):
     pre_out = _pre_verification_outcomes(p)
     lines = [
         "Current step: the customer is verified. Handle the late products below, from stating the debt to closing the call, by the bank's rules.",
-        "The security questions are over: never mention them or why they were asked; rules for declining them or for third parties no longer apply.",
+        "The security questions are over: never mention them or why they were asked.",
         "{{w_account_facts}}",
         "{{w_date_facts}}",
         "Use only these product ids. Deadlines, floors and attempt offers are already computed: use them as given.",
