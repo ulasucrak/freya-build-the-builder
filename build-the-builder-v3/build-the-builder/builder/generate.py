@@ -1300,12 +1300,10 @@ def default_system_prompt(p):
     rules = _phase_rules(p, "all")
     # a phrase quoted word for word in a rule is already in the prompt of every step where that rule applies
     kept = " ".join(r["text"] for ph_ in ("all", "greet", "negotiate") for r in shown_rules(p, ph_))
-    # a phrase quoted only in a rule that a later rule replaced is not to be said any more (e.g. the one-product 'today'
-    # question once the multi-product rule asks about all of them)
-    roles = rule_roles(p)
-    gone = " ".join(r["text"] for r in p["rules"] if roles.get(r["id"]) in ("over", "void"))
+    # the one-product 'today' question of a replaced rule is named in negotiate's TODAY_ONCE line, with its condition
+    once = set(_once_phrases(p))
     phrases = _bul(["%s: \"%s\"" % (k, v) for k, v in p["phrases"].items()
-                    if isinstance(v, str) and v.strip() not in kept and not (v.strip() and v.strip() in gone)])
+                    if isinstance(v, str) and v.strip() not in kept and v.strip() not in once])
     return "\n".join(x for x in [
         "You are a bank's phone agent on a live call. Speak %s: " % p["language"] + SHORT_LINE,
         "Use only facts from this prompt, the call variables and tool results; never invent amounts, dates, reasons or offers.",
@@ -1332,8 +1330,8 @@ NEXT_ACTION = "{{w_next_action}}"
 # the rules on dates, deadlines, bands, floors, the offer ladder and the outcome table are computed by the hooks
 # (prepare_account, check_offer, close_check, note_pre) and are not repeated in the step prompt (rule_roles 'hook')
 HOOK_POINTER = ("Use the facts and tool results as given for business days, deadlines, floors, offers and the outcome"
-                " (weekdays and years only from the calendar facts). A promise: floor to full amount, a business day from today to"
-                " the product's deadline. A date or an amount the customer names is never a refusal.")
+                " (weekdays and years: calendar facts only). A promise: floor to full amount, a business day from today to"
+                " its deadline. A date or an amount the customer names is never a refusal.")
 
 
 def _codes_in(outcome, reason, text):
@@ -1349,8 +1347,8 @@ NEGOTIATE_ENTER = ("Identity is verified. State the debt as the rules require, u
 
 # 250new N173/N221/N222: after the goodbye the customer heard "One moment, please." before every note call. A message
 # with a tool call and no text is a complete turn (only a turn with neither fails: "no speakable content")
-WRAP_SILENT = ("The customer already heard your goodbye: do not say it again, add no words (no 'one moment'), do not describe"
-               " what you record; send each tool call with no text.")
+WRAP_SILENT = ("The customer heard your goodbye: do not say it again or describe what you record; send each tool call with"
+               " no words.")
 
 
 def default_greet_task(p, cl, ef=None, cb_tool=False):
@@ -1432,21 +1430,38 @@ def _ladder_line(p, ef=None):
     if ef and "refusal" in ef.get("signals", []):
         return ("Persuasion attempts" + (" (" + per + ")" if per else "") + ": the system counts refusals and gives the next offer in"
                 " the state line; make exactly that offer, once. One sympathy sentence, once.")
+    # a later product's facts say "First question for it: its Attempt 1 offer" (the no to the first 'today' question is
+    # the refusal its "only after a refusal" asks for)
+    later = (" A later product opens with its Attempt 1."
+             if p["products"]["max_count"] > 1 else "")
     return ("Persuasion attempts" + (" (" + per + ")" if per else "") + ": each product's, in order, once; a refusal or non-answer"
-            " ('not on <day>' with no new day too; not 'too much') uses the next; after the last, close. One sympathy sentence, once.")
+            " ('not on <day>' with no new day too; not 'too much') uses the next; after the last, close. One sympathy sentence, once."
+            + later)
 
 
 # 250new N019: "once my tax refund comes in" went to the offer ladder with no check_offer (the rules: ask once for the
 # exact day); N186: "can I just pay the minimum today?" became the agent's own offer with "Do you agree?", and the
 # customer's non-answers after it were counted as refusals. check_offer reads 'the minimum' / 'the full amount'.
-CHECK_LINE = ("A day, period or condition ('end of the month', 'after the weekend', 'when I get paid') or an amount the customer"
-              " names ('the minimum' too): check_offer with their words first, never an offer instead. Valid: read it back at once,"
-              " never 'do you agree?'; a non-answer then is no refusal. A yes to your offer: read-back.")
+CHECK_LINE = ("A day, period, condition ('end of month', 'after the weekend', 'when I get paid') or amount the customer names"
+              " ('the minimum' too): check_offer first, never an offer instead. Valid: read back at once, never 'do you agree?';"
+              " then a non-answer is no refusal. A yes to your offer: read-back.")
 # 250new Brief B: a per-product "Can you pay X today?" (21 of 58 calls) and a second all-products 'today' question after
 # a dispute; shown when the rules say the 'today' question is not asked again
-TODAY_ONCE = ("The 'today' question is asked once in the call, for all products, in the first message; never again (not per"
-              " product, not after a no, a dispute or a paid claim): each next product starts at its attempt 1.")
-_AGAIN_RX = re.compile(r"(?:do not|don't|never)[^.]*today[^.]*again|(?:do not|don't|never)[^.]*again[^.]*today", re.I)
+TODAY_ONCE = ("The 'today' question is asked once in the call, in the first message, for all products%s; never again (not per"
+              " product, not after a no, a dispute or a paid claim).")
+_AGAIN_RX = re.compile(r"\b(?:do not|don't|never)\b[^.]*\btoday\b[^.]*\bagain\b|\b(?:do not|don't|never)\b[^.]*\bagain\b[^.]*\btoday\b", re.I)
+
+
+def _once_phrases(p):
+    """Fixed 'today' questions quoted only in a rule a later rule replaced: TODAY_ONCE names them (one product only),
+    the system prompt's phrase list leaves them out."""
+    if p["products"]["max_count"] <= 1 or not _today_once(p):
+        return []
+    roles = rule_roles(p)
+    gone = " ".join(r["text"] for r in p["rules"] if roles.get(r["id"]) in ("over", "void"))
+    kept = " ".join(r["text"] for ph_ in ("all", "greet", "negotiate") for r in shown_rules(p, ph_))
+    return [v.strip() for v in p["phrases"].values() if isinstance(v, str) and v.strip() and "today" in v.lower()
+            and v.strip() in gone and v.strip() not in kept]
 
 
 def _today_once(p):
@@ -1464,7 +1479,7 @@ def default_negotiate_task(p, cl, check=False, ef=None, entry=False):
     verbatim = not p["rules"]
     pre_out = _pre_verification_outcomes(p)
     lines = [
-        "Current step: the customer is verified. Handle the late products below by the bank's rules, from stating the debt to closing the call."
+        "Current step: the customer is verified. Handle the late products below by the bank's rules."
         " The security questions are over: never mention them or why they were asked.",
         ENTRY_SAID if entry else "",
         "{{w_account_facts}}",
@@ -1477,9 +1492,9 @@ def default_negotiate_task(p, cl, check=False, ef=None, entry=False):
     if check:
         lines.append(CHECK_LINE)
     if multi and _today_once(p):
-        lines.append(TODAY_ONCE)
-    lines.append("After a clear yes to the read-back: create_promise once per product, one per message, after each result. "
-                 "If it fails, call it again with the same values, at most %d more time(s); then: %s."
+        lines.append(TODAY_ONCE % "".join(" (\"%s\" only with one product)" % v for v in _once_phrases(p)))
+    lines.append("After a clear yes to the read-back: create_promise per product, one per message, after each result. "
+                 "If it fails, retry with the same values at most %d more time(s); then: %s."
                  % (pm["retry_on_failure"], pm["failure_say"] or "say it could not be recorded"))
     if notes["enabled"]:
         lines.append("Notes: {{w_notes_rule}} close_call only after the last note result."
