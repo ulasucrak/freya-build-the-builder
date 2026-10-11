@@ -52,14 +52,17 @@ def wrong_day(d):
         if w.day not in (30, 31) and w != d: return w
     return d + g1.dt.timedelta(days=3)
 
-def wrong_amount(x):
-    w = x + 40 if (x + 40) % 1 == 0 else x + 40.5
-    return float(w)
+def wrong_amount(x, lo, hi):
+    """An amount said by mistake before the correction, of the same kind as x: inside [lo, hi] and not x itself, so the
+    slip never turns a partial amount into a below-floor one or the other way round."""
+    for k in (40, -40, 20, -20, 10, -10, 5, -5, 2, -2, 1, -1):
+        if lo <= x + k <= hi: return float(x + k)
+    raise ValueError((x, lo, hi))
 
-def spoken(t, amt, d, kind):
+def spoken(t, amt, d, kind, lo=None, hi=None):
     """How the customer says amount amt (None: no amount) for day d (None: today), in phrasing kind. None if that kind
     cannot say it (words for an amount with pence, relative for a day without a one-reading relative name, mixed
-    without both values)."""
+    without both values). lo and hi bound the mistaken first amount of a correction."""
     when = "today" if d is None else None
     if kind == "digits":
         a = money(amt) if amt is not None else None; w = when or day_digits(d)
@@ -80,7 +83,7 @@ def spoken(t, amt, d, kind):
             a = money(amt) if amt is not None else None
             w = f"{day_digits(wrong_day(d))}, no, sorry, {long_day(d)}"
         else:
-            return f"{money(wrong_amount(amt))}, sorry, I mean {money(amt)}, today"
+            return f"{money(wrong_amount(amt, lo, hi))}, sorry, I mean {money(amt)}, today"
     else:
         raise ValueError(kind)
     return f"{a} {w}" if a is not None else w
@@ -186,7 +189,7 @@ def a_rows(b, t):
             prom(full, nd), ["the agent asks once for the exact day", f"the promise is for {long_day(nd)}"], tags=["vague"])
     if len(ok) > 2:
         d = ok[2]
-        add("Dates", "in-a-few-days", "digits", f"Cannot pay today. Says 'in a few days'. When asked for the exact day, says {day_digits(d)}. {Y('d9')}", prom(full, d),
+        add("Dates", "in-a-few-days", "digits", f"Cannot pay today. Says 'in a few days'. When asked for the exact day, says '{long_day(d)}'. {Y('d9')}", prom(full, d),
             ["the agent asks once for the exact day", f"the promise is for {long_day(d)}"], tags=["vague"])
     add("Dates", "tax-refund", "none", f"Cannot pay today. Says {{he}} will pay once {{his}} tax refund comes in. Asked for the exact day, says {{he}} cannot say. Agrees to the day the agent then proposes. {Y('d10')}",
         prom(full, dl), ["the agent asks once for the exact day", f"the agent proposes the last allowed day, {long_day(dl)}"], tags=["vague"])
@@ -196,7 +199,7 @@ def a_rows(b, t):
     # --- partial amounts (rule 27)
     if mid:
         for k, amt in (("digits", mid), ("words", rnd), ("correction", mid)):
-            s = spoken(t, amt, None, k)
+            s = spoken(t, amt, None, k, fl, full - 1)
             add("Partial", "today", k, s and f"Says the whole amount is not possible today, but {{he}} can pay {s}. {Y('p1', k)}", prom(amt, t),
                 [f"{money(amt)} is accepted without argument"], tags={"words": ["amount-words"], "correction": ["correction"]}.get(k, ()))
         for i, k in enumerate(("digits", "words", "mixed", "relative")):
@@ -390,7 +393,7 @@ def a_rows(b, t):
     add("Mid-call change", "recorded-then-person", "none", "Pays the whole amount today and confirms. Once it is recorded, asks for a human. When the agent asks whether it can help first, insists.",
         E("transferred", "human", [P("p1", full, iso(t))], transfers=TR("general")), ["the recorded promise stays", "closed as transferred / human"], False)
     if mid:
-        add("Mid-call change", "readback-amount", "correction", f"Agrees to pay all of it today. At the read-back says 'make that {money(wrong_amount(mid))}, no, sorry, {money(mid)}'. Confirms the new read-back.",
+        add("Mid-call change", "readback-amount", "correction", f"Agrees to pay all of it today. At the read-back says 'make that {money(wrong_amount(mid, fl, full - 1))}, no, sorry, {money(mid)}'. Confirms the new read-back.",
             prom(mid, t), [f"the agent reads back again with {money(mid)}", "only the changed promise is recorded"], tags=["correction"])
     add("Mid-call change", "recorded-then-ill", "none", "Pays the whole amount today and confirms. Once it is recorded, says {he} is starting cancer treatment next week. Accepts the support team.",
         E("transferred", "support", [P("p1", full, iso(t))], transfers=TR("support")), ["the recorded promise stays", "closed as transferred / support"], False)
@@ -531,13 +534,13 @@ def b_action(t, i, p, act, kind):
     if act == "today": return f"Pays {name} in full today.", P(pid, full, iso(t)), None, f"{name}: {money(full)} today", False
     if act == "first":
         if a1 > dl: return None
-        return f"For {name}, takes the first proposal the agent makes.", P(pid, full, iso(a1)), None, f"{name}: attempt 1, {money(full)} on {long_day(a1)}", False
+        return f"For {name}, accepts the agent's first offer for it.", P(pid, full, iso(a1)), None, f"{name}: attempt 1, {money(full)} on {long_day(a1)}", False
     if act == "second":
         if not is_late(p) or a1 > dl: return None
-        return (f"For {name}, turns down the first proposal and takes the second one.", P(pid, fl, iso(dl)), None,
+        return (f"For {name}, turns down the agent's first offer for it and accepts the second offer for it.", P(pid, fl, iso(dl)), None,
                 f"{name}: attempt 2, the floor {money(fl)} on {long_day(dl)}", False)
     if act == "refuse":
-        return (f"For {name}, turns down every proposal.", None, "refused", f"{name}: a refused note after {'two attempts' if is_late(p) else 'one attempt'}", False)
+        return (f"For {name}, turns down every offer for it.", None, "refused", f"{name}: a refused note after {'two attempts' if is_late(p) else 'one attempt'}", False)
     if act == "too-much":
         return (f"For {name}, says the full amount is too much and, before the agent proposes anything, asks to pay just the minimum today.",
                 P(pid, fl, iso(t)), None, f"{name}: the floor {money(fl)} today", False)
@@ -559,12 +562,12 @@ def b_action(t, i, p, act, kind):
         return f"Pays {name} in full {s}.", P(pid, full, iso(d)), None, f"{name}: {money(full)} on {long_day(d)}", True
     if act == "partial":
         if not mid: return None
-        s = spoken(t, mid, None, kind)
+        s = spoken(t, mid, None, kind, fl, full - 1)
         if s is None: return None
         return f"For {name}, says the full amount is not possible but can pay {s}.", P(pid, mid, iso(t)), None, f"{name}: {money(mid)} today is accepted", True
     if act == "below":
         if not bl: return None
-        s = spoken(t, bl[0], None, kind)
+        s = spoken(t, bl[0], None, kind, 1, fl - 1)
         if s is None: return None
         return (f"For {name}, says only {s} is possible; takes the amount the agent proposes instead, today.", P(pid, fl, iso(t)), None,
                 f"{name}: {money(bl[0])} is not recorded, the floor {money(fl)} is", True)
@@ -621,7 +624,7 @@ def b_combo(b, t, acts, kind):
     if prs: exp = E("promise", None, prs, notes)
     elif all(n["reason"] == "paid" for n in notes): exp = E("paid", None, notes=notes)
     else: exp = E("no_promise", next(n["reason"] for n in notes if n["reason"] != "paid"), notes=notes)
-    lead = "" if set(acts) == {"today"} else ("Says {he} cannot pay all of them today. " if any(a in ACT_LADDER for a in acts) else "Cannot pay everything today. ")
+    lead = "" if set(acts) <= {"today", "dispute", "paid", "dispute-the-loan", "dispute-which"} else ("Says {he} cannot pay all of them today. " if any(a in ACT_LADDER for a in acts) else "Cannot pay everything today. ")
     if set(acts) == {"today"}: body = f"Pays {'both' if len(ps) == 2 else 'all three'} in full today. {yes_b(b, 'all')}"
     else: body = lead + " ".join(r[0] for r in parts) + (f" {yes_b(b, *acts)}" if prs else "")
     ck = [r[3] for r in parts] + (["one read-back for all promises"] if len(prs) > 1 else [])
@@ -770,7 +773,7 @@ def load_bank_scripts():
         for name in ("edge-cases-250.json", "edge-cases.json", "edge-cases-days.json", "edge-cases-focus.json", "cases-1000.json"):
             f = d / name
             if f.exists():
-                try: scripts |= {c["script"] for c in json.load(open(f))}
+                try: scripts |= {c["script"] for c in json.loads(f.read_text())}
                 except (ValueError, KeyError, TypeError): pass
     return scripts
 
@@ -815,9 +818,9 @@ def pick_cores(cands, n, group, rng):
         take(by_fam[f].pop(0)); cnt[f] += 1
     return [by_core[k] for k in chosen[:n]], required(group)
 
-def place(groups_of_cands, rng, banned):
+def place(groups_of_cands, rng, banned, used):
     """One instance per chosen scenario: spread over call days, customers and times; never a script already used."""
-    day_n, base_n, time_n, out, used = collections.Counter(), collections.Counter(), collections.Counter(), [], set()
+    day_n, base_n, time_n, out = collections.Counter(), collections.Counter(), collections.Counter(), []
     order = list(range(len(groups_of_cands))); rng.shuffle(order)
     order.sort(key=lambda i: len(groups_of_cands[i]))                  # the scenarios with few possible instances first
     for i in order:
@@ -865,11 +868,11 @@ def generate_with_meta(n=250, seed=25, share_a=0.6, share_b2=0.4):
     banned = load_bank_scripts()
     cands = [r for r in candidates(seed) if r["script"] not in banned]
     na = round(n * share_a); nb2 = round((n - na) * share_b2); nb3 = n - na - nb2
-    rows = []
+    rows, used = [], set()                                              # scripts already placed, across all groups
     for group, k in (("A", na), ("B2", nb2), ("B3", nb3)):
         mine = [r for r in cands if group_of(r["base"]) == group]
         picked, _ = pick_cores(mine, k, group, rng)
-        rows += place(picked, rng, banned)
+        rows += place(picked, rng, banned, used)
     rows.sort(key=lambda r: (group_of(r["base"]), FAMILIES_B.index(r["family"]), r["sub"], r["actions"], r["phr"], r["now"]))
     assign_styles(rows, rng)
     cases, meta = [], []
