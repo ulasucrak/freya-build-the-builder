@@ -201,11 +201,29 @@ def service_tool(svc, base_url, variables, rt=None):
             **({"pre_process_code": G.build_code("doc_wrap", rt, "pre")} if rt and (rt.get("envelope") or {}).get("fields_under") else {})}
 
 
+def _clean_envelope(env):
+    """Constant envelope parts must be JSON values. A description the LLM wrote instead ('Call metadata object
+    {"lang": "tr"} ...') is reduced to the JSON object inside it, or dropped."""
+    env = dict(env or {})
+    const = {}
+    for k, v in (env.get("constant") or {}).items():
+        if isinstance(v, str):
+            m = re.search(r"\{.*\}", v, re.S)
+            try:
+                v = json.loads(m.group(0)) if m else None
+            except ValueError:
+                v = None
+        if v is not None:
+            const[k] = v
+    env["constant"] = const
+    return env
+
+
 def assemble(api, flow, base_url):
     """Extracted services + written procedure -> a Freya workflow (deterministic)."""
     variables = [str(v.get("name")) for v in api.get("variables") or [] if v.get("name")]
     now_var = next((v for v in variables if v.lower() in ("now", "call_time", "calltime", "now_iso")), "now")
-    rt = {"names": {"now_var": now_var}, "envelope": api.get("envelope") or {}}
+    rt = {"names": {"now_var": now_var}, "envelope": _clean_envelope(api.get("envelope"))}
     tools = [service_tool(s, base_url, variables, rt) for s in api.get("services") or []]
     endings = [str(e.get("name")) for e in flow.get("endings") or [] if e.get("name")]
     end_tool = G._code_tool("end_call_now", "End the call: CALL it in the same message as your goodbye, once, as the very last action.",
