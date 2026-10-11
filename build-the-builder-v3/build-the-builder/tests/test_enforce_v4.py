@@ -248,6 +248,11 @@ class MultiProduct(unittest.TestCase):
         cfg, _r, _m = self.sim.call("negotiate", "add_note", {"product_id": "p3", "reason": "refused"})
         self.assertEqual(cfg["body"]["reason"], "refused")
 
+    def test_dispute_of_a_promised_product_changes_nothing(self):
+        self.sim.call("negotiate", "create_promise", {"product_id": "p1", "amount": 300, "date": "2026-10-16"})
+        state(self.sim, self.wf, "dispute", "the card")
+        self.assertFalse([k for k in self.sim.vs if k.startswith("w_dispute_")])
+
     def test_all_refused_closes_with_notes_first(self):
         for pname, n in (("card", 2), ("personal loan", 3), ("car loan", 3)):
             for _ in range(n):

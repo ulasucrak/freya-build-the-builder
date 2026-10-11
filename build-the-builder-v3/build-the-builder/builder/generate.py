@@ -15,7 +15,12 @@ Graph (every value comes from the policy; nothing here knows a brief):
          -> prepare_account (code) per product: band, deadline, floor/full, offers -> {{w_account_facts}}
          -> negotiate       debt statement, negotiation, read-back, promises, notes, triggers, closing
                             tools: create_promise, add_note, transfer_to_agent, close_call
+                            extraction x_reply (+ x_product): refusal / too_much / no_talk / dispute / other
+            -> turn_state   (code) a labelled message: per-product refusal ladder, 'too much', the N-th 'do not want
+                            to talk', disputes -> next offer in w_next_action and back (on_enter {{w_enter_prompt}}),
+                            or close_check when the ladder / the count is used up (option extract_signals)
       close_call result     -> end_closed (end_call)
+      code-forced close     -> ... close_api -> end_said (fixed farewell; also schedule_callback's last stopped try)
       goodbye without close -> goodbye_close (code) -> close_check -> finish -> close_api (routing intent; option goodbye_close)
       turn cap reached      -> force_close (code) -> close_api (api_request close_call) -> end_forced
     workflow tool final_close (end_of_call): safety-net close_call when none was sent (stopped otherwise).

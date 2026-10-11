@@ -15,10 +15,11 @@ target = match_product(openp, pname) or (openp[0] if openp else None)
 state, act = "", ""
 end = None
 if said == "dispute" and ef.get("dispute_on"):
-    dp = match_product([p for p in prods if p.get("id") not in promised], pname)
+    # the product the customer named (one with a recorded promise keeps it), else the one being discussed
+    dp = match_product(prods, pname)
     if dp is None:
-        dp = target if target is not None else (prods[0] if len(prods) == 1 and prods[0].get("id") not in promised else None)
-    if dp is not None:
+        dp = target if target is not None else (prods[0] if len(prods) == 1 else None)
+    if dp is not None and dp.get("id") not in promised:
         pid = str(dp.get("id"))
         mark(vs, "w_dispute_", pid, "yes")
         mark(vs, "w_intent_", pid, ef.get("dispute_note") or pair(ef.get("dispute"))["reason"] or "dispute")
