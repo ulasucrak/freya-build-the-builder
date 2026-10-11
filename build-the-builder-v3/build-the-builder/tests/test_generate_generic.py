@@ -120,9 +120,10 @@ class GenericWorkflowTest(unittest.TestCase):
         for name, t in self.tools.items():
             if name == "end_conversation":
                 continue
-            self.assertEqual(t["config"]["timeoutMs"], 15000)
-        self.assertEqual(self.tools["orders_list"]["config"]["maxRetries"], 1)
-        self.assertEqual(self.tools["orders_detail"]["config"]["maxRetries"], 1)
+            self.assertEqual(t["config"]["timeoutMs"], 20000)
+        self.assertEqual(self.tools["orders_list"]["config"]["maxRetries"], 0)
+        self.assertEqual(self.tools["orders_detail"]["config"]["maxRetries"], 0)
+        self.assertEqual(self.tools["orders_list"]["config"]["timeoutMs"], 20000)
         self.assertEqual(self.tools["orders_slot_change"]["config"]["maxRetries"], 0)
         self.assertEqual(self.tools["receipt_send"]["config"]["maxRetries"], 0)
 

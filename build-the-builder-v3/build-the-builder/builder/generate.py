@@ -1551,8 +1551,8 @@ GENERIC_POST = "generic_post"       # codegen/<GENERIC_POST>.py post hook; GENER
 END_REASONS = ("done", "transfer_to_agent", "main_menu", "no_response")
 END_REASON_DESC = {"done": "the caller's request is handled", "transfer_to_agent": "hand the call to a person",
                    "main_menu": "send the caller back to the phone menu", "no_response": "the caller does not answer"}
-MUTATING = ("change", "send", "create", "update", "delete", "set", "transfer")   # side effects: the engine never retries
-GENERIC_TIMEOUT_MS = 15000          # a service may answer after more than ten seconds and still succeed
+MUTATING = ("change", "send", "create", "update", "delete", "set", "transfer")   # side effects: never run up front
+GENERIC_TIMEOUT_MS = 20000          # a service may answer after more than ten seconds and still succeed; no tool retries
 GENERIC_SHORT = "short sentences, one question at a time; do not repeat unasked."
 
 # minimal post hook (a generic_post module replaces it): the service's JSON envelope {data: {...}, result: {...}} is
@@ -1813,7 +1813,7 @@ def generic_tool(p, op, name, description, call_keys, post_src, rt_post, opts):
     env = {"paths": paths, "objects": list(_objects(op["fields"]))}
     tool = {
         "type": "function",
-        "config": {"timeoutMs": GENERIC_TIMEOUT_MS, "maxRetries": 0 if _mutating(op["name"], op["method"]) else 1},
+        "config": {"timeoutMs": GENERIC_TIMEOUT_MS, "maxRetries": 0},   # a retry may repeat a side effect or double the wait
         "function": {
             "name": name, "handler": "__function__:api_call", "description": description,
             "parameters": {"type": "object", "properties": {
@@ -1898,7 +1898,7 @@ def generic_workflow(p, prompts=None, openapi=None, opts=None, language=None):
         tools.append(t)
         body = t["function"]["parameters"]["properties"]["body"]["properties"]
         filled |= {f for f, s in body.items() if s.get("default") == "{{" + f + "}}" and f not in calls}
-        if not t["function"]["parameters"]["properties"]["body"]["required"] and t["config"]["maxRetries"]:
+        if not t["function"]["parameters"]["properties"]["body"]["required"] and not _mutating(op["name"], op["method"]):
             ready.append(name)          # read-only and nothing to ask the caller: can run at the start
         tool_lines.append("%s: %s" % (name, _short(op["summary"] or op["description"] or desc, 160)))
     reasons = list(END_REASONS)
