@@ -441,14 +441,44 @@ class Compactness(unittest.TestCase):
         self.assertNotIn("}}", lit)
         self.assertEqual(json.loads(eval(lit)), rt)
 
+    # G14: size guards per snippet type, on every node of every policy (fixtures and policies/), signals on and off,
+    # with the end-of-call safety net. Sandbox payload limit is ~64 KB for code plus variables together, so these are
+    # margin guards, not the limit. Largest at FX1 (11 Oct): hooks 22211 (schedule_callback pre), 22011 (create_promise
+    # pre), 20778 (verify_identity pre); code tool check_offer 28578; code nodes prepare_account 28338, turn_state 16694.
+    HOOK_LIMIT = 23000          # pre/post-process hooks of a tool (was up to 24 KB before the 11 Oct trim)
+    CODE_LIMIT = 30000          # code nodes and code_exec tools (the code is a parameter default, not a hook)
+
+    @staticmethod
+    def snippets(wf):
+        """(kind, where, size) of every hook and every code payload in the workflow."""
+        out = []
+        tools = [(k, t) for k, n in wf["nodes"].items() for t in (n.get("tools") or []) + (n.get("pre_actions") or [])]
+        tools += [("workflow", t) for t in wf.get("tools") or []]
+        for where, t in tools:
+            fn = t.get("function") or {}
+            for hk in ("pre_process_code", "post_process_code"):
+                if t.get(hk):
+                    out.append(("hook", "%s/%s.%s" % (where, fn.get("name"), hk), len(t[hk])))
+            code = ((fn.get("parameters") or {}).get("properties") or {}).get("code")
+            if code:
+                out.append(("code", "%s/%s" % (where, fn.get("name")), len(code.get("default") or "")))
+        return out
+
     def test_hook_sizes(self):
-        wf = G.generate_workflow(raw("brief-b"))
-        for node in ("greet_verify", "negotiate"):
-            for t in wf["nodes"][node]["tools"]:
-                for hk in ("pre_process_code", "post_process_code"):
-                    # was up to 24 KB; 23000 since the number-word date/time parser and parallel-call reconciliation (11 Oct). Sandbox
-                    # payload limit is ~64 KB for code plus variables together, so this is a margin guard, not the limit
-                    self.assertLess(len(t.get(hk, "")), 23000, (t["function"]["name"], hk))
+        oa = json.loads((KIT / "tools" / "openapi.json").read_text())
+        pols = [(n, raw(n)) for n in ALL] + [(p.name, json.loads(p.read_text())) for p in sorted((KIT / "policies").glob("*.policy.json"))]
+        top = {"hook": 0, "code": 0}
+        for name, pol in pols:
+            for opts in (None, {"extract_signals": True, "final_close_fallback": True}):
+                wf = G.generate_workflow(pol, None, oa, opts)
+                kinds = set()
+                for kind, where, n in self.snippets(wf):
+                    kinds.add(kind)
+                    top[kind] = max(top[kind], n)
+                    self.assertLess(n, self.HOOK_LIMIT if kind == "hook" else self.CODE_LIMIT, (name, opts, where))
+                self.assertEqual(kinds, {"hook", "code"}, name)
+        self.assertGreater(top["hook"], 15000)        # the walk really saw the big hooks and code payloads
+        self.assertGreater(top["code"], 20000)
 
 
 class EdgeRegressions(unittest.TestCase):

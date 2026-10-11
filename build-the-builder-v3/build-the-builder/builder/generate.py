@@ -12,8 +12,10 @@ Graph (every value comes from the policy; nothing here knows a brief):
       -> greet_verify       opening, who is on the line, third-party cases, security questions
                             tools: verify_identity, schedule_callback, transfer_to_agent, close_call
          -> load_account    (api_request) get_account, when the identity check returned all-verified
-         -> prepare_account (code) per product: band, deadline, floor/full, offers -> {{w_account_facts}}
-         -> negotiate       debt statement, negotiation, read-back, promises, notes, triggers, closing
+         -> prepare_account (code) per product: band, deadline, floor/full, offers -> {{w_account_facts}}; the first
+                            line of negotiate -> {{w_entry_line}} (option static_entry, when the policy fixes it)
+         -> negotiate       debt statement (tts {{w_entry_line}}, else the model), negotiation, read-back, promises,
+                            notes, triggers, closing
                             tools: create_promise, add_note, transfer_to_agent, close_call
                             extraction x_reply (+ x_product): refusal / too_much / no_talk / dispute / other
             -> turn_state   (code) a labelled message: per-product refusal ladder, 'too much', the N-th 'do not want
