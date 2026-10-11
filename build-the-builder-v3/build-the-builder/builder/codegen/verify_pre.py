@@ -76,7 +76,7 @@ elif q is not None and str(body.get(af) or "").strip():
 elif qs:
     g = "answer"        # an unknown field or no answer
 # FX11: garbled, empty or for an unknown field: neither a match nor a clear mismatch (twice in a row, then sent)
-if unclear(vs, "vq" + field, "" if info else g):
+if unclear(vs, "vq" + (field if q else "?"), "" if info else g):
     info = dict(code="unclear", message="Answer or field unclear; nothing counted.", next=UNC)
 if info is not None and nm("guard", "on") == "on":
     block_request(config, vs, "w_verify_block", info, "verify_identity")

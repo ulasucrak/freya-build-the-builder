@@ -88,6 +88,19 @@ class CheckOffer(unittest.TestCase):
         self.assertTrue(out["ok"], out)
         self.assertEqual(self.chk(product_id="p2", date="Thursday or Friday")["code"], "unclear")
 
+    def test_unclear_leaves_offer_memory_alone(self):
+        """R10: an unclear input burns no planned attempt, records no offer and logs no failure."""
+        before = self.vs.get("w_offers_p1")
+        for _ in range(2):
+            out = self.chk(product_id="p1", amount="50 or 60")
+            self.assertEqual(out["code"], "unclear")
+            self.assertEqual(self.vs.get("w_offers_p1"), before)
+        out = self.chk(product_id="p1", amount="70")             # a clear, new input: a normal first rejection
+        self.assertEqual(out["code"], "below_floor")
+        self.assertNotIn("Already offered", out["what_to_do_next"])
+        self.assertNotIn("Third time", out["what_to_do_next"])
+        self.assertNotIn("ONE question", out["what_to_do_next"])
+
     def test_rule_violations_stay_strict(self):
         self.assertEqual(self.chk(product_id="p2", amount="50")["code"], "below_floor")
         self.assertEqual(self.chk(product_id="p2", date="20 November")["code"], "after_deadline")
@@ -146,6 +159,18 @@ class Callback(unittest.TestCase):
         self.assertNotIn("unclear", cfg["url"])
         self.assertEqual(s.vs.get("w_cb_bad"), "1")
 
+    def test_alternating_unreadable_parts_still_use_tries(self):
+        """R10: a garbled day, then a garbled time, then a garbled day...: one count, so the tries are used."""
+        s = TG.Sim(G.generate_workflow(TG.raw("brief-a")), now="2026-10-14T20:15", customer_id="c1")
+        urls = []
+        for i in range(8):
+            cfg, _r, _m = self.cb(s, "someday" if i % 2 else "2026-10-15", "11:00" if i % 2 else "after lunch maybe")
+            urls.append(cfg["url"])
+        self.assertTrue(all("unclear" in u for u in urls[:2]), urls)
+        self.assertNotIn("unclear", urls[2])
+        self.assertGreaterEqual(int(s.vs.get("w_cb_bad", "0")), 1)
+        self.assertIn("no-callback", urls[-1])                  # max_asks used up: nothing more goes out
+
     def test_outside_window_stays_strict(self):
         s = TG.Sim(G.generate_workflow(TG.raw("brief-a")), now="2026-10-14T20:15", customer_id="c1")
         cfg, _r, m = self.cb(s, "2026-10-14", "21:00")
@@ -175,6 +200,10 @@ class Verify(unittest.TestCase):
         self.assertIn("unclear", cfg["url"])
         cfg, _r, _m = s.call("greet_verify", "verify_identity", {"field": "phone_last4", "answer": ""})
         self.assertIn("unclear", cfg["url"])
+        s.call("greet_verify", "verify_identity", {"field": "other_field_x", "answer": "x"})
+        self.assertNotIn("w_uc_vqother_field_x", s.vs)          # R10: one bounded key for unknown fields
+        self.assertNotIn("w_uc_vqmother_maiden_name", s.vs)
+        self.assertIn("w_uc_vq_", s.vs)
 
     def test_clear_answers_still_sent(self):
         s = self.sim()
