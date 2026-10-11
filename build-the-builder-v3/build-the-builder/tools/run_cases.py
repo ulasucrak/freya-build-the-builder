@@ -86,8 +86,32 @@ def persona_for(case, ident, style=None):
     text = PERSONA.format(who=who, script=case["script"]) + ("\n\n" + STYLES[style] if style else "")
     return {"name": case["id"] + " " + case["title"] + (f" [{style}]" if style else ""), "prompt": text, "successCriteria": "All of these are true:\n- " + "\n- ".join(case["checks"]), "tags": ["hackathon", "brief-" + case["brief"]]}
 
+PERSONA_BATCH = 100                                              # POST /api/v2/personas accepts at most 200 items
+
+def create_personas_batched(specs, size=PERSONA_BATCH, create=None, log=lambda m: print(m, flush=True)):
+    """Create personas in batches (the endpoint caps one request); returns the personas in input order."""
+    create = create or freya.create_personas; out = []
+    for i in range(0, len(specs), size):
+        out += create(specs[i:i + size])["personas"]
+        log(f"-- personas created: {len(out)} / {len(specs)}")
+    return out
+
+def is_empty_call(call):
+    """A call with no agent and no user turn (only setup/greet_verify) is infra, not a verdict."""
+    return not any(m.get("role") in ("assistant", "user") for m in call.get("messages", []))
+
+def merge_retried(rows, retry_rows):
+    """Replace the rows of re-run case ids by their new row, marked retried_empty=true; other rows get retried_empty=false."""
+    new = {r["id"]: r for r in retry_rows}
+    out = []
+    for r in rows:
+        if r["id"] in new: r = dict(new[r["id"]], retried_empty=True)
+        else: r = dict(r, retried_empty=r.get("retried_empty", False))
+        out.append(r)
+    return out
+
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument("agent_id"); ap.add_argument("--brief"); ap.add_argument("--cases", default=str(ROOT / "public-test-set.json")); ap.add_argument("--out"); ap.add_argument("--only"); ap.add_argument("--reps", type=int, default=1); ap.add_argument("--style", choices=sorted(STYLES)); ap.add_argument("--rerun-if-slow", type=int, default=0); ap.add_argument("--force-cancel-others", action="store_true")
+    ap = argparse.ArgumentParser(); ap.add_argument("agent_id"); ap.add_argument("--brief"); ap.add_argument("--cases", default=str(ROOT / "public-test-set.json")); ap.add_argument("--out"); ap.add_argument("--only"); ap.add_argument("--reps", type=int, default=1); ap.add_argument("--style", choices=sorted(STYLES)); ap.add_argument("--rerun-if-slow", type=int, default=0); ap.add_argument("--force-cancel-others", action="store_true"); ap.add_argument("--no-empty-retry", action="store_true")
     a = ap.parse_args()
     global FORCE_CANCEL_OTHERS; FORCE_CANCEL_OTHERS = a.force_cancel_others
     cases = [c for c in json.load(open(a.cases)) if (not a.brief or c["brief"] == a.brief) and (not a.only or c["id"] in a.only.split(","))]
@@ -98,7 +122,7 @@ def main():
     key = {i: i + ":" + hashlib.sha1(json.dumps(p, sort_keys=True).encode()).hexdigest()[:10] for i, p in spec.items()}
     new = [c for c in cases if key[c["id"]] not in ids]
     if new:
-        made = freya.create_personas([spec[c["id"]] for c in new])["personas"]
+        made = create_personas_batched([spec[c["id"]] for c in new])
         ids.update({key[c["id"]]: p["id"] for c, p in zip(new, made)}); json.dump(ids, open(store, "w"), indent=1)
     ids = {c["id"]: ids[key[c["id"]]] for c in cases}
     (ROOT / "results").mkdir(exist_ok=True)
@@ -108,6 +132,13 @@ def main():
             rows, sim_id, it_id, status, took, med = run_once(a.agent_id, cases, ids)
             if med <= 10 or attempt == a.rerun_if_slow: break
             print(f"-- run discarded: median slowest turn {med:.0f} s. Waiting 5 minutes, then repeating it.\n", flush=True); time.sleep(300)
+        empty = [r["id"] for r in rows if r.get("empty")]
+        if empty and not a.no_empty_retry:                       # infra, not a verdict: re-run those ids once in a new simulation
+            print(f"-- {len(empty)} empty call(s) (no agent or user turn): re-running once: {', '.join(empty)}", flush=True)
+            sub = [c for c in cases if c["id"] in empty]
+            rrows, sim_id, it_id, status, took2, _ = run_once(a.agent_id, sub, ids)
+            rows = merge_retried(rows, rrows); took += took2
+            print(f"-- retried_empty: {len(empty)} case(s); still empty: {sum(1 for r in rrows if r.get('empty'))}", flush=True)
         reps.append(rows); total_s += took
         if a.reps > 1: print(f"-- run {rep + 1} of {a.reps}: {sum(r['pass'] for r in rows)} / {len(rows)} passed, {took:.0f} s\n")
     need = a.reps                                                # a customer counts only when every run passes
@@ -156,7 +187,7 @@ def run_once(agent_id, cases, ids):
         try: call = freya.get_call(r["call_id"])
         except Exception: continue
         worst = max([x['total'] for x in turn_latency.analyse(call)] or [0.0])      # user message -> agent finished (assistant secondsFromStart is its START)
-        r["slowest_turn_s"] = round(worst, 1); r["ended"] = call.get("endedReason"); waits.append(worst)
+        r["slowest_turn_s"] = round(worst, 1); r["ended"] = call.get("endedReason"); waits.append(worst); r["empty"] = is_empty_call(call)
     if waits:
         waits.sort(); med = waits[len(waits) // 2]; hung = sum(r.get("ended") == "customer-ended-call" and not r["pass"] for r in rows)
         print(f"\nslowest agent turn per call: median {med:.0f} s, worst {waits[-1]:.0f} s. Failed calls where the customer hung up: {hung}.")
