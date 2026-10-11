@@ -50,7 +50,7 @@ class StaticEntry(unittest.TestCase):
         self.assertIn(G.ENTRY_SAID, neg["task_message"])
         s = entry_after(wf, [CARD])
         self.assertEqual(s.vs["w_entry_line"], "I am calling from the collections team about a late payment. Your credit card ending 6604"
-                                               " is 4 days late, and the past-due amount is 300. Can you make this payment today?")
+                                               " is 4 days late, with 300 past due. Can you make this payment today?")
         self.assertIn("already said", s.vs["w_next_action"])
 
     def test_multi_product_one_sentence_each_then_the_all_question(self):
@@ -58,9 +58,9 @@ class StaticEntry(unittest.TestCase):
         s = entry_after(wf, [CARD, LOAN, CAR])
         line = s.vs["w_entry_line"]
         self.assertEqual(line, "I am calling from the collections team about a late payment."
-                               " Your credit card ending 6604 is 4 days late, and the past-due amount is 300."
-                               " Your personal loan is 1 day late, and the past-due amount is 912.50."
-                               " Your car loan is 12 days late, and the past-due amount is 600."
+                               " Your credit card ending 6604 is 4 days late, with 300 past due."
+                               " Your personal loan is 1 day late, with 912.50 past due."
+                               " Your car loan is 12 days late, with 600 past due."
                                " Can you pay all of them today?")
         s = entry_after(wf, [LOAN])          # one product on a multi-product brief: the one-product question
         self.assertTrue(s.vs["w_entry_line"].endswith("Can you make this payment today?"))
@@ -139,7 +139,7 @@ class EntryReviewFixes(unittest.TestCase):
         s = self.s4(2700)                      # 3100 > 3000: high_balance (transfer, do not collect)
         line = s.vs["w_entry_line"]
         self.assertNotIn("today", line)
-        self.assertTrue(line.endswith("the past-due amount is 400."), line)
+        self.assertTrue(line.endswith("with 400 past due."), line)
         self.assertIn("high_balance", s.vs["w_next_action"])
 
     def test_unreadable_condition_keeps_the_model(self):
