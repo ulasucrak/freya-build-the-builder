@@ -52,7 +52,7 @@ MONEY_PARTS = ("amount", "amt", "balance", "debt", "total", "minimum", "payment"
                "instalment", "overdue", "arrears", "tutar", "borc", "borç", "bakiye", "toplam", "odeme", "ödeme",
                "ucret", "ücret", "fiyat")
 CODE_KEYS = ("returnCode", "resultCode", "errorCode", "statusCode")
-DATE_RX = re.compile(r"(\d{1,2})\.(\d{1,2})\.(\d{4})$|(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$")
+DATE_RX = re.compile(r"(?:(\d{1,2})\.(\d{1,2})\.(\d{4})|(\d{4})-(\d{2})-(\d{2}))(?:[T ](\d{1,2}):(\d{2})(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$")
 AMT_RX = re.compile(r"([₺$€£]|[A-Za-z]{2,3})?\s*(-?\d+(?:\.\d+)?|-?\d+,\d{1,2})\s*([₺$€£]|[A-Za-z]{2,3})?$")
 
 
@@ -132,7 +132,7 @@ def gp_date(text, tr):
         s = str(d.day) + " " + TR_MONTHS[d.month - 1] + " " + str(d.year) + " " + TR_DAYS[d.weekday()]
     else:
         s = EN_DAYS[d.weekday()] + " " + str(d.day) + " " + EN_MONTHS[d.month - 1] + " " + str(d.year)
-    if g[6] and g[6] + g[7] != "0000":
+    if g[6] and (int(g[6]) or int(g[7])):
         s += (", saat " if tr else " at ") + g[6] + ":" + g[7]
     return s
 
@@ -190,7 +190,8 @@ def gp_walk(node, cur, depth, tr):
             if not s and not [p for p in ps if p in NOT_MONEY]:
                 x, vc = gp_number(v)
                 c = vc or kc or here
-                if x is not None and x == x and abs(x) < 10 ** 15 and (c or [p for p in ps if p.startswith(MONEY_PARTS)]):
+                # a zero amount gets no spoken form: nothing to verbalise, and it keeps the answer short
+                if x is not None and x == x and 0.005 <= abs(x) < 10 ** 15 and (c or [p for p in ps if p.startswith(MONEY_PARTS)]):
                     s = gp_amount(x, c, tr)
             if s:
                 add[sk + "_spoken"] = s

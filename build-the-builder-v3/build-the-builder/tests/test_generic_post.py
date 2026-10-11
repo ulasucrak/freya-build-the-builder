@@ -185,13 +185,13 @@ class Spoken(unittest.TestCase):
         self.assertEqual(tl["statementDebt_spoken"], "beş bin lira on üç kuruş")
         self.assertEqual(tl["minPayment_spoken"], "iki bin lira beş kuruş")
         self.assertEqual(tl["remainingDebt_spoken"], "iki bin beş yüz lira")       # zero kuruş is not said
-        self.assertEqual(tl["transferAmount_spoken"], "sıfır lira")
+        self.assertNotIn("transferAmount_spoken", tl)                              # zero: nothing to verbalise
         self.assertEqual(tl["totalDebt_spoken"],
                          "bir milyon iki yüz otuz dört bin beş yüz altmış yedi lira seksen dokuz kuruş")
         self.assertEqual(usd["statementDebt_spoken"], "bin iki yüz otuz dört dolar elli sent")
         self.assertEqual(usd["minPayment_spoken"], "elli sent")
         self.assertEqual(usd["totalDebt_spoken"], "eksi on iki dolar")
-        self.assertEqual(eur["statementDebt_spoken"], "sıfır avro")
+        self.assertEqual(eur, {"statementPaymentStatus": "NO_DEBT", "statementDebt": 0.0, "minPayment": None})
         self.assertNotIn("minPayment_spoken", eur)                                  # null: nothing invented
         self.assertNotIn("debtGBP", d)                                              # missing block stays missing
         self.assertNotIn("debtGBP_spoken", d)
@@ -201,7 +201,9 @@ class Spoken(unittest.TestCase):
 
     def test_turkish_dates(self):
         d = run(ok_env(dict(DEBT, now="2026-10-12T10:30:00+03:00", day="2026-10-12T00:00:00", iso="2026-10-12",
-                            bad="31.02.2026", text="due 05.10.2026")))["data"]
+                            bad="31.02.2026", text="due 05.10.2026", local="05.10.2026 9:05", mid="05.10.2026 0:00")))["data"]
+        self.assertEqual(d["local_spoken"], "5 Ekim 2026 Pazartesi, saat 9:05")
+        self.assertEqual(d["mid_spoken"], "5 Ekim 2026 Pazartesi")
         self.assertEqual(d["statementDate_spoken"], "5 Ekim 2026 Pazartesi")
         self.assertEqual(d["lastPayDate_spoken"], "15 Ekim 2026 Perşembe")
         self.assertEqual(d["iso_spoken"], "12 Ekim 2026 Pazartesi")
@@ -239,7 +241,7 @@ class Spoken(unittest.TestCase):
         self.assertEqual(d["debtUSD"]["minPayment_spoken"], "fifty cents")
         self.assertEqual(d["debtUSD"]["totalDebt_spoken"], "minus twelve dollars")
         self.assertEqual(d["debtTL"]["statementDebt_spoken"], "five thousand Turkish lira and thirteen kuruş")
-        self.assertEqual(d["debtEUR"]["statementDebt_spoken"], "zero euros")
+        self.assertNotIn("statementDebt_spoken", d["debtEUR"])
         d = run(ok_env({"debtGBP": {"a": 1.01, "b": 2.02}, "amount": 7.05}), lang="en")["data"]
         self.assertEqual(d["debtGBP"]["a_spoken"], "one pound and one penny")
         self.assertEqual(d["debtGBP"]["b_spoken"], "two pounds and two pence")
