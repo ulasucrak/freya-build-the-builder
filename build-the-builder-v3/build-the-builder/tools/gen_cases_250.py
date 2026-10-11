@@ -356,7 +356,7 @@ def a_rows(b, t):
         E("no_promise", "refused"), ["the second refusal to talk closes the call", "closed as no_promise / refused"], False, tags=["no-talk", "no-talk-other"])
     add("No talk", "question-between", "none", "After the debt is stated, says {he} does not want to talk about it. Then asks whether this call is a scam. After the answer, says again {he} is not discussing it.",
         E("no_promise", "refused"), ["the agent answers the scam question", "the second refusal to talk closes the call"], False, tags=["no-talk", "no-talk-other"])
-    add("No talk", "two-ways", "none", "After the debt is stated, says 'I'm not going into this with a machine.' When the agent goes on, says 'stop, I don't want to talk about it.'",
+    add("No talk", "two-ways", "none", "After the debt is stated, says 'I'm not going into this, full stop.' When the agent goes on, says 'stop, I don't want to talk about it.'",
         E("no_promise", "refused"), ["the second refusal to talk closes the call", "closed as no_promise / refused"], False, tags=["no-talk", "no-talk-other"])
     add("No talk", "once-then-pays", "none", f"After the debt is stated, says once 'I'd rather not talk about this.' When the agent goes on, changes {{his}} mind and agrees to pay the whole amount today. {Y('n1')}",
         prom(full, t), ["one refusal to talk does not end the call", "the full amount is recorded for today"], False, tags=["no-talk"])
@@ -384,7 +384,7 @@ def a_rows(b, t):
     chg = ["the agent says a recorded promise can be changed in the mobile app", "no new or changed promise is recorded after the request"]
     for k, ask in (("move", "asks whether it can be pushed back a week"), ("cancel", "says {he} has changed {his} mind and wants it cancelled"), ("lower", "asks to lower the amount a bit")):
         add("Mid-call change", f"recorded-{k}", "none", f"Pays the whole amount today and confirms. Once the agent says it is recorded, {ask}.", prom(full, t), chg)
-    add("Mid-call change", "agrees-then-job", "none", "Agrees to pay all of it today. Before confirming the read-back, says 'actually, I can't pay, I lost my job yesterday'. Says no to the support team.",
+    add("Mid-call change", "agrees-then-job", "none", "Agrees to pay all of it today. When the agent reads it back, does not confirm; instead says 'actually, I can't pay, I lost my job yesterday'. Says no to the support team.",
         E("no_promise", "hardship"), sym + ["no promise recorded"], False, tags=["hardship-job"])
     add("Mid-call change", "no-then-ill", "none", "Says no to today. Then explains {he} has been diagnosed with a serious illness. Accepts the support team.",
         E("transferred", "support", transfers=TR("support")), ["no persuasion attempt after the illness", "transfer to support"], False)
@@ -456,7 +456,7 @@ def id_rows(b, t, R, pay, pay_exp, pay_ck):
         nv("declined"), ["the agent explains once that the questions protect the account", "the reason for the call is not given"])
     add("refuses-phone", f"Says 'yes'. Gives the date of birth, {right}. Will not give the phone digits, and after the agent explains why, still will not.",
         nv("declined"), ["the debt is not mentioned"])
-    add("never-confirms", "Answers 'Yes? Who is it?' to the first question. To the second ask, says only 'Mm-hm, I'm listening.' Never says it is {him}.",
+    add("never-confirms", "Answers 'Hello? Who is it?' to the first question. To the second ask, says only 'Mm-hm, I'm listening.' Never says it is {him}.",
         E("not_reached", "unclear"), ["'who is it' and 'I'm listening' are not taken as a confirmation", "nothing about the account is said"])
 
 # ---------------------------------------------------------------- someone else answers (A and B)
@@ -554,7 +554,7 @@ def b_action(t, i, p, act, kind):
         return "Says 'the loan is not mine, I never took one'.", None, "dispute", f"{name}: a dispute note ('the loan' is the only loan)", False
     if act == "dispute-which":        # one of two loans: the agent must ask which
         if p["type"] == "credit_card": return None
-        return (f"When the loans come up, says only 'the loan is not mine'. When the agent asks which loan, says {name}; {{he}} never had it.", None, "dispute",
+        return (f"Right after the debts are stated, before anything is proposed, says only 'the loan is not mine'. When the agent asks which loan, says {name}; {{he}} never had it.", None, "dispute",
                 f"{name}: the agent asks which loan, then a dispute note for {name} only", False)
     if act == "date":
         d, s = first_with(ok, t, None, kind, start=2) if ok else (None, None)
