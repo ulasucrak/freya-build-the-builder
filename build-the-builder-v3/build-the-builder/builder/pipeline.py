@@ -134,6 +134,13 @@ def workflow_meta(wf):
     return m if isinstance(m, dict) else {}
 
 
+def platform_workflow(wf):
+    """The workflow as Freya gets it: without the generator's markers (workflow["meta"])."""
+    if isinstance(wf, dict) and WF_META in wf:
+        return {k: v for k, v in wf.items() if k != WF_META}
+    return wf
+
+
 def openapi_tool_names(openapi):
     """Tool names the generator derives from an openapi dict (operationId, else the last path segment)."""
     out = []
@@ -445,7 +452,7 @@ class Builder:
     def dry_run(self, wf):
         """None when the platform accepts the workflow, else the error text."""
         try:
-            self.call_freya(CAP_DRY_RUN_S, self.deps.freya.validate_workflow, "%s dry-run" % self.slot, wf)
+            self.call_freya(CAP_DRY_RUN_S, self.deps.freya.validate_workflow, "%s dry-run" % self.slot, platform_workflow(wf))
             return None
         except CallTimeout as e:
             return "timeout: %s" % e
@@ -470,7 +477,8 @@ class Builder:
     def save_and_export(self, wf, label):
         t0 = self.stage_start("save")
         try:
-            info = self.call_freya(CAP_SAVE_S, self.deps.freya.save_workflow, self.slot, wf, state_file=self.state_file)
+            info = self.call_freya(CAP_SAVE_S, self.deps.freya.save_workflow, self.slot, platform_workflow(wf),
+                                   state_file=self.state_file)
         except Exception as e:
             self.stage_end("save", t0, "failed", one_line(e, 300))
             raise

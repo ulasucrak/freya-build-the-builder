@@ -102,7 +102,7 @@ class Fakes:
         self.meta = meta
         self.generate_fails = generate_fails
         self.schema_mod = schema or S
-        self.purposes, self.saved, self.generated = [], [], []
+        self.purposes, self.saved, self.generated, self.validated = [], [], [], []
         self.casegen_calls, self.testers = [], []
         self.hooks = []
 
@@ -144,7 +144,10 @@ class Fakes:
         def export_workflow(wid, path):
             pathlib.Path(path).write_text(json.dumps({"workflow_id": wid}))
             return path
-        freya = types.SimpleNamespace(validate_workflow=lambda name, wf: {"ok": True}, save_workflow=save_workflow,
+        def validate_workflow(name, wf):
+            f.validated.append(copy.deepcopy(wf))
+            return {"ok": True}
+        freya = types.SimpleNamespace(validate_workflow=validate_workflow, save_workflow=save_workflow,
                                       export_workflow=export_workflow)
 
         def generate_cases(policy, **kw):
@@ -314,6 +317,8 @@ class GenericBuildTests(unittest.TestCase):
         txt = pathlib.Path(res["trace"]).read_text()
         self.assertIn("prompts stage skipped: the generated workflow carries complete prompts", txt)
         self.assertIn("marked generic by the generator", txt)
+        self.assertNotIn("meta", f.saved[0])                         # markers never reach Freya
+        self.assertNotIn("meta", f.validated[0])
 
     def test_generator_failure_still_skips_selftest_and_keeps_variables(self):
         f = Fakes(self.clock, generic_policy(), generate_fails=99)
