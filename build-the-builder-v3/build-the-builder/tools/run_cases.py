@@ -1,6 +1,10 @@
 """Run cases against an agent and score them from the bank's ledger and the judge's reading of the conversation.
 
-    python tools/run_cases.py <agent_id> [--brief A|B] [--cases public-test-set.json] [--out results/run.json] [--reps 3] [--style talkative]
+    python tools/run_cases.py <agent_id> [--brief A|B] [--cases public-test-set.json] [--out results/run.json] [--reps 3] [--style talkative] [--force-cancel-others]
+
+A Freya 5xx or a 503 "API key validation temporarily unavailable" is retried with exponential backoff (about 10 minutes at most).
+A simulation this run started is cancelled if the run dies before it ends. Other simulations in the workspace are never touched
+unless --force-cancel-others is given: then every running simulation is cancelled before the run starts.
 
 Needs FREYA_API_KEY (your workspace) and FREYA_BANK_TEAM_KEY (any secret of 16+ characters your team picks, the same one every time).
 """
@@ -8,7 +12,43 @@ import argparse, hashlib, json, os, pathlib, sys, time
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT)); sys.path.insert(0, str(ROOT / "tools"))
 import freya
-from score import http, score_ledger
+import score, turn_latency
+from score import score_ledger
+
+RETRY_BUDGET_S = 600
+FORCE_CANCEL_OTHERS = False
+
+def _transient(text):
+    t = str(text)
+    return any(f"-> {c}:" in t for c in ("500", "502", "503", "504", "520", "521", "522", "524")) or "temporarily unavailable" in t or "timed out" in t or "Connection" in t or "URLError" in t
+
+def with_backoff(fn, label, budget=RETRY_BUDGET_S):
+    """Call fn(); on a transient failure wait 2, 4, 8 ... (at most 60) seconds and try again until `budget` seconds are used up."""
+    t0, wait = time.time(), 2
+    while True:
+        try:
+            out = fn()
+            if isinstance(out, dict) and not out.get("success", True) and _transient(out): raise RuntimeError(str(out)[:300])
+            if isinstance(out, dict) and set(out) <= {"error", "message", "detail"} and _transient(out): raise RuntimeError(str(out)[:300])
+            return out
+        except Exception as e:
+            if not _transient(e) and not isinstance(e, (OSError, ValueError)): raise
+            if time.time() - t0 + wait > budget: raise
+            print(f"-- {label}: {str(e)[:120]} ; retrying in {wait} s", flush=True); time.sleep(wait); wait = min(wait * 2, 60)
+
+_api, _http = freya.api, score.http
+freya.api = lambda method, path, body=None, **params: with_backoff(lambda: _api(method, path, body, **params), f"{method} {path}")   # every freya.* helper looks api() up in the module, so this covers all of them
+http = lambda path, body=None: with_backoff(lambda: _http(path, body), path)
+
+def cancel_others(own=None):
+    """--force-cancel-others: cancel every running simulation of the workspace (best effort, never raises)."""
+    try:
+        r = freya.api("GET", "/api/v2/simulations", workspaceId=freya.workspace_id(), limit=100)
+        items = r if isinstance(r, list) else (r.get("simulations") or r.get("items") or [])
+        for s in items:
+            if s.get("id") != own and str(s.get("status")).lower() in ("running", "pending", "queued", "in_progress", "started"):
+                print(f"-- cancelling running simulation {s['id']} ({s.get('name')})", flush=True); freya.cancel_simulation(s["id"])
+    except Exception as e: print("-- could not list simulations to cancel:", str(e)[:200], flush=True)
 
 PERSONA = """OUTPUT RULE: Write only the words you say on the phone. No stage directions, no brackets. One or two short sentences per turn, then wait for the other side.
 
@@ -47,8 +87,9 @@ def persona_for(case, ident, style=None):
     return {"name": case["id"] + " " + case["title"] + (f" [{style}]" if style else ""), "prompt": text, "successCriteria": "All of these are true:\n- " + "\n- ".join(case["checks"]), "tags": ["hackathon", "brief-" + case["brief"]]}
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument("agent_id"); ap.add_argument("--brief"); ap.add_argument("--cases", default=str(ROOT / "public-test-set.json")); ap.add_argument("--out"); ap.add_argument("--only"); ap.add_argument("--reps", type=int, default=1); ap.add_argument("--style", choices=sorted(STYLES)); ap.add_argument("--rerun-if-slow", type=int, default=0)
+    ap = argparse.ArgumentParser(); ap.add_argument("agent_id"); ap.add_argument("--brief"); ap.add_argument("--cases", default=str(ROOT / "public-test-set.json")); ap.add_argument("--out"); ap.add_argument("--only"); ap.add_argument("--reps", type=int, default=1); ap.add_argument("--style", choices=sorted(STYLES)); ap.add_argument("--rerun-if-slow", type=int, default=0); ap.add_argument("--force-cancel-others", action="store_true")
     a = ap.parse_args()
+    global FORCE_CANCEL_OTHERS; FORCE_CANCEL_OTHERS = a.force_cancel_others
     cases = [c for c in json.load(open(a.cases)) if (not a.brief or c["brief"] == a.brief) and (not a.only or c["id"] in a.only.split(","))]
     ident = {c["id"]: {"identity": c["identity"]} for c in cases}
     store = ROOT / ".personas.json"; ids = json.load(open(store)) if store.exists() else {}
@@ -89,7 +130,12 @@ def run_once(agent_id, cases, ids):
         if c.get("base_id"): sessions[c["id"]]["now"] = c["variables"]["now"]
         if len(cases) > 13: time.sleep(1)
     t0 = time.time()
-    sim_id, it_id, status = freya.run_simulation(agent_id, f"cases {time.strftime('%H:%M:%S')}", {ids[c["id"]]: sessions[c["id"]] for c in cases})
+    if FORCE_CANCEL_OTHERS: cancel_others()
+    before = freya.LAST_SIM
+    try: sim_id, it_id, status = freya.run_simulation(agent_id, f"cases {time.strftime('%H:%M:%S')}", {ids[c["id"]]: sessions[c["id"]] for c in cases})
+    except BaseException:                                          # our simulation is orphaned (error, Ctrl-C): free the workspace. Only the one this run started.
+        if freya.LAST_SIM and freya.LAST_SIM != before: print(f"-- run aborted: cancelling our simulation {freya.LAST_SIM}", flush=True); freya.cancel_simulation(freya.LAST_SIM)
+        raise
     took = time.time() - t0
     judge = {r["personaId"]: r for r in freya.get_iteration(sim_id, it_id)["runs"]}
     rows = []
@@ -109,12 +155,7 @@ def run_once(agent_id, cases, ids):
         if not r["call_id"]: continue
         try: call = freya.get_call(r["call_id"])
         except Exception: continue
-        last_user, worst = None, 0.0
-        for m in call.get("messages", []):
-            t = m.get("secondsFromStart")
-            if t is None: continue
-            if m.get("role") == "user": last_user = t
-            elif last_user is not None: worst = max(worst, t - last_user); last_user = None if m.get("role") == "assistant" else last_user
+        worst = max([x['total'] for x in turn_latency.analyse(call)] or [0.0])      # user message -> agent finished (assistant secondsFromStart is its START)
         r["slowest_turn_s"] = round(worst, 1); r["ended"] = call.get("endedReason"); waits.append(worst)
     if waits:
         waits.sort(); med = waits[len(waits) // 2]; hung = sum(r.get("ended") == "customer-ended-call" and not r["pass"] for r in rows)
