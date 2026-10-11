@@ -309,11 +309,15 @@ class Structure(unittest.TestCase):
         p = S.normalise(raw("brief-b"))
         greet = wf["nodes"]["greet_verify"]["task_message"]
         ph = G.rule_phases(p)
-        # every rule reaches the model: in the system prompt, or in the one step where it can apply
+        roles = G.rule_roles(p)
+        # every rule reaches the model: in the system prompt, or in the one step where it can apply, unless another
+        # part carries it (a later rule replaces it, the hooks compute it, the wrap-up step shows the outcome rows)
         where = {"all": sysp, "greet": greet, "negotiate": neg}
         for r in p["rules"]:
-            if ph[r["id"]] != "drop":
-                self.assertIn(G._brace_vars(r["text"], p), where[ph[r["id"]]], r["id"])
+            if ph[r["id"]] != "drop" and r["id"] not in roles:
+                self.assertIn(G._brace_vars(G._rule_text(r["text"]), p), where[ph[r["id"]]], r["id"])
+            elif roles.get(r["id"]) == "outcome" and ph[r["id"]] != "greet":
+                self.assertIn(G._brace_vars(G._rule_text(r["text"]), p), wf["nodes"]["wrap_up"]["task_message"], r["id"])
         # a fixed phrase is in the system prompt, or word for word in a rule of the step that uses it
         self.assertIn("Am I speaking with {{title}} {{last_name}}?", sysp + greet)
         for k, v in p["phrases"].items():
@@ -582,7 +586,7 @@ class S3Flows(unittest.TestCase):
     def test_prompt_does_not_forbid_notes_before_transfer(self):
         neg = self.wf["nodes"]["negotiate"]["task_message"]
         self.assertNotIn("On a transfer send no notes.", neg)
-        self.assertIn("call transfer_to_agent with queue 'payment_plans' and wait for its result", neg)
+        self.assertIn("Call transfer_to_agent with queue 'payment_plans', wait for its result", neg)
 
 
 class S1Flows(unittest.TestCase):
@@ -1176,7 +1180,7 @@ class PromptBudget(unittest.TestCase):
             g, n = self.sizes(G.generate_workflow(raw(name)))
             if len(raw(name).get("rules") or []) < 5:   # (almost) no rules list: the section texts are carried
                 self.assertLess(g, 0.90 * g0, name)
-                self.assertLess(n, 0.80 * n0, name)
+                self.assertLess(n, 0.82 * n0, name)     # T06: + the state hint and the hook pointer
                 continue
             self.assertLess(g, 0.86 * g0, name)          # identity step: rules of the negotiation are gone
             self.assertLess(n, 0.90 * n0, name)          # the negotiation keeps its own (verbatim) rules
@@ -1226,7 +1230,7 @@ class PromptBudget(unittest.TestCase):
         self.assertIn("- already_paid: Note reason", neg)           # rule in the prompt: no second description
         self.assertIn("- refuses_to_talk (", neg)                   # a "twice" situation keeps its description
         self.assertNotIn("change_recorded_promise", greet)          # its rule is about a promise: negotiation only
-        self.assertEqual(neg.count("call transfer_to_agent with queue"), len([t for t in p["triggers"] if t["action"] == "transfer"]))
+        self.assertEqual(neg.lower().count("call transfer_to_agent with queue"), len([t for t in p["triggers"] if t["action"] == "transfer"]))
         # a trigger that continues the conversation (a refusal uses an attempt) is not told to close at once
         q = raw("brief-b")
         q["triggers"] = list(q["triggers"]) + [{"name": "flat_refusal", "detect": "A flat refusal", "action": "continue",
@@ -1308,11 +1312,13 @@ class PromptBudget(unittest.TestCase):
         ph = G.rule_phases(p)
         wrap = wf["nodes"]["wrap_up"]["task_message"]
         # wrap_up asks for notes "with the reason that applies" and the outcome follows the notes: it sees those rules
+        roles, labels = G.rule_roles(p), G._rule_labels(p)
         for r in p["rules"]:
-            if ph[r["id"]] == "negotiate" and ("add_note" in r["text"] or "Outcome:" in r["text"] or "`no_promise`" in r["text"]):
-                self.assertIn("[" + r["id"] + "]", wrap, r["id"])
+            if ph[r["id"]] == "negotiate" and roles.get(r["id"]) not in ("over", "void") and \
+                    ("add_note" in r["text"] or "Outcome:" in r["text"] or "`no_promise`" in r["text"]):
+                self.assertIn("[" + labels[r["id"]] + "]", wrap, r["id"])
         self.assertIn("add_note", wrap)
-        self.assertIn("Outcome: `promise`", wrap)
+        self.assertIn("Outcome: `transferred`", wrap)
         self.assertIn("{{w_wrap_todo}}", wrap)
         # a transfer or close keeps its exact condition (a human request transfers only after insisting)
         for node in ("greet_verify", "negotiate"):
