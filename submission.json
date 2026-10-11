@@ -11,7 +11,7 @@
     }
   ],
   "repo": "https://github.com/ulasucrak/freya-build-the-builder",
-  "commit": "5c3e147b1410b10e2b546446d435ecf338aa7502",
+  "commit": "67b7eeb5e0c9a8a6f20d85db81641e478ea0dd20",
   "run_command": "cd build-the-builder-v3/build-the-builder && pip install -r requirements.txt && BUILD_TRACE_OUT=traces/final.log python build.py \"{case_folder}\" --openapi ../../final-mock/openapi.json --slot final --budget-min 20",
   "workflow": "submission/final.workflow.json",
   "trace": "traces/final.log",
