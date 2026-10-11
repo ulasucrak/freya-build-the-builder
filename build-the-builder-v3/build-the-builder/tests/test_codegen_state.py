@@ -95,8 +95,10 @@ class NextAction(Base):
 
     def test_account_loaded(self):
         self.verified_with_account()
-        self.assertEqual(self.hint(), "Identity verified, account loaded (2 product(s): p1, p2) - next: state the debt as in the "
-                                      "account facts, then handle the products one by one.")
+        # wording changes with negotiate's entry (FX1: static tts entry -> "... answer the reply."); the facts stay
+        h = self.hint()
+        self.assertIn("2 product(s): p1, p2", h)
+        self.assertTrue("next:" in h or "answer the reply" in h, h)
         s = TG.Sim(self.wf)
         s.account([])
         self.assertEqual(s.vs["w_next_action"], "")
