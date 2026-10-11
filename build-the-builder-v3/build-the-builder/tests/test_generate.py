@@ -135,6 +135,23 @@ class Sim:
         assert ".invalid" in cfg["url"], "the model's close_call must never reach the bank"
         return self.engine_close()
 
+    def close_until_done(self, node, body, tries=4):
+        """close() that tolerates close requests held back in the wrap-up step (notes missing). Returns
+        (route, final close body or None, wrap to-do text, number of holds)."""
+        holds = 0
+        for _ in range(tries):
+            cfg, _r, _m = self.call(node, "close_call", body)
+            assert ".invalid" in cfg["url"], "the model's close_call must never reach the bank"
+            if self.vs.get("w_close_requested") != "yes":
+                holds += 1
+                continue
+            route, out, todo = self.engine_close()
+            if route == "wrap":
+                node = "wrap_up"
+                continue
+            return route, out, todo, holds
+        return None, None, "", holds
+
     def engine_close(self):
         assert self.vs.get("w_close_requested") == "yes" or self.vs.get("w_forced") == "yes"
         run(code_of(self.wf["nodes"]["close_check"]), self.vs)
@@ -395,9 +412,7 @@ class EdgeRegressions(unittest.TestCase):
                 s.account([{"product_id": "p1", "type": "credit_card", "past_due": 300.0, "days_late": 4, "minimum_payment": 90.0}])
                 s.vs["w_id_state"] = "verified"
                 req = {fo: want["outcome"], fr: want.get("reason") or ""}
-                _route, body, _t = s.close("negotiate", req)
-                if body is None:                      # wrap-up to-do first (notes): close again
-                    _route, body, _t = s.close("negotiate", req)
+                _route, body, _t, _h = s.close_until_done("negotiate", req)
                 self.assertNotEqual(body.get(fo), want["outcome"], "%s: %s kept after verification" % (name, want))
             s = Sim(wf, customer_id="c1")             # before verification the request stands
             _route, body, _t = s.close("greet_verify", {fo: cl["id_fail"]["outcome"], fr: "declined"})
@@ -759,12 +774,29 @@ class Snippets(unittest.TestCase):
         self.sim.call("wrap_up", "add_note", {"product_id": "p2", "reason": "refused"})
         route, body, _t = self.sim.close("wrap_up", {"outcome": "promise"})
         self.assertEqual((route, body), ("finish", {"outcome": "promise"}))
-        # without the note the second request closes anyway: never a dead end
+        # without the notes the wrap-up close is held back twice with the exact products (live FOC-NOTALK-11: the
+        # model said goodbye again instead of sending the notes), then it closes anyway: never a dead end
         s = Sim(self.wf)
         s.account(self.prods)
         s.vs["w_id_state"] = "verified"
         self.assertEqual(s.close("negotiate", {"outcome": "no_promise", "reason": "refused"})[0], "wrap")
-        self.assertEqual(s.close("wrap_up", {"outcome": "no_promise", "reason": "refused"})[0], "finish")
+        cfg, _r, _m = s.call("wrap_up", "close_call", {"outcome": "no_promise", "reason": "refused"})
+        self.assertNotEqual(s.vs.get("w_close_requested"), "yes")
+        self.assertIn("p1", s.vs["w_last_event"])
+        self.assertIn("p2", s.vs["w_last_event"])
+        self.assertIn("add_note", s.vs["w_last_event"])
+        s.call("wrap_up", "add_note", {"product_id": "p1", "reason": "refused"})
+        s.call("wrap_up", "close_call", {"outcome": "no_promise", "reason": "refused"})
+        self.assertNotIn("p1 (", s.vs["w_last_event"])         # only the product still missing is named
+        self.assertIn("p2", s.vs["w_last_event"])
+        route, body, _t, holds = s.close_until_done("wrap_up", {"outcome": "no_promise", "reason": "refused"})
+        self.assertEqual((route, holds), ("finish", 0))
+        # a close request outside the wrap-up step is never held
+        s2 = Sim(self.wf)
+        s2.account(self.prods)
+        s2.vs["w_id_state"] = "verified"
+        s2.call("negotiate", "close_call", {"outcome": "no_promise", "reason": "refused"})
+        self.assertEqual(s2.vs.get("w_close_requested"), "yes")
 
     def test_refuse_then_transfer_sends_no_note(self):
         """Refuse p1, then restructuring on p2: the transfer stops any note and decides the close; no wrap_up."""

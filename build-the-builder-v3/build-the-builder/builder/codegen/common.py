@@ -182,6 +182,20 @@ def notes_apply(vs):
     return len(products_of(vs)) >= int(num(nt.get("min_products"), 1))
 
 
+def missing_notes(vs, facts):
+    """Products with no recorded promise and no note yet, as 'id (name, reason ...)' texts; [] when notes do not apply."""
+    if facts.get("transfers") or not facts.get("verified") or not notes_apply(vs):
+        return []
+    out = []
+    intents = note_intents(vs)
+    notes = notes_of(vs)
+    for p in products_of(vs):
+        pid = p.get("id")
+        if pid not in (facts.get("promises") or []) and pid not in notes:
+            out.append(str(pid) + " (" + str(p.get("name")) + (", reason '" + str(intents[pid]) + "'" if pid in intents else "") + ")")
+    return out
+
+
 def notes_instruction(vs):
     """What to do about notes when every product is handled; '' when no note is needed."""
     if not notes_apply(vs) or transfers_of(vs):

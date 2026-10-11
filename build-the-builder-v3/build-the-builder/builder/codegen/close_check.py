@@ -17,13 +17,8 @@ if want["outcome"] and not facts.get("transfers"):
 if not need_transfer and want["outcome"] and not facts.get("promises") and want["outcome"] in (
         pair(cl.get("promise"))["outcome"], pair(cl.get("promise_mixed"))["outcome"]):
     todo.append("The call is closing as " + want["outcome"] + " but no promise is recorded. If the customer confirmed a promise, call create_promise for it now; otherwise close with the outcome that applies.")
-if not need_transfer and not facts.get("transfers") and facts.get("verified") and notes_apply(vs):
-    missing = []
-    intents = note_intents(vs)
-    for p in products_of(vs):
-        pid = p.get("id")
-        if pid not in facts.get("promises") and pid not in notes_of(vs):
-            missing.append(str(pid) + " (" + str(p.get("name")) + (", reason '" + str(intents[pid]) + "'" if pid in intents else "") + ")")
+if not need_transfer:
+    missing = missing_notes(vs, facts)
     if missing:
         todo.append("These products have no recorded promise and no note yet: " + ", ".join(missing)
                     + ". Call add_note for each of them, one per message, with the reason that applies from the conversation.")
