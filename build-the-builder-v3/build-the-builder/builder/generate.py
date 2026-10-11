@@ -28,6 +28,11 @@ Graph (every value comes from the policy; nothing here knows a brief):
       turn cap reached      -> turn_cap (code) -> close_check -> finish -> farewell (tts goodbye) -> close_api -> end_forced
     workflow tool final_close (end_of_call): safety-net close_call when none was sent (stopped otherwise).
 
+A policy without the collection roles (verify / account / promise / close tools) gets the generic service-agent
+workflow instead (generic_workflow): setup (codegen/generic_setup.py) -> one 'assistant' conversation node with every
+openapi operation as an api_call tool (flat fields for the model; codegen/generic_pre.py rebuilds the nested body,
+codegen/generic_post.py unwraps the answer) -> end_conversation(reason) -> an end_call node named after the reason.
+
 Hooks (python, embedded from builder/oracle.py + builder/codegen/*.py) normalise answers/dates/amounts, stop
 requests that break the policy before they reach the bank, add `what_to_do_next` to every tool result, and
 derive close_call's outcome/reason from recorded facts (transfer, failed identity, promise, callback, notes).
@@ -1906,8 +1911,9 @@ def generic_workflow(p, prompts=None, openapi=None, opts=None, language=None):
             "code": {"type": "string", "default": build_code("end_conversation", {"names": {}, "end_reasons": reasons}, "tool",
                                                              source=GENERIC_END)},
             "timeout_ms": {"type": "number", "default": 10000}}, "required": ["reason"]}}}
-    tool_lines.append("end_conversation(reason): last, once, with your closing words in the same message; reason "
-                      + ", ".join("%s (%s)" % (r, END_REASON_DESC.get(r, r)) for r in reasons) + ".")
+    tool_lines.append("end_conversation(reason): last, once, with your closing words in the same message; the reason is what"
+                      " those words say happens next: " + ", ".join("%s (%s)" % (r, END_REASON_DESC.get(r, r)) for r in reasons)
+                      + ". Never end the call while the caller still asks for something you can do.")
 
     rt_setup = {"names": {"now_var": now_var, "language": language},
                 "call_vars": [v for v in calls if v != now_var and v not in filled]}
@@ -1955,7 +1961,8 @@ def generic_workflow(p, prompts=None, openapi=None, opts=None, language=None):
 
 def generate_workflow(policy, prompts=None, openapi=None, options=None):
     """policy dict (contract v1) -> Freya workflow dict. `openapi` (dict) fills tool URLs/fields/responses that
-    the policy lacks. Raises ValueError when the policy cannot produce a workflow."""
+    the policy lacks. A policy without the collection roles gets generic_workflow. Raises ValueError when the
+    policy cannot produce a workflow."""
     opts = dict(DEFAULT_OPTIONS)
     opts.update(options or {})
     if openapi:
