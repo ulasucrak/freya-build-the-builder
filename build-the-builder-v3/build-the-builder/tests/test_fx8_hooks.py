@@ -60,23 +60,34 @@ class OfferMemory(unittest.TestCase):
         self.assertEqual(out["code"], "bad_amount")
         self.assertIn("Ask for the whole amount", out["what_to_do_next"])
 
-    def test_same_rejection_twice_asks_one_clarifying_question_then_stops(self):
+    def test_same_input_rejected_twice_asks_one_clarifying_question_then_stops(self):
         first = self.chk(product_id="p2", date="20 November")
         self.assertEqual(first["code"], "after_deadline")
         self.assertNotIn("ONE", first["what_to_do_next"])
-        second = self.chk(product_id="p2", date="21 November")
+        second = self.chk(product_id="p2", date="20 November")
         self.assertIn("ask ONE question for the whole amount and exact day", second["what_to_do_next"])
-        third = self.chk(product_id="p2", date="22 November")
+        self.assertIn("say the latest is Monday 2 November 2026", second["what_to_do_next"])    # the suggestion stays
+        third = self.chk(product_id="p2", date="the 20th of November")
         self.assertIn("stop asking", third["what_to_do_next"])
         self.assertIn("callback", third["what_to_do_next"])
         # a valid check ends the streak
         self.assertTrue(self.chk(product_id="p2", date="23 October")["ok"])
         self.assertNotIn("ONE", self.chk(product_id="p2", date="20 November")["what_to_do_next"])
 
-    def test_alternating_rejections_also_break_the_loop(self):
-        """N056 without the merge: two codes alternating for one product."""
-        for i, a in enumerate([dict(date="20 November"), dict(amount="10"), dict(date="20 November"), dict(amount="10"),
-                               dict(date="20 November")]):
+    def test_haggling_is_not_a_loop(self):
+        """Review R08: 50, 80, 100 (all below the floor) are new offers, each answered with the floor."""
+        for a in ("50", "80", "100"):
+            out = self.chk(product_id="p2", amount=a)
+            self.assertEqual(out["code"], "below_floor")
+            self.assertNotIn("ONE", out["what_to_do_next"])
+            self.assertNotIn("stop asking", out["what_to_do_next"])
+            self.assertIn("offer 126.00", out["what_to_do_next"])
+        for d in ("20 November", "21 November", "22 November"):
+            self.assertNotIn("ONE", self.chk(product_id="p2", date=d)["what_to_do_next"])
+
+    def test_split_number_loop_breaks(self):
+        """N056 without the merge: the same two inputs alternating, rejected each time."""
+        for a in [dict(date="20 November"), dict(amount="10"), dict(date="20 November"), dict(amount="10"), dict(date="20 November")]:
             out = self.chk(product_id="p1", **a)
         self.assertIn("stop asking", out["what_to_do_next"])
 
@@ -87,35 +98,43 @@ class OfferMemory(unittest.TestCase):
         self.assertIn("w_offers_p1", self.vs)
         self.assertIn("w_offers_p2", self.vs)
 
-    def test_refused_suggestion_is_never_offered_again(self):
+    def test_a_correction_is_not_a_refusal(self):
+        """Review R08: the latest day was suggested, then a weekend day: no 'refused', a normal correction."""
         out = self.chk(product_id="p2", date="20 November")              # -> offer the latest day, Mon 2 Nov
         self.assertIn("2026-11-02", out["suggest_date"])
         self.assertIn("Offers left for this product: at most", out["what_to_do_next"])
-        out = self.chk(product_id="p2", date="Saturday 31 October")       # customer counters: Mon 2 Nov was refused
+        out = self.chk(product_id="p2", date="Saturday 31 October")
         self.assertEqual(out["code"], "not_business_day")
-        self.assertIn("2026-11-02 was already refused: do not offer it again", out["what_to_do_next"])
-        self.assertIn("refused: 2026-11-02", out["what_to_do_next"])
+        self.assertNotIn("refused:", out["what_to_do_next"])
+        self.assertIn("Offered via this tool: 2026-11-02", out["what_to_do_next"])
 
-    def test_accepted_part_is_not_a_refusal(self):
-        self.chk(product_id="p2", amount="100")                           # below the floor -> offer 126
-        out = self.chk(product_id="p2", amount="126", date="23 October")  # takes the floor, names a day
-        self.assertTrue(out["ok"], out)
-        m = json.loads(self.vs["w_offers_p2"])
-        self.assertEqual(m["r"], [])
+    def test_same_suggestion_twice_is_flagged(self):
+        self.chk(product_id="p2", date="20 November")
+        out = self.chk(product_id="p2", date="5 November")                # the latest day again
+        self.assertIn("Already offered via this tool", out["what_to_do_next"])
 
-    def test_offers_left_counts_down(self):
-        n = len(json.loads(self.vs["w_products_json"])[1]["offers"])
+    def test_whole_values_not_substrings(self):
+        m = {"o": ["1126.00"], "a": [], "f": []}
+        self.vs["w_offers_p2"] = json.dumps(m)
+        out = self.chk(product_id="p2", amount="100")                     # offer 126.00 is not '1126.00'
+        self.assertNotIn("Already offered", out["what_to_do_next"])
+
+    def test_offers_left_counts_only_planned_attempts(self):
+        offers = json.loads(self.vs["w_products_json"])[1]["offers"]
+        n = len(offers)
         self.assertGreater(n, 0)
-        out = self.chk(product_id="p2", amount="100")
-        self.assertIn("at most " + str(n - 1), out["what_to_do_next"])
+        out = self.chk(product_id="p2", date="Saturday 17 October")       # next business day: a correction, no attempt
+        self.assertIn("at most " + str(n), out["what_to_do_next"])
+        planned = [o for o in offers if 126.0 in (o.get("amount"), o.get("alt"))]
+        out = self.chk(product_id="p2", amount="100")                     # the floor: a planned attempt when one has it
+        self.assertIn("at most " + str(n - (1 if planned else 0)), out["what_to_do_next"])
+        self.assertNotIn("No offers left", out["what_to_do_next"])
 
-    def test_no_offers_left(self):
-        prods = json.loads(self.vs["w_products_json"])
-        prods[1]["offers"] = prods[1]["offers"][:1]
-        self.vs["w_products_json"] = json.dumps(prods)
-        self.chk(product_id="p2", amount="100")                           # offer 1: the floor
-        out = self.chk(product_id="p2", date="20 November")               # a new suggestion with none left
-        self.assertIn("No offers left for this product", out["what_to_do_next"])
+    def test_confirmed_parallel_promise_is_not_valid(self):
+        """Review R08: a promise confirmed by the engine counters (sent_ok) is already recorded."""
+        self.vs.update({"w_cp_sent_p2": "1", "create_promise_success_count": 1, "create_promise_failure_count": 0,
+                        "create_promise_response.data.ok": "true"})
+        self.assertEqual(self.chk(product_id="p2", date="23 October")["code"], "already_promised")
 
     def test_generic_no_brief_values(self):
         src = (KIT / "builder" / "codegen" / "check_offer.py").read_text()
