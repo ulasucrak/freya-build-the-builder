@@ -27,3 +27,9 @@ for k, v in [("w_account_facts", "Not loaded yet. Nothing about the account is k
              ("w_enter_prompt", "")]:
     if vget(vs, k, None) is None:
         vset(vs, k, v)
+# every call variable the prompts or fixed lines show ({{first_name}}, {{title}}, ...) gets a value when the call did
+# not pass one: an unset variable would be spoken or shown as a literal placeholder
+for k in RT.get("call_vars") or []:
+    if vget(vs, k, None) is None:
+        vset(vs, k, "")
+vset(vs, "w_entry_line", vget(vs, "w_entry_line", None) or "")
