@@ -777,9 +777,9 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
     nodes["wrap_up"] = {
         "name": "wrap_up", "node_type": "conversation",
         "on_enter": {"type": "llm", "prompt": P.get("wrap_up.on_enter",
-                                                   "Before the call can be closed: {{w_wrap_todo}} Do it now with the tools, one tool call per message. Say at most one short sentence to the customer.")},
+                                                   "Before the call can be closed: {{w_wrap_todo}} Do it now with the tools, one tool call per message. The customer already heard your goodbye: do not say it again or describe what you record; if you must speak, say only 'One moment, please.'")},
         "task_message": P.get("wrap_up.task", "The call is about to be closed. Before that: {{w_wrap_todo}}\n"
-                              "Use the tools for it, one tool call per message, and wait for each result. Say at most one short sentence to the customer. "
+                              "Use the tools for it, one tool call per message, and wait for each result. The customer already heard your goodbye: do not say it again or describe what you record; if you must speak, say only 'One moment, please.' "
                               "Then call close_call again with the outcome that applies.\n" + STATUS_LINE),
         "tools": wrap_tools,
         "max_node_turns": 4, "max_turn_transition": "finish",

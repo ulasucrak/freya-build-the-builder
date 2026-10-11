@@ -791,6 +791,11 @@ class Snippets(unittest.TestCase):
         self.assertIn("p2", s.vs["w_last_event"])
         route, body, _t, holds = s.close_until_done("wrap_up", {"outcome": "no_promise", "reason": "refused"})
         self.assertEqual((route, holds), ("finish", 0))
+        # notes before the goodbye when the call ends early; in wrap-up the goodbye is not repeated
+        self.assertIn("before you say goodbye", s.vs["w_notes_rule"])
+        self.assertIn("ends early", s.vs["w_notes_rule"])
+        self.assertIn("do not say it again", self.wf["nodes"]["wrap_up"]["task_message"])
+        self.assertIn("do not say it again", self.wf["nodes"]["wrap_up"]["on_enter"]["prompt"])
         # a close request outside the wrap-up step is never held
         s2 = Sim(self.wf)
         s2.account(self.prods)

@@ -21,5 +21,6 @@ vset(vs, "w_product_count", str(len(prods)))
 vset(vs, "w_product_ids", ",".join([str(p.get("id")) for p in prods]))
 vset(vs, "w_account_state", "ok" if prods else "failed")
 vset(vs, "w_notes_rule", ("Decide a note reason for each product without a promise as you go, but do not call add_note yet. "
-     "Only at the end, when every product has a promise or a reason, call add_note once per such product, one per message, then close.")
+     "Only at the end, when every product has a promise or a reason, or when the call ends early (a refusal, a customer who will not talk), "
+     "call add_note once per such product, one per message, before you say goodbye; then say goodbye and close.")
      if notes_apply(vs) else "Notes are not used for this customer: do not call add_note.")
