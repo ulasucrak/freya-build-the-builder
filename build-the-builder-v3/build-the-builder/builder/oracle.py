@@ -1448,9 +1448,9 @@ def date_facts_text(policy, today, now_time, cal):
         return "Today: " + iso(today)
 
 
-def offer_text(o):
+def offer_text(o, short=False):
     amt = o.get("amount")
-    parts = ["Attempt " + str(o.get("n")) + " (a persuasion attempt: only after a refusal or a non-answer):"]
+    parts = ["Attempt " + str(o.get("n")) + (":" if short else " (a persuasion attempt: only after a refusal or a non-answer):")]
     if amt is not None:
         parts.append("amount " + money(amt))
         if o.get("alt_amount") is not None:
@@ -1495,19 +1495,21 @@ def account_facts_text(products, cal, today=None, ladder_in_code=False):
         for p in products:
             lines.append(str(p.get("index")) + ". product_id " + str(p.get("id")) + ": " + str(p.get("name")) + ".")
             lines.append("   Past-due amount (full amount): " + money(p.get("full")) + ". Days late: " + str(p.get("days_late")) + ".")
-            if p.get("floor") is not None:
+            if p.get("floor") is not None and ladder_in_code:
+                lines.append("   Floor (lowest amount that can be recorded): " + money(p.get("floor")) + ". Offer it only when a tool result"
+                             + " or the state line says so; it keeps the day being discussed.")
+            elif p.get("floor") is not None:
                 lines.append("   Floor (lowest amount that can be recorded, field " + str(p.get("floor_field")) + "): " + money(p.get("floor")) + "."
                              + " Offer the floor only when the customer says the amount itself is too much; a plain no or 'I can't' is a refusal,"
                              + " not that. Offering the floor for an amount that is too much does not change the day being discussed.")
             if p.get("band"):
-                lines.append("   Band: " + p.get("band") + ". Persuasion attempts allowed: " + str(p.get("attempts")) + ".")
+                lines.append("   Band: " + p.get("band") + ". Persuasion attempts allowed: " + str(p.get("attempts"))
+                             + ("; never repeat an offer that was refused." if ladder_in_code else "."))
             if p.get("deadline"):
                 lines.append("   Deadline (latest promise date): " + date_label(to_date(p.get("deadline"))) + ".")
             for o in p.get("offers") or []:
-                lines.append("   " + offer_text(o))
-            if p.get("offers") and ladder_in_code:
-                lines.append("   Offers allowed: " + str(len(p.get("offers"))) + " attempts; never repeat an offer that was refused.")
-            elif p.get("offers"):
+                lines.append("   " + offer_text(o, ladder_in_code))
+            if p.get("offers") and not ladder_in_code:
                 n = str(len(p.get("offers")))
                 lines.append("   Offers allowed for this product: " + n + " in total, counting every offer you make. After attempt " + n
                              + " is refused (a plain no or 'I can't' is a refusal), make no other offer for this product: no other amount"

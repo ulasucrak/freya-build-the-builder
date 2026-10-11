@@ -153,7 +153,7 @@ class Sim:
         return None, None, "", holds
 
     def engine_close(self):
-        assert self.vs.get("w_close_requested") == "yes" or self.vs.get("w_forced") == "yes"
+        assert "yes" in (self.vs.get("w_close_requested"), self.vs.get("w_forced"), self.vs.get("w_end_say"))   # v4: code-forced close
         run(code_of(self.wf["nodes"]["close_check"]), self.vs)
         if self.vs.get("w_close_route") == "wrap":
             return "wrap", None, self.vs.get("w_wrap_todo", "")
@@ -648,7 +648,7 @@ class LiveDateRegressions(unittest.TestCase):
             self.assertEqual(vs["w_today"], "2026-10-14")
             offers = json.loads(vs["w_products_json"])[0]["offers"]
             self.assertEqual((offers[0]["date"], offers[1]["date"]), ("2026-10-16", "2026-10-23"))     # PUB-06
-            self.assertIn("Attempt 1 (a persuasion attempt: only after a refusal or a non-answer): amount 2125.10 (or 637.50", vs["w_account_facts"])
+            self.assertIn("Attempt 1: amount 2125.10 (or 637.50", vs["w_account_facts"])   # v4: refusals counted in code
             self.assertIn("on Friday 16 October 2026 (2026-10-16)", vs["w_account_facts"])
             wf, vs2 = self.facts(wall, loan)
             self.assertIn("Mon 26 Oct (holiday) -> Tuesday 27 October 2026 (2026-10-27)", vs2["w_account_facts"])  # PUB-07
