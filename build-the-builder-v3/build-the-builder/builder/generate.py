@@ -582,7 +582,8 @@ def _trigger_lines(p, cl, verified):
             if twice:
                 line += (" The first time: do not mention security; acknowledge it and make the current product's next offer." if verified else
                          " The first time: explain once, as the rules say, why the security questions are asked, and ask again.")
-                line += " The second time: close at once (thank, goodbye and close_call in that message)."
+                line += ((" Count it in any words, amid other talk too." if verified else "")
+                         + " The second time: close at once (thank, goodbye and close_call in that message).")
         if not p["rules"]:
             for n in t.get("notes") or []:
                 if isinstance(n, str) and n.strip():
@@ -729,6 +730,7 @@ def default_greet_task(p, cl):
     q = p["identity"]["questions"]
     tp = p["third_party"]
     verbatim = not p["rules"]          # rules missing: carry the section texts here instead
+    nocb = p["closing"].get("no_callback") or {}
     cases = []
     for c in tp["cases"]:
         line = "If " + c["trigger"] + ":"
@@ -736,7 +738,10 @@ def default_greet_task(p, cl):
             line += " say \"" + c["say"] + "\";"
         if c["action"] == "callback":
             line += (" ask when the customer can be reached, then call schedule_callback (date YYYY-MM-DD, time HH:MM 24 h) with each day and"
-                     " time the person offers, even one outside the allowed window: the system checks it and says what to do next;")
+                     " time offered, before you reply, even one outside the window (never judge it yourself): the result says what to do next;")
+        elif c["action"] == "ask_again" or (c["outcome"] and (c["outcome"], c["reason"]) == (nocb.get("outcome"), nocb.get("reason"))):
+            n = max(1, int(p["callback"].get("max_asks") or 2) - 1)
+            line += " ask for another time only " + ("once" if n == 1 else "%d times" % n) + ";"
         if c["outcome"]:
             line += " close " + c["outcome"] + (" / " + c["reason"] if c["reason"] else "") + "."
         cases.append(line)
@@ -758,8 +763,8 @@ def default_greet_task(p, cl):
         _bul([x for x in (p["opening"].get("notes") or []) if isinstance(x, str)]) if verbatim else "",
         _bul(tp["rules"]) if verbatim else "",
         _bul(cases),
-        ("With anyone who is not the customer, say nothing about an account, a product, money or a payment, not even that you cannot discuss them. "
-         "If they ask what the call is about or offer to pay, say only that you need to speak with the customer personally, then ask when the customer can be reached.") if tp["cases"] else "",
+        ("With anyone else, say nothing about an account, a product, money or a payment, not even that you cannot discuss them. "
+         "If they ask why you call or offer to pay, say only that you need to speak with the customer personally, then ask when they can be reached.") if tp["cases"] else "",
         wins,
         "Security questions: only to the customer, after they confirmed who they are, one at a time. An answer given in pieces over several turns (day and month, then the year; two digits, then two more) is not a refusal and not a wrong answer: call verify_identity with each piece; pieces are joined automatically; ask only for the missing part. Count wrong answers only from verify_identity results.",
         _bul(qlines, ""),
@@ -773,6 +778,13 @@ def default_greet_task(p, cl):
     ] if x)
 
 
+def _ladder_line(p):
+    """The offer sequence, counted from the policy's bands: how many persuasion attempts each band allows."""
+    per = ", ".join("%s %d" % (b["name"], len(b.get("attempts") or [])) for b in p["bands"] if b.get("name"))
+    return ("Persuasion attempts" + (" (" + per + ")" if per else "") + ": each product's, in order, once; a refusal or non-answer"
+            " ('not on <day>' with no new day too; not 'too much') uses the next; after the last, close. One sympathy sentence, once.")
+
+
 def default_negotiate_task(p, cl, check=False):
     multi = p["products"]["max_count"] > 1
     notes = p["notes"]
@@ -784,14 +796,14 @@ def default_negotiate_task(p, cl, check=False):
         "The security questions are over: never mention them or why they were asked.",
         "{{w_account_facts}}",
         "{{w_date_facts}}",
-        "Use only these product ids. Deadlines, floors and attempt offers are computed: use them as given; weekdays and years come only from the calendar facts. "
-        "A promise needs an amount from the floor to the full amount and a business day from today up to that product's deadline.",
-        "Count persuasion attempts per product; when they are used up, make no further offer for that product. Say sympathy at most once.",
+        "Use only these product ids; deadlines, floors and attempt offers are computed: use them as given, weekdays and years only from the calendar facts. "
+        "A promise needs an amount from the floor to the full amount and a business day from today to that product's deadline.",
+        _ladder_line(p),
         _bul(p["amounts"]["rules"] + [p["dates"]["customer_date_after_deadline"], p["dates"]["vague_date"]] + p["dates"]["rules"]) if verbatim else "",
         "Read-back: " + pm["readback"] if verbatim else "",
     ]
     if check:
-        lines.append("When the customer names a date, a period ('in two weeks', 'end of the month') or an amount themselves, call check_offer before you answer and follow its what_to_do_next. "
+        lines.append("When the customer names a date, a period ('end of the month') or an amount themselves, call check_offer before you answer and follow its what_to_do_next. "
                      "No check for the full amount today, for an offer from the account facts, or for a value check_offer already accepted: go straight to the read-back.")
     lines.append("Recording: after a clear yes to the read-back, call create_promise once per product, one per message, after each result. "
                  "If it fails, call it again with the same values, at most %d more time(s); if it still fails: %s."

@@ -1326,3 +1326,44 @@ class PromptBudget(unittest.TestCase):
         sysp = wf["system_prompt"]
         self.assertIn("never 'I have recorded' before the result", sysp)
         self.assertIn("several calls in one message run at once and results can be lost", sysp)
+
+
+class JudgeReasonFixes(unittest.TestCase):
+    """T05: live chain250 judge failures (MIX-09/GEN-05-refuses: a second or repeated offer; GEN-09-no-talk: the 2nd
+    'don't want to talk' missed amid other talk; EDGE-20: callback window judged by the model, asked twice; MIX-14:
+    sympathy repeated)."""
+
+    def test_offer_ladder_counted_from_the_policy(self):
+        for name in ALL:
+            p = S.normalise(raw(name))
+            neg = G.generate_workflow(raw(name))["nodes"]["negotiate"]["task_message"]
+            line = [x for x in neg.splitlines() if x.startswith("Persuasion attempts")]
+            self.assertEqual(len(line), 1, name)
+            for b in p["bands"]:
+                self.assertIn("%s %d" % (b["name"], len(b.get("attempts") or [])), line[0], name)
+            self.assertIn("'not on <day>' with no new day too; not 'too much') uses the next", line[0])
+            self.assertIn("after the last, close", line[0])
+            self.assertIn("One sympathy sentence, once.", line[0])
+            self.assertNotIn("Persuasion attempts", G.generate_workflow(raw(name))["nodes"]["greet_verify"]["task_message"])
+        line = [x for x in G.generate_workflow(raw("fixture-x"))["nodes"]["negotiate"]["task_message"].splitlines()
+                if x.startswith("Persuasion attempts")][0]
+        self.assertIn("(A 1, B 3, C 0)", line)
+
+    def test_second_no_talk_counted_amid_other_talk_after_verification_only(self):
+        wf = G.generate_workflow(raw("brief-a-live"))
+        neg = wf["nodes"]["negotiate"]["task_message"]
+        greet = wf["nodes"]["greet_verify"]["task_message"]
+        line = [x for x in neg.splitlines() if x.startswith("- does_not_want_to_talk")][0]
+        self.assertIn("Count it in any words, amid other talk too. The second time: close at once", line)
+        self.assertNotIn("amid other talk", greet)
+        self.assertIn("- refuses_to_talk (", G.generate_workflow(raw("brief-b"))["nodes"]["negotiate"]["task_message"])
+
+    def test_callback_window_left_to_the_tool_and_asked_again_once(self):
+        for name in ("brief-a", "brief-a-live", "brief-b"):
+            wf = G.generate_workflow(raw(name))
+            greet = wf["nodes"]["greet_verify"]["task_message"]
+            self.assertIn("before you reply, even one outside the window (never judge it yourself)", greet, name)
+            ask = [x for x in greet.splitlines() if "ask for another time only once;" in x]
+            self.assertEqual(len(ask), 1, name)
+            self.assertIn("no_callback", ask[0], name)
+            self.assertNotIn("ask for another time only once", wf["nodes"]["negotiate"]["task_message"], name)
