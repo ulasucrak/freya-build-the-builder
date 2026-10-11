@@ -32,6 +32,11 @@ Akış: extract (Claude -> policy.json) -> deterministik generator (code node'la
   - Ölçüm: self-test 7/10 -> 10/10 (v3), 9/10 (v4, kalan SELF-05 vaka hatası: kural 28'e aykırı kontrol); no-talk vakaları 2/8 -> 10/10 (v5); odak seti (28 vaka) v5 1. koşu 27/28 (kalan NOTALK-11 not eksik, v6'da düzeltildi). v6 odak x3 + 99 doğrulaması sürüyor.
   - Araçlar: `run_edge.sh --focus` (28 vaka x3), `tools/edge_cases.py` FOCUS. Prompt boyutu test sınırı 0.70 -> 0.72 (ekip gecikme koruması, platform kuralı değil).
   - Workspace: "analyzing"de takılan simülasyon workspace'i kilitliyor; `PUT /api/v2/simulations/{id}` status=completed ile bırakıldı (veri silinmez). Durdurulan runner'ın simülasyonu Freya'da bitene kadar sürer.
+- Edge eval tam koşu (11 Eki, gen @7fe9065, eski ajan `ab2440a1`, 99 vaka x 2; düzeltmelerden önce): koşu 1 92/99, koşu 2 88/99; iki koşuda da geçen 84/99. En yavaş tur medyanı 5 sn / 3 sn, en kötü 30 sn; kapanan çağrı yok.
+  İki koşuda da kalan: GEN-01/07-holiday (26 Eki tatili yerine 27 Eki değil, son tarih 2 Kas teklif ediliyor; early bandda yanlış kural), EDGE-10 (kayıtlı söz değişimi için "mobile app" denmiyor).
+  Tek koşuda kalan: GEN-08/09-no-talk (doğrulanmış müşteri iki kez "konuşmak istemiyorum" deyince `not_verified/declined` kapanıyor, beklenen `no_promise/refused`), GEN-13-dispute-refuse (kapanış nedeni ilk ürünün notu `dispute` yerine `refused`), GEN-11-refuses-all (not eksik), EDGE-14 (doğrulamadan önce "to protect your account" deniyor). 6 hata Freya hakeminin karar vermemesi ("no verdict"), ajan kaynaklı değil.
+  Önceki edge koşusu (sim `917787fd`) yanlış ajanla koştu: `run_edge.sh` son kaydı, yani `-selftest` kopyasını alıyordu (sahte banka, her doğrulama reddedildi). Düzeltildi.
+- Edge vaka seti 130'a çıktı (54 elle yazılmış: EDGE-24..54 yeni); yenileri henüz koşulmadı.
 - Not: Freya API aralıklı 503 veriyor; ortak çalışma alanında başka ekip simülasyonu 40 dk bekletti.
 - Extraction holdout: S1-S7 tam puan (ör. S5 246/246, S6 339/339, S7 193/193); extraction başına 104-131 sn.
 - 200 offline test yeşil.
@@ -43,6 +48,7 @@ Akış: extract (Claude -> policy.json) -> deterministik generator (code node'la
 - Sandbox payload sınırı ~64 KB.
 - Chat route ilk code node'u atlar.
 - Banka mock'u yalnızca 13 hazır vaka id'sini sunar.
+- Hakem analizi takılabiliyor (çağrılar `analyzing`'de kalıyor, simülasyon hiç `completed` olmuyor); `freya.run_simulation` süresiz bekliyor. Çözüm: `POST /api/v2/simulations/{id}/cancel`.
 
 ## Yapılacaklar (öncelik sırası)
 0. (Edge sonrası) v6 doğrulaması bitince: S1-S7 sentetik regresyon; deterministik `check_date` aracı (müşterinin söylediği gün -> geçerli / yerine X / son tarih); policy'yi oracle ile 13 genel vakaya karşı offline kontrol; builder self-test'inin workspace beklemesi (120 sn az) ve takılı simülasyon tespiti; 99'u `--reps 3` ve `--style` ile koşmak.

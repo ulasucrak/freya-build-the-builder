@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Edge-case test: 23 tricky customers, 2 runs each, against this builder's agent.
+# Edge-case test: tricky customers, 2 runs each, against this builder's agent.
 #   bash run_edge.sh            test the agent this folder built last (builds one first if there is none)
 #   bash run_edge.sh --build    build a fresh agent from Brief A+B first
-#   bash run_edge.sh --quick    only the 23 hand-written cases (default: all 99, about 40-60 minutes)
+#   bash run_edge.sh --quick    only the 54 hand-written cases (default: all 130, about 60-80 minutes)
 #   bash run_edge.sh --focus    the focus cases (fixes of the 96/99 run, holidays, and their guards), 3 runs each
 #   AGENT_ID=<id> bash run_edge.sh   test that agent instead
 # Results: results/edge-report.txt (readable) and results/run-edge.json (details, call ids).
