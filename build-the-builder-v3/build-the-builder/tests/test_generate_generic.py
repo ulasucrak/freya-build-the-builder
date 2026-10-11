@@ -341,3 +341,18 @@ class GenericEndReasonsTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class GenericTriggerLineTest(unittest.TestCase):
+    def test_notes_carry_the_instruction_when_there_is_no_sentence(self):
+        t = {"name": "pick_other", "detect": "Caller picks a card that cannot be used", "action": "say", "queue": "",
+             "say": None, "notes": ["tell them it cannot be used and ask for another one.", "second note", "third"]}
+        line = G._trigger_line(t)
+        self.assertTrue(line.startswith("Caller picks a card that cannot be used -> say"), line)
+        self.assertIn("(how: tell them it cannot be used and ask for another one. second note)", line)
+        self.assertNotIn("third", line)
+
+    def test_sentence_and_no_notes(self):
+        t = {"name": "x", "detect": "Asks for a person", "action": "transfer", "queue": "Agent", "say": "Bir an.",
+             "notes": []}
+        self.assertEqual(G._trigger_line(t), 'Asks for a person -> transfer Agent: say "Bir an."')

@@ -1895,9 +1895,13 @@ def generic_end_reasons(p):
 
 
 def _trigger_line(t):
+    """One situation line: detection -> action, the sentence to say, and what the documents say to do (the trigger's
+    notes; without them a row with no sentence would carry no instruction at all)."""
     act = t["action"] + ((" " + t["queue"]) if t["queue"] else "")
-    return "%s -> %s%s" % (_short(t["detect"] or t["name"].replace("_", " "), 200), act,
-                           (": say \"%s\"" % t["say"]) if t["say"] else "")
+    notes = [_short(n, 260) for n in (t.get("notes") or []) if str(n or "").strip()][:2]
+    return "%s -> %s%s%s" % (_short(t["detect"] or t["name"].replace("_", " "), 200), act,
+                             (": say \"%s\"" % t["say"]) if t["say"] else "",
+                             (" (how: %s)" % " ".join(notes)) if notes else "")
 
 
 def generic_system_prompt(p, language, tool_lines):
