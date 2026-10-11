@@ -226,6 +226,12 @@ def parse_amount(value):
             elif t in mult:
                 if g is None:
                     g = dict(tot=0, cur=0, dec=None, last="u", m=0, a=i, b=i)
+                if g["cur"] >= 100 and g["cur"] % 100:
+                    # 'five hundred four hundred': a new amount starts at the last number
+                    r = g["cur"] % 100
+                    g["cur"] -= r
+                    groups.append(g)
+                    g = dict(tot=0, cur=r, dec=None, last="u", m=0, a=i - 1, b=i)
                 if mult[t] == 100:
                     g["cur"] = max(g["cur"], 1) * 100 if g["cur"] < 100 else g["cur"]
                 else:
@@ -894,7 +900,8 @@ def parse_spoken_date(text, today, next_rule="", future=True, order=""):
 def relative_date(text, today, cal=None):
     """Relative days parse_spoken_date leaves out (kept out of it for the create_promise hook-size budget) -> date,
     or None: 'end of the month' / 'month end' / 'end of (next) week' (the last business day when `cal` is given,
-    else the last day / Friday), 'this time next week', 'the 5th of next month'."""
+    else the last day / Friday), 'this time next week', 'the 5th of next month'. '' for a day that does not exist
+    ('the 31st of next month' in a 30-day month)."""
     try:
         s = re.sub(r"(\d+)(st|nd|rd|th)\b", r"\1", day_words_to_digits(str(text or "").lower()))
         s = " ".join(re.sub(r"\b(the|of)\b|,", " ", s).split())
@@ -910,7 +917,7 @@ def relative_date(text, today, cal=None):
         m = re.search(r"\b(\d{1,2}) (this|next) month\b|\b(this|next) month (?:on )?(\d{1,2})\b", s)
         if m:
             y, mo = divmod(today.month - 1 + int("next" in (m.group(2), m.group(3))), 12)
-            return safe_date(today.year + y, mo + 1, int(m.group(1) or m.group(4)))
+            return safe_date(today.year + y, mo + 1, int(m.group(1) or m.group(4))) or ""
     except Exception:
         pass
     return None
@@ -920,7 +927,9 @@ def said_date(text, today, next_rule="", cal=None, future=True, order=""):
     """A day as the customer said it, with corrections ('Friday, sorry, I mean Monday', 'the 20th, not the 21st':
     the last stated day that can be read) and every relative form (relative_date, then parse_spoken_date)."""
     for p in reversed(said_parts(text)):
-        d = (relative_date(p, today, cal) if today else None) or parse_spoken_date(p, today, next_rule, future, order)
+        d = relative_date(p, today, cal) if today else None
+        if d is None:
+            d = parse_spoken_date(p, today, next_rule, future, order)
         if d:
             return d
     return None

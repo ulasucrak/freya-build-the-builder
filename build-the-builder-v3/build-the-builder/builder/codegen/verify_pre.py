@@ -54,7 +54,9 @@ elif q is not None and af in body:
             info = dict(code="partial-answer", message="Only " + str(len(digits)) + " of " + str(n_digits) + " digits so far: " + digits + ".",
                         next="This is not a wrong answer. Ask only for the remaining digits, then call verify_identity again with just those; they are joined automatically.")
         else:
-            body[af] = digits if len(digits) == n_digits else normalise_answer(ans, q.get("normalise"), q.get("answer_format"))
+            # too many digits with a kept piece: the customer said the whole answer again ('sorry, 4471')
+            alone = re.sub(r"\D", "", spoken_digits(ans))
+            body[af] = digits if len(digits) == n_digits else (alone if len(alone) == n_digits else normalise_answer(ans, q.get("normalise"), q.get("answer_format")))
             vset(vs, pkey, "")
     else:
         body[af] = normalise_answer(ans, q.get("normalise"), q.get("answer_format"))
