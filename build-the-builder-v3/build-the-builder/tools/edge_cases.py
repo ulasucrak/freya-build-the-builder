@@ -75,7 +75,7 @@ EDGE = [
     ("EDGE-26", "PUB-01", "Identity", "Confirms his name. Gives his date of birth only as numbers: 'fourteen, oh three, eighty-eight'. Last four digits 4471. Pays the full amount today. Confirms at the read-back.",
      "promise", None, [P("p1", 420.0, TODAY)], [], [], [], ["the date of birth is sent as 1988-03-14 (day, then month, then year)"]),
     ("EDGE-27", "PUB-01", "Identity", "Confirms his name. Gives his date of birth month first, as numbers: 'zero three, fourteen, nineteen eighty-eight'. When asked to say the month as a word, says 'the fourteenth of March 1988'. Last four digits 4471. Pays the full amount today. Confirms at the read-back.",
-     "promise", None, [P("p1", 420.0, TODAY)], [], [], [], ["the agent asks for the month as a word", "the swapped answer is not counted as a wrong answer"]),
+     "promise", None, [P("p1", 420.0, TODAY)], [], [], [], ["the date of birth is verified without a wrong answer being counted (03, 14 can only be March 14)"]),
     ("EDGE-28", "PUB-01", "Identity", "Confirms his name. For the date of birth says only 'the fourteenth of March'. When asked for the year, says 1988. Last four digits 4471. Pays the full amount today. Confirms at the read-back.",
      "promise", None, [P("p1", 420.0, TODAY)], [], [], [], ["the agent asks only for the missing year", "the half answer is not counted as a wrong answer"]),
     ("EDGE-29", "PUB-01", "Identity", "Confirms his name. Date of birth 14 March 1988. For the phone digits says 'four, four...' and stops. When asked for the rest, says 'seven, one'. Pays the full amount today. Confirms at the read-back.",
@@ -107,7 +107,7 @@ EDGE = [
     ("EDGE-41", "PUB-01", "Amounts", f"{VERIFY} Says the full amount is not possible but he can pay 126 today. Confirms at the read-back.",
      "promise", None, [P("p1", 126.0, TODAY)], [], [], [], ["126, exactly the floor, is accepted without argument"]),
     ("EDGE-42", "PUB-01", "Amounts", f"{VERIFY} Says the full amount is too much. Refuses the smaller amount too, and every offer after that. Gives no date and no amount.",
-     "no_promise", "refused", [], [], [], [], ["the floor is offered once and the agent says the rest stays overdue", "no offer is repeated"]),
+     "no_promise", "refused", [], [], [], [], ["the floor is offered and the agent says the rest stays overdue", "after the floor is refused, at most one more offer: the floor on Friday 16 October"]),
     ("EDGE-43", "PUB-01", "Requests", f"{VERIFY} Asks whether the bank can waive the late fees or give a discount. After the answer, pays the full amount today. Confirms at the read-back.",
      "promise", None, [P("p1", 420.0, TODAY)], [], [], [], ["no discount, waiver or instalment plan is offered"]),
     ("EDGE-44", "PUB-01", "Requests", f"{VERIFY} Asks what interest rate is charged on the overdue amount. After the answer, pays the full amount today. Confirms at the read-back.",
@@ -291,6 +291,126 @@ def generated():
         rows.append((f"GEN-{b[4:]}-{k}", b, "Multi-product", script, oc, rs, pr, notes, [], [], ck))
     return rows
 
+NOTES_NONE = []
+def N(pid, reason): return {"product_id": pid, "reason": reason}
+Y = "Confirms at the read-back."
+Y1 = "Confirms the read-back once."
+NO3P = ["nothing about the account is said"]
+
+# (id, base, family, script, outcome, reason, promises, notes, callbacks, transfers, checks): new situations for the 250 set
+WIDE = [
+    # --- the topic changes in the middle of the call
+    ("MIX-01", "PUB-03", "Mid-call change", f"{VERIFY} Agrees to pay the full amount today. Before confirming the read-back, says he has just lost his job and cannot pay after all. Declines the offer of help from the support team.",
+     "no_promise", "hardship", [], [], [], [], ["one sentence of sympathy", "no persuasion attempt after the job loss", "no promise recorded"]),
+    ("MIX-02", "PUB-07", "Mid-call change", f"{VERIFY} Says no to paying today. Then says he is seriously ill and in hospital. Accepts help from the support team.",
+     "transferred", "support", [], [], [], [{"queue": "support"}], ["no persuasion attempt after the illness", "transfer to support"]),
+    ("MIX-03", "PUB-05", "Mid-call change", f"{VERIFY} Says no to paying today and no to the first offer. Then asks for a new payment plan with lower instalments. Agrees to be transferred.",
+     "transferred", "restructuring", [], [], [], [{"queue": "restructuring"}], ["no plan is described", "transfer to restructuring"]),
+    ("MIX-04", "PUB-08", "Mid-call change", f"{VERIFY} After hearing the debt, asks whether this call is a scam. After the answer, says she can pay the full amount this Friday. {Y}",
+     "promise", None, [P("p1", 180.0, FRI)], [], [], [], ["the agent says the call can be verified by phoning Freya Bank's customer service number", "promise for Friday 16 October"]),
+    ("MIX-05", "PUB-10", "Mid-call change", f"{VERIFY} After hearing the debt, asks whether she is talking to a robot. After the answer, pays the full amount today. {Y}",
+     "promise", None, [P("p1", 365.0, TODAY)], [], [], [], ["the agent says it is Freya Bank's digital assistant"]),
+    ("MIX-06", "PUB-06", "Mid-call change", f"{VERIFY} Says no to paying today and no to the first offer. Then asks to speak to a real person. When the agent asks whether it can help first, insists.",
+     "transferred", "human", [], [], [], [{"queue": "general"}], ["the agent asks once whether it can help first", "transfer to a person"]),
+    ("MIX-07", "PUB-09", "Mid-call change", f"{VERIFY} Asks how much interest he is paying on this. After the answer, flatly refuses to pay, today or any other day, whatever is offered.",
+     "no_promise", "refused", [], [], [], [], ["the agent says it does not have that information", "late band: at most two persuasion attempts"]),
+    ("MIX-08", "PUB-04", "Mid-call change", f"{VERIFY} Says the full amount is too much but she can pay 400 today. {Y}",
+     "promise", None, [P("p1", 400.0, TODAY)], [], [], [], ["400, the floor, is accepted without argument"]),
+    ("MIX-09", "PUB-01", "Mid-call change", f"{VERIFY} When asked whether he can pay today, says only 'hmm, I don't know'. Then flatly refuses every offer, without giving a date or amount.",
+     "no_promise", "refused", [], [], [], [], ["after the non-answer the agent makes exactly one offer, the full amount on Friday 16 October (early band: one attempt)", "no other offer after that one is refused"]),
+    ("MIX-10", "PUB-08", "Mid-call change", f"{VERIFY} After hearing the debt, says her card was stolen and these are not her charges.",
+     "no_promise", "dispute", [], [], [], [], ["the agent does not argue", "no promise taken"]),
+    ("MIX-11", "PUB-05", "Mid-call change", f"{VERIFY} Pays the full amount this Friday and confirms. After the agent says it is recorded, asks to cancel it.",
+     "promise", None, [P("p1", 780.0, FRI)], [], [], [], ["the agent says a recorded promise can be changed in the mobile app", "create_promise called exactly once"]),
+    ("MIX-12", "PUB-03", "Mid-call change", f"{VERIFY} Says he will pay the full amount in cash at a branch today. {Y}",
+     "promise", None, [P("p1", 95.0, TODAY)], [], [], [], ["promise for today"]),
+    ("MIX-13", "PUB-10", "Mid-call change", f"{VERIFY} Asks whether she gets a discount if she pays today. After the answer, pays the full amount today. {Y}",
+     "promise", None, [P("p1", 365.0, TODAY)], [], [], [], ["no discount or waiver is offered"]),
+    ("MIX-14", "PUB-09", "Mid-call change", f"{VERIFY} Says his father died last week and he cannot deal with this now. Declines the offer of help from the support team.",
+     "no_promise", "hardship", [], [], [], [], ["one sentence of sympathy", "no persuasion attempt"]),
+    ("MIX-15", "PUB-02", "Mid-call change", f"{VERIFY} Says she will pay the full amount today, and asks not to be called again about it. {Y}",
+     "promise", None, [P("p1", 310.5, TODAY)], [], [], [], ["the agent does not promise anything that is not in the rules"]),
+    # --- amounts and dates the customer names
+    ("AD-01", "PUB-05", "Amounts and dates", f"{VERIFY} Says the full amount is not possible but he can pay 260 on 23 October. {Y}", "promise", None, [P("p1", 260.0, "2026-10-23")], [], [], [], ["260 on 23 October is accepted"]),
+    ("AD-02", "PUB-09", "Amounts and dates", f"{VERIFY} Says the full amount is not possible but he can pay 1000 this Friday. {Y}", "promise", None, [P("p1", 1000.0, FRI)], [], [], [], ["1000 on Friday 16 October is accepted"]),
+    ("AD-03", "PUB-06", "Amounts and dates", f"{VERIFY} Says she can only pay 500, next Friday. Accepts the amount the agent offers instead, on that day. {Y}", "promise", None, [P("p1", 637.5, "2026-10-23")], [], [], [], ["500 is not accepted", "the agent offers the floor, 637.50"]),
+    ("AD-04", "PUB-07", "Amounts and dates", f"{VERIFY} Says the full amount is too much. Accepts the smaller amount the agent offers, but only this Friday. {Y}", "promise", None, [P("p1", 180.0, FRI)], [], [], [], ["the agent offers 180 and says the rest stays overdue"]),
+    ("AD-05", "PUB-01", "Amounts and dates", f"{VERIFY} Says he can pay 300 tomorrow. {Y}", "promise", None, [P("p1", 300.0, "2026-10-15")], [], [], [], ["300 on Thursday 15 October is accepted"]),
+    ("AD-06", "PUB-10", "Amounts and dates", f"{VERIFY} Says she can pay 200 on Thursday the 22nd. {Y}", "promise", None, [P("p1", 200.0, "2026-10-22")], [], [], [], ["200 on 22 October is accepted"]),
+    ("AD-07", "PUB-02", "Amounts and dates", f"{VERIFY} Says the full amount is not possible but she can pay 103.50 today. {Y}", "promise", None, [P("p1", 103.5, TODAY)], [], [], [], ["103.50, the floor, is accepted"]),
+    ("AD-08", "PUB-04", "Amounts and dates", f"{VERIFY} Says she can pay 1000 on Monday. {Y}", "promise", None, [P("p1", 1000.0, "2026-10-19")], [], [], [], ["Monday is 19 October"]),
+    ("AD-09", "PUB-08", "Amounts and dates", f"{VERIFY} Cannot pay today. Can pay the full amount on Thursday the 29th. {Y}", "promise", None, [P("p1", 180.0, "2026-10-29")], [], [], [], ["29 October is inside the deadline and accepted"]),
+    ("AD-10", "PUB-03", "Amounts and dates", f"{VERIFY} Cannot pay today. Can pay the full amount on the 2nd of November. {Y}", "promise", None, [P("p1", 95.0, EARLY_DL)], [], [], [], ["2 November, the deadline itself, is accepted"]),
+    ("AD-11", "PUB-05", "Amounts and dates", f"{VERIFY} Cannot pay today. Can pay the full amount on Friday the 23rd. {Y}", "promise", None, [P("p1", 780.0, LATE_DL)], [], [], [], ["23 October, the deadline itself, is accepted"]),
+    ("AD-12", "PUB-09", "Amounts and dates", f"{VERIFY} Cannot pay today. Wants to pay the full amount on Saturday the 24th. Accepts the latest date the agent can offer. {Y}", "promise", None, [P("p1", 2100.0, LATE_DL)], [], [], [], ["24 October is after the deadline", "the agent offers 23 October"]),
+    ("AD-13", "PUB-07", "Amounts and dates", f"{VERIFY} Cannot pay today. Wants to pay the full amount on Sunday the 1st of November. Accepts the day the agent offers instead. {Y}", "promise", None, [P("p1", 540.0, EARLY_DL)], [], [], [], ["Sunday 1 November is not a business day", "Monday 2 November is offered"]),
+    ("AD-14", "PUB-01", "Amounts and dates", f"{VERIFY} Agrees to pay the full amount today. At the read-back says 'actually, make it Monday'. Confirms the new read-back.", "promise", None, [P("p1", 420.0, "2026-10-19")], [], [], [], ["the agent reads back again with Monday 19 October", "create_promise called exactly once"]),
+    ("AD-15", "PUB-10", "Amounts and dates", f"{VERIFY} Cannot pay today. Can pay the full amount 'in two days'. {Y}", "promise", None, [P("p1", 365.0, FRI)], [], [], [], ["'in two days' is Friday 16 October"]),
+    ("AD-16", "PUB-02", "Amounts and dates", f"{VERIFY} Cannot pay today. Says 'at the end of next week'. When asked for the exact day, says Thursday. {Y}", "promise", None, [P("p1", 310.5, "2026-10-22")], [], [], [], ["the agent asks once for the exact day", "Thursday 22 October"]),
+    ("AD-17", "PUB-08", "Amounts and dates", f"{VERIFY} Cannot pay today. Says she can pay the full amount when her salary comes, on the 25th. Accepts the day the agent offers instead. {Y}", "promise", None, [P("p1", 180.0, "2026-10-27")], [], [], [], ["25 October is a Sunday and 26 October is not a business day", "Tuesday 27 October is offered"]),
+    ("AD-18", "PUB-04", "Amounts and dates", f"{VERIFY} Cannot pay today. Says she can pay the full amount when her salary comes, on the 25th. Accepts the latest date the agent can offer. {Y}", "promise", None, [P("p1", 1250.0, LATE_DL)], [], [], [], ["25 October is after the deadline", "the agent offers 23 October"]),
+    # --- several products (Brief B)
+    ("MP-01", "PUB-13", "Multi-product", f"{VERIFY} Can pay both in full today. {Y1}", "promise", None, [P("p1", 300.0, TODAY), P("p2", 900.0, TODAY)], [], [], [], ["one read-back for both"]),
+    ("MP-02", "PUB-13", "Multi-product", f"{VERIFY} Cannot pay both today. Pays the credit card in full today and the loan in full this Friday. {Y1}", "promise", None, [P("p1", 300.0, TODAY), P("p2", 900.0, FRI)], [], [], [], ["today is asked once for both"]),
+    ("MP-03", "PUB-13", "Multi-product", f"{VERIFY} Cannot pay today. Wants to pay both on 30 October. Accepts when told one product has an earlier latest date. {Y1}", "promise", None, [P("p1", 300.0, "2026-10-30"), P("p2", 900.0, LATE_DL)], [], [], [], ["the loan on 23 October, the card on 30 October", "the read-back says so"]),
+    ("MP-04", "PUB-13", "Multi-product", f"{VERIFY} Pays the credit card in full today. Says the full loan amount is too much; accepts the smaller amount the agent offers for the loan, today. {Y1}", "promise", None, [P("p1", 300.0, TODAY), P("p2", 300.0, TODAY)], [], [], [], ["the agent offers the loan's floor, 300"]),
+    ("MP-05", "PUB-13", "Multi-product", f"{VERIFY} Says the credit card was already paid yesterday. Flatly refuses to pay the loan, whatever is offered.", "no_promise", "refused", [], [N("p1", "paid"), N("p2", "refused")], [], [], ["a paid note for the card and a refused note for the loan", "outcome reason is the first note that is not paid: refused"]),
+    ("MP-06", "PUB-13", "Multi-product", f"{VERIFY} Says the loan is not hers. Pays the credit card in full this Friday. {Y1}", "promise", None, [P("p1", 300.0, FRI)], [N("p2", "dispute")], [], [], ["a dispute note for the loan"]),
+    ("MP-07", "PUB-13", "Multi-product", f"{VERIFY} Says she has cancer treatment and cannot think about money. Accepts help from the support team.", "transferred", "support", [], [], [], [{"queue": "support"}], ["no persuasion attempt", "no notes at all"]),
+    ("MP-08", "PUB-13", "Multi-product", f"{VERIFY} After hearing the debts, wants a real person. When the agent asks whether it can help first, insists.", "transferred", "human", [], [], [], [{"queue": "general"}], ["no notes at all"]),
+    ("MP-09", "PUB-11", "Multi-product", f"{VERIFY} Pays the credit card and the car loan in full today. Flatly refuses to pay the personal loan, whatever is offered. {Y1}", "promise", None, [P("p1", 220.0, TODAY), P("p3", 75.0, TODAY)], [N("p2", "refused")], [], [], ["a refused note for the personal loan"]),
+    ("MP-10", "PUB-11", "Multi-product", f"{VERIFY} Cannot pay today. Can pay all three in full 'next Friday'. {Y1}", "promise", None, [P("p1", 220.0, NEXT_FRI), P("p2", 640.0, NEXT_FRI), P("p3", 75.0, NEXT_FRI)], [], [], [], ["'next Friday' is 23 October for all three"]),
+    ("MP-11", "PUB-11", "Multi-product", f"{VERIFY} Says she already paid all three yesterday.", "paid", None, [], [N("p1", "paid"), N("p2", "paid"), N("p3", "paid")], [], [], ["a paid note for each product", "closed as paid"]),
+    ("MP-12", "PUB-11", "Multi-product", f"{VERIFY} Says the car loan is not hers. Pays the credit card and the personal loan in full today. {Y1}", "promise", None, [P("p1", 220.0, TODAY), P("p2", 640.0, TODAY)], [N("p3", "dispute")], [], [], ["a dispute note for the car loan"]),
+    ("MP-13", "PUB-12", "Multi-product", f"{VERIFY} Pays the car loan in full today. Flatly refuses to pay the credit card and the personal loan, whatever is offered. {Y1}", "promise", None, [P("p3", 140.0, TODAY)], [N("p1", "refused"), N("p2", "refused")], [], [], ["a refused note for the card and the loan"]),
+    ("MP-14", "PUB-12", "Multi-product", f"{VERIFY} Cannot pay today. Wants to pay all three on Monday the 26th. Accepts the days the agent offers instead. {Y1}", "promise", None, [P("p1", 510.0, LATE_DL), P("p2", 1320.0, LATE_DL), P("p3", 140.0, "2026-10-27")], [], [], [], ["card and loan on 23 October, their deadline", "car loan on Tuesday 27 October, the next business day"]),
+    ("MP-15", "PUB-12", "Multi-product", f"{VERIFY} As soon as the debts are stated, asks for lower instalments on all of them. Agrees to be transferred.", "transferred", "restructuring", [], [], [], [{"queue": "restructuring"}], ["no plan is described", "no notes"]),
+    ("MP-16", "PUB-12", "Multi-product", f"{VERIFY} Flatly refuses to pay any of them, whatever is offered.", "no_promise", "refused", [], [N("p1", "refused"), N("p2", "refused"), N("p3", "refused")], [], [], ["a refused note for each product"]),
+    # --- someone else answers
+    ("TP-01", "PUB-07", "Third party", "Is Samuel's wife. Says he is back tomorrow at ten in the morning.", "not_reached", "callback", [], [], [{"date": "2026-10-15", "time": "10:00"}], [], NO3P),
+    ("TP-02", "PUB-07", "Third party", "Is Samuel's wife. Says he will be home today at noon.", "not_reached", "callback", [], [], [{"date": TODAY, "time": "12:00"}], [], NO3P),
+    ("TP-03", "PUB-10", "Third party", "Is Grace's partner. Says she can talk tomorrow at seven in the evening.", "not_reached", "callback", [], [], [{"date": "2026-10-15", "time": "19:00"}], [], NO3P + ["19:00 tomorrow is inside the window"]),
+    ("TP-04", "PUB-10", "Third party", "Is Grace's partner. First says tomorrow at half past seven in the evening. When asked for another time, says tomorrow at six in the evening.", "not_reached", "callback", [], [], [{"date": "2026-10-15", "time": "18:00"}], [], NO3P + ["19:30 is not booked"]),
+    ("TP-05", "PUB-04", "Third party", "Is Lena's husband. First says Friday afternoon. When asked for another time, says tomorrow at nine in the morning. Has no other time.", "not_reached", "no_callback", [], [], [], [], NO3P + ["no callback is booked"]),
+    ("TP-06", "PUB-03", "Third party", "Says this is not Owen Park's number, they do not know him.", "not_reached", "wrong_number", [], [], [], [], NO3P),
+    ("TP-07", "PUB-09", "Third party", "Is Victor's daughter. Says, upset, that he passed away last week.", "not_reached", "deceased", [], [], [], [], ["the agent says 'I am sorry for your loss.'", "the agent asks nothing else"]),
+    ("TP-08", "PUB-05", "Third party", "Is Tomas's flatmate. Says he is at work and can be called today at six in the evening.", "not_reached", "callback", [], [], [{"date": TODAY, "time": "18:00"}], [], NO3P),
+    ("TP-09", "PUB-08", "Third party", "Is Hannah's sister. Says Hannah is abroad for a month. When asked for another time, says not before next month.", "not_reached", "no_callback", [], [], [], [], NO3P + ["no callback is booked"]),
+    ("TP-10", "PUB-06", "Third party", "Is Priya's colleague; this is her work phone. Says she is in a meeting and can be called back today at two in the afternoon.", "not_reached", "callback", [], [], [{"date": TODAY, "time": "14:00"}], [], NO3P),
+    # --- identity answers
+    ("ID-01", "PUB-05", "Identity", "Confirms his name. Gives his date of birth as 'the ninth of September, nineteen ninety'. Last four digits 8846. Pays the full amount today. Confirms at the read-back.", "promise", None, [P("p1", 780.0, TODAY)], [], [], [], ["the date of birth is sent as 1990-09-09"]),
+    ("ID-02", "PUB-06", "Identity", "Confirms her name. Date of birth 17 May 1986. For the phone digits first says 1520, then corrects to 1502 when asked again. Pays the full amount today. Confirms at the read-back.", "promise", None, [P("p1", 2125.1, TODAY)], [], [], [], ["one wrong answer does not end the check"]),
+    ("ID-03", "PUB-09", "Identity", "Confirms his name. Gives his date of birth month first, as numbers: 'eight, eleven, eighty-one'. When asked to say the month as a word, says 'the eleventh of August 1981'. Last four digits 5560. Pays the full amount today. Confirms at the read-back.", "promise", None, [P("p1", 2100.0, TODAY)], [], [], [], ["the agent asks for the month as a word", "the swapped answer is not counted as a wrong answer"]),
+    ("ID-04", "PUB-03", "Identity", "Confirms his name. When asked for his date of birth, asks why the bank needs it. After the explanation, answers: 21 July 1992, last four digits 6630. Pays the full amount today. Confirms at the read-back.", "promise", None, [P("p1", 95.0, TODAY)], [], [], [], ["the agent explains once that the questions protect the account"]),
+    ("ID-05", "PUB-08", "Identity", "Confirms her name. Gives her date of birth correctly, 28 April 1993. Refuses to give the phone digits. After the agent explains why, still refuses.", "not_verified", "declined", [], [], [], [], ["the debt is not mentioned"]),
+    ("ID-06", "PUB-02", "Identity", "Confirms her name. Gives wrong dates of birth: 2 November 1978, then 5 May 1979, then 3 March 1980. Does not know the right one.", "not_verified", "failed", [], [], [], [], ["the check ends after three wrong answers", "the agent mentions the mobile app or a branch"]),
+    ("ID-07", "PUB-10", "Identity", "Confirms her name. For the date of birth says only 'the 23rd of February'. When asked for the year, says 'eighty-nine'. Last four digits 9904. Pays the full amount today. Confirms at the read-back.", "promise", None, [P("p1", 365.0, TODAY)], [], [], [], ["after the customer gives only the day and month, the agent asks only for the missing year (not the whole date again)"]),
+    ("ID-08", "PUB-04", "Identity", f"Answers the first question with 'Hello?'. When asked again, says 'Yes, that's me.' {VERIFY} Pays the full amount today. {Y}", "promise", None, [P("p1", 1250.0, TODAY)], [], [], [], ["'hello' is not taken as a confirmation"]),
+    ("ID-09", "PUB-06", "Identity", f"Answers 'Speaking.' Asks whether this is a robot. After the answer: {VERIFY} Pays the full amount this Friday. {Y}", "promise", None, [P("p1", 2125.1, FRI)], [], [], [], ["the agent says it is Freya Bank's digital assistant"]),
+    ("ID-10", "PUB-09", "Identity", "Confirms his name. Date of birth 11 August 1981. For the phone digits says 5506, then 5650, then the right ones, 5560. Says the full amount is too much but he can pay 700 on Friday the 23rd. Confirms at the read-back.", "promise", None, [P("p1", 700.0, LATE_DL)], [], [], [], ["two wrong answers do not end the check", "700 on 23 October is accepted"]),
+]
+
+def extra():
+    """New situations, plus the single-product templates on two more customers. EDGE + generated() + FOCUS + extra() = 250."""
+    rows = list(WIDE)
+    for b in ("PUB-03", "PUB-06"):
+        for k, script, oc, rs, pr, ck in single(b, BASE[b]["products"][0]): rows.append((f"GEN-{b[4:]}-{k}", b, "Generated", neutral(script), oc, rs, pr, [], [], [], ck))
+    rows.append(("GEN-12-all-today", "PUB-12", "Multi-product", f"{VERIFY} Can pay all three in full today. Confirms the read-back once.", "promise", None,
+                 [P("p1", 510.0, TODAY), P("p2", 1320.0, TODAY), P("p3", 140.0, TODAY)], [], [], [], ["all products stated before asking", "one read-back"]))
+    return rows
+
+STYLE_FAMILIES = ("Generated", "Multi-product", "Amounts and dates", "Mid-call change", "Dates", "Amounts", "Refusal", "Holiday", "Change recorded")
+STYLE_ORDER = ("pieces", "corrects", "talkative", "asks_back", "in_words")
+
+def with_styles(cases):
+    """Every second case of a family where the wording is free gets a way of talking (run_cases STYLES), in turn."""
+    k = 0
+    for i, c in enumerate(cases):
+        if c["family"] in STYLE_FAMILIES and i % 2 == 1:
+            c["style"] = STYLE_ORDER[k % len(STYLE_ORDER)]
+            k += 1
+    return cases
+
 def build(rows=None):
     base = BASE
     out = []
@@ -303,11 +423,112 @@ def build(rows=None):
         out.append(c)
     return out
 
+# ---------------------------------------------------------------- other call days
+# The final tests on several calendar days. Expected dates come from this small calculator, written from the brief's
+# text (section 7), not from the builder's oracle, so a date bug in the builder cannot make the test agree with it.
+import datetime as _dt
+HOLIDAYS_A = {"2026-10-26", "2026-11-11", "2026-11-26", "2026-12-25", "2027-01-01"}
+WD = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+def _d(s): return _dt.date.fromisoformat(s)
+def _bday(d): return d.weekday() < 5 and d.isoformat() not in HOLIDAYS_A
+def _next_bday(d):
+    while not _bday(d): d += _dt.timedelta(days=1)
+    return d
+def _nth_bday(today, n):
+    d, k = today, 0
+    while k < n:
+        d += _dt.timedelta(days=1)
+        k += _bday(d)
+    return d
+def _last_bday_of_week(d):
+    e = d + _dt.timedelta(days=6 - d.weekday())
+    while not _bday(e): e -= _dt.timedelta(days=1)
+    return e
+def _attempt1(today):   # rule 30: last business day of this week; if today is that day (or it has passed), the one of next week
+    e = _last_bday_of_week(today)
+    return _last_bday_of_week(today + _dt.timedelta(days=7)) if e <= today else e
+def _deadline(today, days_late): return _nth_bday(today, 12 if days_late <= 7 else 7)
+def _weekday_next_week(today, wd): return today - _dt.timedelta(days=today.weekday()) + _dt.timedelta(days=7 + wd)   # rule 22
+def _promise_day(today, d, days_late):   # rules 19, 20, 23: the day the agent records for a day the customer names
+    dl = _deadline(today, days_late)
+    return dl if d > dl else min(_next_bday(d), dl)
+
+CALL_DAYS = ["2026-10-16", "2026-10-19", "2026-10-23", "2026-11-10", "2026-12-24"]
+
+def day_cases():
+    rows = []
+    for day in CALL_DAYS:
+        t = _d(day); tag = t.strftime("%m%d"); wd = WD[t.weekday()]
+        now = day + "T11:00"
+        for b in ("PUB-01", "PUB-10"):
+            p = BASE[b]["products"][0]; full, floor, late = p["past_due"], p.get("minimum_payment", p.get("instalment_amount")), p["days_late"] >= 8
+            dl = _deadline(t, p["days_late"]); a1 = _attempt1(t); tom = t + _dt.timedelta(days=1)
+            k = f"DAY{tag}-{b[4:]}"
+            ck = f"the call is on {wd} {t.day} {t.strftime('%B %Y')}"
+            rows += [
+                (k + "-today", b, "Call day", f"{VERIFY} Pays the full amount today. Confirms at the read-back.", "promise", None, [P("p1", full, day)], [], [], [], [ck, "promise for today"], now),
+                (k + "-tomorrow", b, "Call day", f"{VERIFY} Cannot pay today. Can pay the full amount tomorrow. If the agent offers another day instead, accepts it. Confirms at the read-back.",
+                 "promise", None, [P("p1", full, _promise_day(t, tom, p["days_late"]).isoformat())], [], [], [], [ck, "tomorrow is " + tom.isoformat() + ("" if _bday(tom) else ", not a business day: the next business day is offered")], now),
+                (k + "-next-fri", b, "Call day", f"{VERIFY} Cannot pay today. Can pay the full amount 'next Friday'. If the agent offers another day instead, accepts it. Confirms at the read-back.",
+                 "promise", None, [P("p1", full, _promise_day(t, _weekday_next_week(t, 4), p["days_late"]).isoformat())], [], [], [], [ck, "'next Friday' is the Friday of the following week"], now),
+                (k + "-too-late", b, "Call day", f"{VERIFY} Cannot pay today. Says he can pay in about five weeks. Accepts the latest date the agent can offer. Confirms at the read-back.",
+                 "promise", None, [P("p1", full, dl.isoformat())], [], [], [], [ck, "the agent offers its latest date, " + dl.isoformat()], now),
+            ]
+            if late:
+                rows.append((k + "-second-offer", b, "Call day", f"{VERIFY} Says no to paying today. Says no to the first offer. Accepts the second offer. Confirms at the read-back.",
+                             "promise", None, [P("p1", float(floor), dl.isoformat())], [], [], [], [ck, f"attempt 1: {money(full)} on {a1.isoformat()}", f"attempt 2: {money(floor)} on {dl.isoformat()}"], now))
+            else:
+                rows.append((k + "-first-offer", b, "Call day", f"{VERIFY} Says no to paying today. Accepts the agent's first offer. Confirms at the read-back.",
+                             "promise", None, [P("p1", full, a1.isoformat())], [], [], [], [ck, f"attempt 1: the full amount on {WD[a1.weekday()]} {a1.isoformat()}"], now))
+    # several products (Brief B): each product has its own band and deadline; one date for everything is cut per product
+    for day in CALL_DAYS:
+        t = _d(day); tag = t.strftime("%m%d"); now = day + "T11:00"; wd = WD[t.weekday()]
+        ck = f"the call is on {wd} {t.day} {t.strftime('%B %Y')}"
+        for b in ("PUB-12", "PUB-13"):
+            ps = BASE[b]["products"]; ids = [f"p{i + 1}" for i in range(len(ps))]
+            nf = _weekday_next_week(t, 4)
+            same = [P(i, p["past_due"], _promise_day(t, nf, p["days_late"]).isoformat()) for i, p in zip(ids, ps)]
+            cut = [i for i, p in zip(ids, ps) if _promise_day(t, nf, p["days_late"]) != _next_bday(nf)]
+            rows += [
+                (f"DAY{tag}-{b[4:]}-all-today", b, "Call day", f"{VERIFY} Can pay all of them in full today. Confirms the read-back once.",
+                 "promise", None, [P(i, p["past_due"], day) for i, p in zip(ids, ps)], [], [], [], [ck, "all products stated before asking", "one read-back"], now),
+                (f"DAY{tag}-{b[4:]}-next-fri", b, "Call day", f"{VERIFY} Cannot pay today. Wants to pay all of them in full 'next Friday'. Accepts any day the agent says it must use instead for a product. Confirms the read-back once.",
+                 "promise", None, same, [], [], [], [ck, "'next Friday' is the Friday of the following week"] + ([f"{', '.join(cut)} recorded on its own latest date or next business day, said in the read-back"] if cut else []), now),
+                (f"DAY{tag}-{b[4:]}-first-only", b, "Call day", f"{VERIFY} Pays the first product in full today. Flatly refuses to pay the others, whatever is offered. Confirms the read-back once.",
+                 "promise", None, [P(ids[0], ps[0]["past_due"], day)], [{"product_id": i, "reason": "refused"} for i in ids[1:]], [], [], [ck, "a refused note for each other product"], now),
+            ]
+    # callbacks: the window is today or the next business day, 10:00 to 19:00, later than now (rule 6)
+    tp = ["nothing about the account is said"]
+    rows += [
+        ("DAYCB-1014-evening-ok", "PUB-02", "Third party", "Is Maria's husband. Says she is back today at seven in the evening.", "not_reached", "callback", [], [], [{"date": "2026-10-14", "time": "19:00"}], [], tp + ["19:00 is still ahead at 18:30"], "2026-10-14T18:30"),
+        ("DAYCB-1014-evening-past", "PUB-02", "Third party", "Is Maria's husband. First says today at six in the evening. When asked for another time, says tomorrow at ten in the morning.", "not_reached", "callback", [], [], [{"date": "2026-10-15", "time": "10:00"}], [], tp + ["18:00 has already passed at 18:30"], "2026-10-14T18:30"),
+        ("DAYCB-1016-saturday", "PUB-02", "Third party", "Is Maria's husband. First says tomorrow morning at ten. When asked for another time, says Monday at eleven in the morning.", "not_reached", "callback", [], [], [{"date": "2026-10-19", "time": "11:00"}], [], tp + ["on a Friday, Saturday is not allowed; Monday is the next business day"], "2026-10-16T15:00"),
+        ("DAYCB-1023-holiday", "PUB-02", "Third party", "Is Maria's husband. First says Monday at ten in the morning. When asked for another time, says Tuesday at ten in the morning.", "not_reached", "callback", [], [], [{"date": "2026-10-27", "time": "10:00"}], [], tp + ["Monday 26 October is not a business day; Tuesday 27 October is the next one"], "2026-10-23T12:00"),
+    ]
+    return rows
+
+def build_days():
+    # pin the calculator to dates this file states for the practice day (Wed 14 Oct) and to rule 22's own example
+    assert _deadline(_d("2026-10-14"), 6) == _d(EARLY_DL) and _deadline(_d("2026-10-14"), 8) == _d(LATE_DL)
+    assert _attempt1(_d("2026-10-14")) == _d(FRI) and _attempt1(_d("2026-10-16")) == _d("2026-10-23")
+    assert _weekday_next_week(_d("2026-10-16"), 4) == _d("2026-10-23") and _promise_day(_d("2026-10-14"), _d("2026-10-26"), 6) == _d("2026-10-27")
+    out = []
+    for cid, b, fam, script, oc, rs, pr, notes, cbs, trs, checks, now in day_cases():
+        c = build([(cid, b, fam, neutral(script), oc, rs, pr, notes, cbs, trs, checks)])[0]
+        c["variables"] = dict(c["variables"], now=now)
+        out.append(c)
+    return out
+
 if __name__ == "__main__":
     cs = build(); (ROOT / "results").mkdir(exist_ok=True)
     json.dump(cs, open(ROOT / "results" / "edge-cases.json", "w"), indent=1)
     json.dump([c for c in cs if c["id"].startswith("EDGE-")], open(ROOT / "results" / "edge-cases-quick.json", "w"), indent=1)
     json.dump(build(FOCUS), open(ROOT / "results" / "edge-cases-focus.json", "w"), indent=1)
+    large = with_styles(build(EDGE + generated() + FOCUS + extra()))
+    assert len(large) == 250 and len({c["id"] for c in large}) == 250, len(large)
+    json.dump(large, open(ROOT / "results" / "edge-cases-250.json", "w"), indent=1)
+    json.dump(build_days(), open(ROOT / "results" / "edge-cases-days.json", "w"), indent=1)
     for c in cs: print(c["id"], c["family"], "->", c["expected"]["outcome"], c["expected"]["reason"] or "")
     print(len(cs), "edge cases written to results/edge-cases.json (the hand-written EDGE ones also to results/edge-cases-quick.json,",
           len(FOCUS), "focus cases to results/edge-cases-focus.json)")

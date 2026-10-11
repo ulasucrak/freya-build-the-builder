@@ -103,6 +103,8 @@ def identity_value(q, policy, rng):
             vals = {"DD": "%02d" % d.day, "MM": "%02d" % d.month, "YYYY": "%04d" % d.year}
             return sep.join(vals.get(p, "") for p in parts)
         return d.isoformat()
+    if fmt == "digits" and "year" in (str(q.get("tool_field") or "") + " " + str(q.get("ask") or "")).lower():
+        return str(rng.randint(1950, 2000))         # a year of birth is a year, not four random digits (3573)
     if fmt == "digits":
         n = 4
         m = re.search(r"(\d+)", str(q.get("tool_field") or ""))
@@ -117,6 +119,8 @@ def wrong_value(value, fmt):
     if fmt == "date":
         out = re.sub(r"\d{4}", lambda m: str(int(m.group(0)) + 1), v, count=1)
         return out if out != v else v + "1"
+    if fmt == "digits" and re.fullmatch(r"(19|20)\d\d", v):
+        return str(int(v) + 7)                      # a believable wrong year
     if fmt == "digits":
         return "".join(str((int(c) + 3) % 10) if c.isdigit() else c for c in v)
     return v[::-1] if len(v) > 1 else v + "X"

@@ -219,8 +219,10 @@ class Structure(unittest.TestCase):
                         self.assertNotIn("}}", t[hk])
                         self.assertEqual(underscore_names(t[hk]), [])   # no leading-underscore names
                 if t["function"]["handler"] == "__function__:code_exec":
-                    compile(code_of(node), k, "exec")
-                    self.assertEqual(underscore_names(code_of(node)), [])
+                    src = t["function"]["parameters"]["properties"]["code"]["default"]
+                    compile(src if node["node_type"] != "conversation" else "def f():\n" + "\n".join(" " + x for x in src.splitlines()), k, "exec")
+                    self.assertEqual(underscore_names(src), [])
+                    self.assertNotIn("{{", src)
         # tool results are routed on both boolean spellings
         conds = [c["operand"] for tr in n["greet_verify"]["transitions"] for c in tr["condition"].get("conditions", [])
                  if "all_verified" in c.get("variable", "")]
@@ -247,7 +249,7 @@ class Structure(unittest.TestCase):
         q = tool(wf, "greet_verify", "transfer_to_agent")["function"]["parameters"]["properties"]["body"]["properties"]["queue"]
         self.assertEqual(q["enum"], ["restructuring", "general", "support"])
         names = [x["function"]["name"] for x in wf["nodes"]["negotiate"]["tools"]]
-        self.assertEqual(names, ["create_promise", "add_note", "transfer_to_agent", "close_call"])
+        self.assertEqual(names, ["check_offer", "create_promise", "add_note", "transfer_to_agent", "close_call"])
         # Brief A never uses add_note: the tool is not offered
         wa = G.generate_workflow(raw("brief-a"))
         self.assertNotIn("add_note", [x["function"]["name"] for x in wa["nodes"]["negotiate"]["tools"]])
@@ -259,7 +261,7 @@ class Structure(unittest.TestCase):
         model_fields = set()
         for node in wf["nodes"].values():
             for t in node.get("tools", []):
-                for f, leaf in t["function"]["parameters"]["properties"]["body"]["properties"].items():
+                for f, leaf in ((t["function"]["parameters"]["properties"].get("body") or {}).get("properties") or {}).items():
                     if leaf["default"] == "{{" + f + "}}" and f != "customer_id":
                         model_fields.add(f)
         self.assertTrue(model_fields)
@@ -305,9 +307,50 @@ class Structure(unittest.TestCase):
         sysp = wf["system_prompt"]
         self.assertIn("You will receive a text message confirming this promise.", sysp + neg)
         p = S.normalise(raw("brief-b"))
+        greet = wf["nodes"]["greet_verify"]["task_message"]
+        ph = G.rule_phases(p)
+        # every rule reaches the model: in the system prompt, or in the one step where it can apply
+        where = {"all": sysp, "greet": greet, "negotiate": neg}
         for r in p["rules"]:
-            self.assertIn(G._brace_vars(r["text"], p), sysp)
+            if ph[r["id"]] != "drop":
+                self.assertIn(G._brace_vars(r["text"], p), where[ph[r["id"]]], r["id"])
         self.assertIn("Am I speaking with {{title}} {{last_name}}?", sysp)
+
+    def test_rule_phases(self):
+        p = S.normalise(raw("brief-b"))
+        ph = G.rule_phases(p)
+        by_text = {r["text"][:40]: ph[r["id"]] for r in p["rules"]}
+        def phase(start):
+            return next(v for k, v in by_text.items() if k.startswith(start))
+        self.assertEqual(phase("Ask two security questions"), "greet")
+        self.assertEqual(phase("If the person says the customer"), "greet")
+        self.assertEqual(phase("Read the product, the amount"), "negotiate")
+        self.assertEqual(phase("A request for a human"), "all")              # before and after verification
+        self.assertEqual(phase("If the customer says twice"), "all")
+        self.assertIn("drop", ph.values())                                    # call-variable rows repeat the variable list
+        self.assertTrue(all(v in ("greet", "negotiate", "all", "drop") for v in ph.values()))
+
+    def test_check_offer_tool(self):
+        from builder import testmode as T
+        wf = G.generate_workflow(raw("brief-b"))
+        tool = {t["function"]["name"]: t for t in wf["nodes"]["negotiate"]["tools"]}["check_offer"]
+        self.assertEqual(tool["function"]["handler"], "__function__:code_exec")
+        code = tool["function"]["parameters"]["properties"]["code"]["default"]
+        vs = {"now": "2026-10-14T11:00"}
+        node = lambda n: wf["nodes"][n]["pre_actions"][0]["function"]["parameters"]["properties"]["code"]["default"]
+        T.run_code_locally(node("setup"), {}, vs)
+        vs["w_account_products"] = [{"product_id": "p1", "type": "credit_card", "card_last4": "4821", "past_due": 420.0,
+                                     "days_late": 6, "minimum_payment": 126.0}]
+        T.run_code_locally(node("prepare_account"), {}, vs)
+        run = lambda **a: T.run_code_locally(code, a, dict(vs))[1]
+        self.assertEqual(run(product_id="p1", date="Monday the 26th")["suggest_date"][-12:], "(2026-10-27)")   # holiday inside the deadline
+        self.assertEqual(run(product_id="p1", date="20 November")["code"], "after_deadline")
+        self.assertEqual(run(product_id="p1", date="next week")["code"], "bad_date")
+        self.assertEqual(run(product_id="p1", amount="100")["code"], "below_floor")
+        self.assertTrue(run(product_id="p1", date="23 October", amount="200")["ok"])
+        self.assertEqual(run(product_id="p9", date="tomorrow")["code"], "unknown_product")
+        self.assertTrue(run(product_id="", date="tomorrow")["ok"])                                          # one product: id may be left out
+        self.assertNotIn("check_offer", json.dumps(G.generate_workflow(raw("brief-b"), options={"check_tool": False})))
 
     def test_write_tools_do_not_retry_in_the_engine(self):
         wf = G.generate_workflow(raw("brief-b"))
@@ -393,7 +436,9 @@ class Compactness(unittest.TestCase):
         for node in ("greet_verify", "negotiate"):
             for t in wf["nodes"][node]["tools"]:
                 for hk in ("pre_process_code", "post_process_code"):
-                    self.assertLess(len(t.get(hk, "")), 21000, (t["function"]["name"], hk))   # was up to 24 KB
+                    # was up to 24 KB; 23000 since the number-word date/time parser and parallel-call reconciliation (11 Oct). Sandbox
+                    # payload limit is ~64 KB for code plus variables together, so this is a margin guard, not the limit
+                    self.assertLess(len(t.get(hk, "")), 23000, (t["function"]["name"], hk))
 
 
 class EdgeRegressions(unittest.TestCase):
@@ -590,7 +635,7 @@ class LiveDateRegressions(unittest.TestCase):
             self.assertEqual(vs["w_today"], "2026-10-14")
             offers = json.loads(vs["w_products_json"])[0]["offers"]
             self.assertEqual((offers[0]["date"], offers[1]["date"]), ("2026-10-16", "2026-10-23"))     # PUB-06
-            self.assertIn("Attempt 1: amount 2125.10 (or 637.50", vs["w_account_facts"])
+            self.assertIn("Attempt 1 (a persuasion attempt: only after a refusal or a non-answer): amount 2125.10 (or 637.50", vs["w_account_facts"])
             self.assertIn("on Friday 16 October 2026 (2026-10-16)", vs["w_account_facts"])
             wf, vs2 = self.facts(wall, loan)
             self.assertIn("Mon 26 Oct (holiday) -> Tuesday 27 October 2026 (2026-10-27)", vs2["w_account_facts"])  # PUB-07
@@ -977,3 +1022,132 @@ class Snippets(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RunFixes250(unittest.TestCase):
+    """Failures of the 250-case run (11 Oct), through the generated hook code."""
+
+    def setUp(self):
+        from builder import testmode as T
+        self.T = T
+        self.wf = G.generate_workflow(raw("brief-b"))
+        self.vs = {"now": "2026-10-14T11:00"}
+        T.run_code_locally(code_of(self.wf["nodes"]["setup"]), {}, self.vs)
+
+    def hook(self, node, tool, body):
+        t = [x for x in self.wf["nodes"][node]["tools"] if x["function"]["name"] == tool][0]
+        cfg = {"url": "https://bank/" + tool, "body": dict(body)}
+        exec(t["pre_process_code"], {"config": cfg, "vars": self.vs})
+        return "invalid" not in cfg["url"], cfg["body"]
+
+    def products(self, raw_products):
+        self.vs["w_account_products"] = raw_products
+        self.T.run_code_locally(code_of(self.wf["nodes"]["prepare_account"]), {}, self.vs)
+
+    def test_compound_spoken_days(self):
+        from builder import oracle as O
+        import datetime
+        t = datetime.date(2026, 10, 14)
+        for said, want in (("Monday the twenty-sixth", "2026-10-26"), ("the twenty sixth", "2026-10-26"),
+                           ("thirty-first of October", "2026-10-31"), ("the twenty-third of February 1989", "1989-02-23")):
+            self.assertEqual(O.iso(O.parse_spoken_date(said, t, "following_week")), want, said)
+
+    def test_birth_date_without_year_is_a_piece(self):
+        sent, _ = self.hook("greet_verify", "verify_identity", {"field": "date_of_birth", "answer": "2026-02-23"})
+        self.assertFalse(sent)                                       # the model's guessed year is not sent, not counted
+        sent, body = self.hook("greet_verify", "verify_identity", {"field": "date_of_birth", "answer": "1989"})
+        self.assertTrue(sent)
+        self.assertEqual(body["answer"], "1989-02-23")
+
+    def test_parallel_promises_and_notes_are_all_credited(self):
+        self.products([{"product_id": "p1", "type": "credit_card", "card_last4": "2288", "past_due": 220.0, "days_late": 9, "minimum_payment": 66.0},
+                       {"product_id": "p2", "type": "personal_loan", "past_due": 640.0, "days_late": 9, "instalment_amount": 213.0},
+                       {"product_id": "p3", "type": "car_loan", "past_due": 75.0, "days_late": 3, "instalment_amount": 25.0}])
+        for pid, amt in (("p1", 220.0), ("p3", 75.0)):               # two promises in one message (parallel)
+            self.assertTrue(self.hook("negotiate", "create_promise", {"product_id": pid, "amount": amt, "date": "2026-10-14"})[0])
+        self.vs.update({"w_promised_p3": "yes", "create_promise_success_count": 2})   # both post-hooks credited p3
+        self.assertFalse(self.hook("negotiate", "add_note", {"product_id": "p1", "reason": "refused"})[0])   # p1 has a promise
+        self.assertTrue(self.hook("negotiate", "add_note", {"product_id": "p2", "reason": "refused"})[0])
+        self.vs["add_note_success_count"] = 1
+        self.assertFalse(self.hook("negotiate", "add_note", {"product_id": "p2", "reason": "refused"})[0])   # no second note
+        self.vs["create_promise_failure_count"] = 1                  # a failure: only explicit marks count (safe side)
+        self.assertTrue(self.hook("negotiate", "add_note", {"product_id": "p1", "reason": "refused"})[0])
+
+    def test_spoken_times(self):
+        from builder import oracle as O
+        for said, want in (("three in the afternoon", "15:00"), ("seven in the evening", "19:00"), ("half past ten", "10:30"),
+                           ("quarter to five in the afternoon", "16:45"), ("noon", "12:00"), ("2 pm", "14:00"), ("15:00", "15:00")):
+            self.assertEqual(O.parse_time(said), want, said)       # 'afternoon' once read as noon
+
+    def test_number_word_dates(self):
+        from builder import oracle as O
+        import datetime
+        t = datetime.date(2026, 10, 14)
+        for said, want in (("October the first", "2027-10-01"), ("the four of November", "2026-11-04"), ("fourteen November", "2026-11-14"),
+                           ("twenty October", "2026-10-20")):
+            self.assertEqual(O.iso(O.parse_spoken_date(said, t, "following_week")), want, said)
+        for said, want in (("the fourteenth of March, nineteen eighty-eight", "1988-03-14"), ("3 May two thousand and five", "2005-05-03")):
+            self.assertEqual(O.normalise_answer(said, "dmy_to_iso", "date"), want, said)
+
+
+class Generalization(unittest.TestCase):
+    """Other banks (fixtures S1-S7): every promise in their answer keys must pass check_offer / the create_promise guard."""
+
+    def test_floor_formula_reaches_the_runtime(self):
+        from builder import oracle as O
+        self.assertEqual(O.eval_amount_expr("max(minimum_payment, round_half_up(0.1 * past_due, 2))", {"minimum_payment": 150, "past_due": 1845.3}), 184.53)
+        self.assertEqual(O.eval_amount_expr("min(50, past_due)", {"past_due": 30}), 30.0)
+        self.assertEqual(O.eval_amount_expr("round_up(0.25 * past_due, 0)", {"past_due": 1845.3}), 462.0)
+        self.assertIsNone(O.eval_amount_expr("__import__('os')", {}))
+        p = S.normalise(json.loads((KIT / "policies" / "S5.policy.json").read_text()))
+        rt = G.runtime_policy(p, G._names(p, dict(G.DEFAULT_OPTIONS)))
+        self.assertIn("floor_expr", rt["products"]["types"]["credit_card"])          # was dropped: floor = full amount
+
+    def test_expected_promises_of_every_fixture_bank_pass(self):
+        from builder import testmode as T
+        n = 0
+        for sx in ("S1", "S2", "S3", "S4", "S5", "S6", "S7"):
+            oa = json.loads((KIT / "fixtures" / sx / "openapi.json").read_text())
+            raw_p = json.loads((KIT / "policies" / (sx + ".policy.json")).read_text())
+            wf = G.generate_workflow(raw_p, openapi=oa)
+            p = S.normalise(raw_p)
+            spec = T.spec_from_openapi(oa)
+            nm = G._names(p, dict(G.DEFAULT_OPTIONS))
+            chk = [t for t in wf["nodes"]["negotiate"]["tools"] if t["function"]["name"] == "check_offer"][0]
+            chk = chk["function"]["parameters"]["properties"]["code"]["default"]
+            for c in json.loads((KIT / "fixtures" / sx / "cases.json").read_text()):
+                if not (c.get("expected") or {}).get("promises"):
+                    continue
+                sc = T.scenario_for_case(c)
+                vs = dict(c["variables"], **{T.SCENARIO_VAR: json.dumps(sc), T.STATE_VAR: json.dumps({"v": list((sc.get("identity") or {}).keys())})})
+                T.run_code_locally(code_of(wf["nodes"]["setup"]), {}, vs)
+                _st, data = T.fakebank_call(G._tool_name(p, "account"), {}, vs, spec)
+                vs["w_account_products"] = (data or {}).get(nm["list_field"])   # the fake bank answers in the bank's own layout
+                T.run_code_locally(code_of(wf["nodes"]["prepare_account"]), {}, vs)
+                for pr in c["expected"]["promises"]:
+                    _st, r = T.run_code_locally(chk, {"product_id": pr["product_id"], "date": pr["date"], "amount": str(pr["amount"])}, dict(vs))
+                    self.assertTrue(r.get("ok"), (c["id"], pr, r))
+                    n += 1
+        self.assertGreater(n, 70)
+
+    def test_self_test_bank_reads_renamed_fields(self):
+        """The builder's self-test bank must play each bank's own API (S6: member_ref, response, account_id, slot ...)."""
+        from builder import testmode as T
+        spec = T.spec_from_openapi(json.loads((KIT / "fixtures" / "S6" / "openapi.json").read_text()))
+        roles = {t: v.get("roles") for t, v in spec["tools"].items()}
+        self.assertEqual(roles["verify_identity"], {"field": "check", "answer": "response"})        # was answer=member_ref
+        self.assertEqual(roles["create_promise"], {"product": "account_id", "amount": "amount_eur", "date": "due_on"})
+        self.assertEqual(roles["schedule_callback"], {"datetime": "slot"})
+        self.assertEqual((spec["tools"]["get_account"]["list_key"], spec["tools"]["get_account"]["item_id"]), ("accounts", "account_id"))
+        sc = {"identity": {"birth_year": "1973", "house_number": "27"}, "products": []}
+        vs = {T.SCENARIO_VAR: json.dumps(sc)}
+        self.assertTrue(T.fakebank_call("verify_identity", {"check": "birth_year", "response": "1973", "member_ref": "M"}, vs, spec)[1]["verified"])
+        self.assertTrue(T.fakebank_call("schedule_callback", {"slot": "2026-10-20T10:00", "member_ref": "M"}, vs, spec)[1]["ok"])
+
+    def test_casegen_birth_year_is_a_year(self):
+        import random
+        from builder import casegen as C
+        r = random.Random(3)
+        for _ in range(20):
+            y = int(C.identity_value({"answer_format": "digits", "tool_field": "birth_year", "ask": "year of birth"}, {}, r))
+            self.assertTrue(1950 <= y <= 2000, y)

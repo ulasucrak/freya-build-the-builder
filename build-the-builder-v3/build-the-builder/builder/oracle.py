@@ -30,6 +30,10 @@ ORDINAL_WORDS = dict(first=1, second=2, third=3, fourth=4, fifth=5, sixth=6, sev
                      tenth=10, eleventh=11, twelfth=12, thirteenth=13, fourteenth=14, fifteenth=15,
                      sixteenth=16, seventeenth=17, eighteenth=18, nineteenth=19, twentieth=20,
                      thirtieth=30)
+UNIT_WORDS = "one two three four five six seven eight nine first second third fourth fifth sixth seventh eighth ninth".split()
+NUM_WORDS = ("zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen"
+             " eighteen nineteen").split()
+TENS_WORDS = "twenty thirty forty fifty sixty seventy eighty ninety".split()
 
 
 # ----------------------------------------------------------------------------------------------- basics
@@ -95,25 +99,32 @@ def time_to_minutes(value):
 
 
 def parse_time(value):
-    """Spoken or written time -> 'HH:MM' (24 h), or '' when unreadable.
-    '11' -> 11:00, '11:30', '11.30', '11h', '2 pm' -> 14:00, '12am' -> 00:00, 'noon' -> 12:00."""
+    """Spoken or written time -> 'HH:MM' (24 h), or '' when unreadable. '11', '11:30', '11.30', '2 pm', '12am',
+    'noon', 'seven in the evening', 'half past ten', 'quarter to five in the afternoon', 'six thirty pm'."""
     try:
         s = str(value or "").strip().lower()
         if not s:
             return ""
-        if "noon" in s or "midday" in s:
+        if re.search(r"\b(noon|midday)\b", s):          # a word: 'afternoon' holds 'noon'
             return "12:00"
         if "midnight" in s:
             return "00:00"
-        m = re.search(r"(\d{1,2})(?:\s*[:.h]\s*(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)?", s)
-        if not m:
-            return ""
-        h = int(m.group(1))
-        mi = int(m.group(2) or 0)
-        ap = (m.group(3) or "").replace(".", "")
-        if ap == "pm" and h < 12:
+        s = day_words_to_digits(s.replace("o'clock", " ").replace("oclock", " "))
+        pm = re.search(r"\b(afternoon|evening|tonight|night)\b|(?<![a-z])p\.?m\b", s)
+        am = re.search(r"\bmorning\b|(?<![a-z])a\.?m\b", s)
+        m = re.search(r"\b(half|quarter)\s+(past|to)\s+(\d{1,2})\b", s)
+        if m:
+            h, mi = int(m.group(3)), (30 if m.group(1) == "half" else 15)
+            if m.group(2) == "to":
+                h, mi = h - 1, 60 - mi
+        else:
+            m = re.search(r"(\d{1,2})(?:\s*[:.h]\s*(\d{2})|\s+(\d{2})\b)?", s)
+            if not m:
+                return ""
+            h, mi = int(m.group(1)), int(m.group(2) or m.group(3) or 0)
+        if pm and h < 12:
             h += 12
-        if ap == "am" and h == 12:
+        if am and h == 12:
             h = 0
         if h > 23 or mi > 59:
             return ""
@@ -467,6 +478,89 @@ def product_id_of(raw, id_field):
     return ""
 
 
+def round_to(x, n, mode):
+    """x rounded to n decimals: 'half_up', 'up' (ceiling) or 'down' (floor). Amounts are positive; a tiny epsilon
+    absorbs binary noise such as 0.1 * 1845.3 = 184.53000000000003."""
+    f = 10 ** int(n)
+    v = x * f
+    if mode == "half_up":
+        v = int(v + 0.5 + 1e-9)
+    elif mode == "up":
+        v = int(v - 1e-9) + (1 if v - int(v - 1e-9) > 1e-9 else 0)
+    else:
+        v = int(v + 1e-9)
+    return v / f
+
+
+def eval_amount_expr(expr, fields):
+    """A floor rule over product fields -> number, or None. Grammar: numbers, field names, + - * /, parentheses,
+    min, max, abs, round (half up), round_half_up, round_up / ceil, round_down / floor; round functions take an
+    optional number of decimals. No eval: a small recursive-descent parser over re tokens."""
+    try:
+        toks = re.findall(r"\d+(?:\.\d+)?|[A-Za-z_]\w*|[-+*/(),]", str(expr or ""))
+        pos = [0]
+
+        def peek():
+            return toks[pos[0]] if pos[0] < len(toks) else ""
+
+        def take():
+            pos[0] += 1
+            return toks[pos[0] - 1]
+
+        def expr_():
+            v = term()
+            while peek() in ("+", "-"):
+                v = v + term() if take() == "+" else v - term()
+            return v
+
+        def term():
+            v = factor()
+            while peek() in ("*", "/"):
+                v = v * factor() if take() == "*" else v / factor()
+            return v
+
+        def factor():
+            t = take()
+            if t == "-":
+                return -factor()
+            if t == "(":
+                v = expr_()
+                take()
+                return v
+            if re.match(r"\d", t):
+                return float(t)
+            if peek() == "(":
+                take()
+                args = [expr_()]
+                while peek() == ",":
+                    take()
+                    args.append(expr_())
+                take()
+                f = t.lower()
+                nd = args[1] if len(args) > 1 else 0
+                if f == "min":
+                    return min(args)
+                if f == "max":
+                    return max(args)
+                if f == "abs":
+                    return abs(args[0])
+                if f in ("round", "round_half_up"):
+                    return round_to(args[0], nd, "half_up")
+                if f in ("round_up", "ceil", "ceiling"):
+                    return round_to(args[0], nd, "up")
+                if f in ("round_down", "floor", "trunc"):
+                    return round_to(args[0], nd, "down")
+                raise ValueError(f)
+            v = to_number(fields.get(t))
+            if v is None:
+                raise ValueError(t)
+            return v
+        v = expr_()
+        return round(v, 2) if pos[0] == len(toks) else None
+    except Exception:
+        return None
+
+
 def build_product(raw, index, policy, today, cal):
     """One product of get_account -> dict with id, name, full, floor, days_late, band, deadline, offers."""
     prod = policy.get("products") or dict()
@@ -480,6 +574,9 @@ def build_product(raw, index, policy, today, cal):
     floor_field = tinfo.get("floor_field") or prod.get("floor_field") or ""
     full = to_number(raw.get(full_field)) if full_field else None
     floor = to_number(raw.get(floor_field)) if floor_field else None
+    floor_expr = tinfo.get("floor_expr") or prod.get("floor_expr") or ""
+    if floor is None and floor_expr:
+        floor = eval_amount_expr(floor_expr, raw)
     if floor is None and full is not None:
         floor = full
     name = fill_template(tinfo.get("speak_as") or ptype.replace("_", " "), raw)
@@ -504,7 +601,7 @@ def build_product(raw, index, policy, today, cal):
     except Exception:
         days_late = None
     return dict(index=index + 1, id=product_id_of(raw, id_field), type=ptype, name=name, full=full, floor=floor,
-                full_field=full_field, floor_field=floor_field, days_late=days_late,
+                full_field=full_field, floor_field=floor_field or floor_expr, days_late=days_late,
                 band=str((band or dict()).get("name") or ""), deadline=iso(deadline),
                 attempts=len(offers), offers=offers, raw=raw)
 
@@ -624,14 +721,17 @@ def parse_spoken_date(text, today, next_rule="", future=True, order=""):
         if d:
             return d
         s = re.sub(r"(\d+)(st|nd|rd|th)\b", r"\1", s)
-        for w in ORDINAL_WORDS:
-            s = re.sub(r"\b" + w + r"\b", str(ORDINAL_WORDS[w]), s)
-        s = s.replace(",", " ").replace(" of ", " ")
+        s = day_words_to_digits(s)
+        s = re.sub(r"\bthe\b", " ", s).replace(",", " ").replace(" of ", " ")
         if today is not None:
             if re.search(r"\bday after tomorrow\b", s):
                 return today + datetime.timedelta(days=2)
             if re.search(r"\btomorrow\b", s):
                 return today + datetime.timedelta(days=1)
+            m = re.search(r"\bin\s+(?:about\s+|around\s+|roughly\s+)?(\d+|an?)\s+(day|week|month)s?\b", s)   # 'in about five weeks'
+            if m:
+                k = 1 if m.group(1) in ("a", "an") else int(m.group(1))
+                return today + datetime.timedelta(days=k * dict(day=1, week=7, month=30)[m.group(2)])
             if re.search(r"\btoday\b", s):
                 return today
         m = re.search(r"\b(\d{1,2})[./\-](\d{1,2})[./\-](\d{2,4})\b", s)
@@ -697,14 +797,36 @@ def pick_year(day, mon, today, future):
     return d
 
 
+def day_words_to_digits(s):
+    """Number words in a date -> digits (lower-case text): 'nineteen eighty-eight' -> '1988', 'twenty-sixth' / 'twenty six'
+    -> '26', 'sixth' -> '6', 'fourteen' -> '14'. Years first ('twenty twenty-six' is a year, not a day), then compounds
+    ('sixth' alone would leave 'twenty-6', read as the 6th), then single words."""
+    u = "|".join(UNIT_WORDS)
+
+    def unit(w):
+        return UNIT_WORDS.index(w) % 9 + 1 if w else 0
+
+    def two(w):
+        return NUM_WORDS.index(w) if w in NUM_WORDS else (TENS_WORDS.index(w) + 2) * 10
+    s = re.sub(r"\btwo thousand(?:\s+and)?(?:\s+(" + "|".join(NUM_WORDS[1:]) + r"))?\b",
+               lambda m: str(2000 + (NUM_WORDS.index(m.group(1)) if m.group(1) else 0)), s)
+    s = re.sub(r"\b(nineteen|twenty)[\s-]+(" + "|".join(NUM_WORDS[10:] + TENS_WORDS) + r")(?:[\s-]+(" + u + r"))?\b",
+               lambda m: str((19 if m.group(1) == "nineteen" else 20) * 100 + two(m.group(2)) + unit(m.group(3))), s)
+    s = re.sub(r"\b(twenty|thirty)[\s-]+(" + u + r")\b", lambda m: str(two(m.group(1)) + unit(m.group(2))), s)
+    for w in ORDINAL_WORDS:
+        s = re.sub(r"\b" + w + r"\b", str(ORDINAL_WORDS[w]), s)
+    for w in NUM_WORDS[1:] + TENS_WORDS[:2]:
+        s = re.sub(r"\b" + w + r"\b", str(two(w)), s)
+    return s
+
+
 def date_piece(text):
     """What part of a date the text holds when it is not a whole date: 'day and month', 'year', 'day', 'month',
     'day and year', 'month and year'; '' when it holds no date part."""
     try:
         s = str(text or "").lower()
         s = re.sub(r"(\d+)(st|nd|rd|th)\b", r"\1", s)
-        for w in ORDINAL_WORDS:
-            s = re.sub(r"\b" + w + r"\b", str(ORDINAL_WORDS[w]), s)
+        s = day_words_to_digits(s)
         has_year = bool(re.search(r"\b(1[89]\d\d|20\d\d)\b", s))
         has_month = any(month_from_word(w) for w in re.findall(r"[a-z]+", s))
         rest = re.sub(r"\b(1[89]\d\d|20\d\d)\b", " ", s)
@@ -747,6 +869,17 @@ def fix_year(d, today):
     return d
 
 
+def spoken_digits(text):
+    """Digits said as words -> digits: 'four four seven one', 'double four seven one', 'oh three five eight',
+    'forty-four seventy-one' -> '4471' / '0358'. Text that already holds digits keeps them."""
+    s = re.sub(r"\blast\s+\w+\s+digits?\b|\bdigits?\b", " ", str(text or "").lower())    # 'the last four digits are ...'
+    s = re.sub(r"\b(double|triple)\s+(\w+)", lambda m: " ".join([m.group(2)] * (2 if m.group(1) == "double" else 3)), s)
+    s = day_words_to_digits(re.sub(r"\boh\b", "zero", s).replace("zero", "0"))
+    for w in TENS_WORDS[2:]:                    # forty .. ninety, alone or with a unit ('forty-four')
+        s = re.sub(r"\b" + w + r"(?:[\s-]+(\d))?\b", lambda m: str((TENS_WORDS.index(w) + 2) * 10 + int(m.group(1) or 0)), s)
+    return s
+
+
 def normalise_answer(answer, how, answer_format=""):
     """Identity answer -> the form the tool expects, as the policy says.
     dmy_to_iso / mdy_to_iso: any spoken or numeric date -> YYYY-MM-DD, numbers read in that order;
@@ -758,7 +891,7 @@ def normalise_answer(answer, how, answer_format=""):
         d = parse_spoken_date(s, None, future=False, order=how[:3])
         return iso(d) if d else s
     if how == "digits_only":
-        digits = re.sub(r"\D", "", s)
+        digits = re.sub(r"\D", "", spoken_digits(s))
         return digits or s
     if answer_format == "date":
         d = parse_spoken_date(s, None, future=False)
@@ -1078,7 +1211,7 @@ def date_facts_text(policy, today, now_time, cal):
 
 def offer_text(o):
     amt = o.get("amount")
-    parts = ["Attempt " + str(o.get("n")) + ":"]
+    parts = ["Attempt " + str(o.get("n")) + " (a persuasion attempt: only after a refusal or a non-answer):"]
     if amt is not None:
         parts.append("amount " + money(amt))
         if o.get("alt_amount") is not None:
@@ -1123,13 +1256,18 @@ def account_facts_text(products, cal, today=None):
             lines.append(str(p.get("index")) + ". product_id " + str(p.get("id")) + ": " + str(p.get("name")) + ".")
             lines.append("   Past-due amount (full amount): " + money(p.get("full")) + ". Days late: " + str(p.get("days_late")) + ".")
             if p.get("floor") is not None:
-                lines.append("   Floor (lowest amount that can be recorded, field " + str(p.get("floor_field")) + "): " + money(p.get("floor")) + ".")
+                lines.append("   Floor (lowest amount that can be recorded, field " + str(p.get("floor_field")) + "): " + money(p.get("floor")) + "."
+                             + " Offer the floor only when the customer says the amount itself is too much; a plain no or 'I can't' is a refusal,"
+                             + " not that. Offering the floor for an amount that is too much does not change the day being discussed.")
             if p.get("band"):
                 lines.append("   Band: " + p.get("band") + ". Persuasion attempts allowed: " + str(p.get("attempts")) + ".")
             if p.get("deadline"):
                 lines.append("   Deadline (latest promise date): " + date_label(to_date(p.get("deadline"))) + ".")
             for o in p.get("offers") or []:
                 lines.append("   " + offer_text(o))
+            if p.get("offers"):
+                lines.append("   After attempt " + str(len(p.get("offers"))) + " is refused, make no other offer for this product: no other amount"
+                             + " (not the floor either), no other day.")
             if p.get("deadline"):
                 lines.append("   A promise for " + str(p.get("id")) + " is valid with an amount from " + money(p.get("floor"))
                              + " to " + money(p.get("full")) + " and a business day from today to " + str(p.get("deadline")) + "."

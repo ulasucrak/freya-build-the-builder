@@ -28,7 +28,17 @@ elif q is not None and af in body:
         if to_date(norm) is None and part:          # not a whole answer by itself: join it to the kept piece
             cand = (part + " " + ans).strip()
             norm = normalise_answer(cand, q.get("normalise"), q.get("answer_format"))
-        if to_date(norm) is not None:
+        d = to_date(norm)
+        today = today_of(vs)
+        if d is not None and today is not None and d.year >= today.year - 1 \
+                and "birth" in (field + " " + str(q.get("ask") or "")).lower():
+            # a birth date in this or last year is a year the model filled in for "the 23rd of February": keep the
+            # day and month as a piece and ask for the year; nothing is sent, so nothing is counted as wrong
+            cand = str(d.day) + " " + MONTH_NAMES[d.month - 1]
+            vset(vs, pkey, cand)
+            info = dict(code="partial-answer", message="Only part of the answer so far: '" + cand + "' (day and month, no year).",
+                        next="This is not a wrong answer. Ask only for the year of birth, then call verify_identity again with just the year; the pieces are joined automatically.")
+        elif d is not None:
             body[af] = norm
             vset(vs, pkey, "")
         elif date_piece(cand):
@@ -38,7 +48,7 @@ elif q is not None and af in body:
         else:
             body[af] = norm
     elif n_digits > 0:
-        digits = re.sub(r"\D", "", part + ans)
+        digits = re.sub(r"\D", "", part + spoken_digits(ans))
         if 0 < len(digits) < n_digits:
             vset(vs, pkey, digits)
             info = dict(code="partial-answer", message="Only " + str(len(digits)) + " of " + str(n_digits) + " digits so far: " + digits + ".",

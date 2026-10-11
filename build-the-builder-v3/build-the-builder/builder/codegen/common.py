@@ -243,9 +243,21 @@ def find_product(products, pid):
     return None
 
 
+def sent_ok(vs, tool, prefix):
+    """{product id: value} of requests a pre-hook marked as sent, when the engine counted every request of `tool` as a
+    success and none as a failure. Parallel tool calls share one post-hook snapshot, so a post-hook can credit the
+    wrong product; per-product marks and the engine's counters survive. Any failure: {} (explicit marks only)."""
+    sent = per_key(vs, prefix)
+    if not sent:
+        return dict()
+    ok = int(num(vget(vs, tool + "_success_count", 0)))
+    bad = int(num(vget(vs, tool + "_failure_count", 0)))
+    return sent if bad == 0 and ok >= len(sent) else dict()
+
+
 def promised_of(vs):
     out = csv_list(vget(vs, "w_promised"))
-    for pid in per_key(vs, "w_promised_"):
+    for pid in list(per_key(vs, "w_promised_")) + list(sent_ok(vs, nm("promise_tool", "create_promise"), "w_cp_sent_")):
         if pid not in out:
             out.append(pid)
     return out
@@ -254,6 +266,7 @@ def promised_of(vs):
 def notes_of(vs):
     n = load_json(vget(vs, "w_notes"), dict())
     n = n if isinstance(n, dict) else dict()
+    n.update(sent_ok(vs, nm("note_tool", "add_note"), "w_note_sent_"))
     n.update(per_key(vs, "w_note_"))
     return n
 

@@ -29,3 +29,5 @@ if info is not None and nm("guard", "on") == "on":
     block_request(config, vs, "w_note_block", info, "add_note")
 else:
     request_sent(vs)
+    if pid:
+        mark(vs, "w_note_sent_", pid, reason or "noted")   # per product: survives parallel calls (see sent_ok)

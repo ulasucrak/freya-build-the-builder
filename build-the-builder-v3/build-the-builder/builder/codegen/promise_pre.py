@@ -54,6 +54,8 @@ if nm("guard", "on") == "on" and prods:
 if chk.get("ok"):
     tries += 1
     vset(vs, "w_cp_tries_" + pid, str(tries))
+    if pid:
+        mark(vs, "w_cp_sent_", pid, "1")      # per product: survives parallel calls (see sent_ok)
     if tries > 1:
         vset(vs, "w_last_event", "Retry " + str(tries - 1) + " of create_promise for " + pid + " is being sent.")
     else:

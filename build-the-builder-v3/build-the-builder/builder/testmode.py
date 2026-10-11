@@ -214,7 +214,9 @@ def _fb_logic(tool, args, st, sc, spec):
     if tool == 'get_account':
         if not all_ok:
             return 200, dict(ok=False, error='identity not verified')
-        return 200, dict(ok=True, products=products)
+        t = (spec.get('tools') or dict()).get(tool) or dict()
+        ik = t.get('item_id') or 'product_id'
+        return 200, {'ok': True, t.get('list_key') or 'products': [dict(((ik if k == 'product_id' else k), v) for k, v in p.items()) for p in products]}
     if tool == 'create_promise':
         if not all_ok:
             return 200, dict(ok=False, error='identity not verified')
@@ -252,6 +254,11 @@ def _fb_logic(tool, args, st, sc, spec):
         dk = _fb_role(spec, tool, 'date', 'date')
         tk = _fb_role(spec, tool, 'time', 'time')
         d, t = str(args.get(dk) or ''), str(args.get(tk) or '')
+        xk = _fb_role(spec, tool, 'datetime', None)
+        if xk and not (d and t):
+            dk = tk = xk
+            parts = _fre.split(r'[T ]', str(args.get(xk) or '').strip(), maxsplit=1)
+            d, t = parts[0], (parts[1][:5] if len(parts) > 1 else '')
         if not _DATE.match(d) or not _fre.match(r'^\s*\d{2}:\d{2}\s*$', t):
             return 200, dict(ok=False, error=dk + ' must be YYYY-MM-DD and ' + tk + ' HH:MM')
         st['callbacks'].append(dict(date=d.strip(), time=t.strip()))
@@ -378,32 +385,42 @@ def _pick(fields, pred):
     return None
 
 
-def _roles(tool, fields):
-    """Which body field plays which part. Names first, types/enums as fallback (fields may be renamed)."""
-    own = {k: v for k, v in fields.items() if k != "customer_id"}
+def _roles(tool, fields, cust=None, item_id=None):
+    """Which body field plays which part. Names first, then descriptions, types and enums (fields may be renamed:
+    'member_ref', 'response', 'account_id', 'due_on', 'slot', 'desk'). `cust`: the customer-id fields (what
+    get_account takes); `item_id`: the id field of a get_account item, which is also the product field elsewhere."""
+    own = {k: v for k, v in fields.items() if k not in set(cust or ("customer_id",))}
     has = lambda *words: (lambda n, f: any(w in n for w in words))
     is_enum = lambda n, f: bool(f.get("enum"))
+    desc = lambda f: str(f.get("description") or "").lower()
+    rest = lambda *taken: {k: v for k, v in own.items() if k not in taken}
+    only = lambda *taken: next(iter(rest(*taken))) if len(rest(*taken)) == 1 else None
     r = {}
+    product = (_pick(own, lambda n, f: bool(item_id) and n == str(item_id).lower()) or _pick(own, has("product", "account")))
+    date = (_pick(own, lambda n, f: f.get("format") == "date") or _pick(own, lambda n, f: "yyyy-mm-dd" in desc(f) and "thh" not in desc(f))
+            or _pick(own, has("date", "day", "due")))
     if tool == "verify_identity":
-        r["field"] = _pick(own, lambda n, f: n in ("field", "question")) or _pick(own, is_enum) or _pick(own, has("field", "question"))
-        r["answer"] = _pick(own, lambda n, f: n != (r["field"] or "").lower() and "answer" in n) or \
-            _pick({k: v for k, v in own.items() if k != r["field"]}, lambda n, f: True)
+        r["field"] = _pick(own, lambda n, f: n in ("field", "question")) or _pick(own, is_enum) or _pick(own, has("field", "question", "check"))
+        r["answer"] = _pick(rest(r["field"]), has("answer", "response", "value")) or next(iter(rest(r["field"])), None)
     elif tool == "create_promise":
-        r["product"] = _pick(own, has("product"))
+        r["product"] = product
         r["amount"] = _pick(own, has("amount")) or _pick(own, lambda n, f: f.get("type") in ("number", "integer"))
-        r["date"] = _pick(own, lambda n, f: f.get("format") == "date") or _pick(own, has("date", "day"))
+        r["date"] = date
     elif tool == "add_note":
-        r["product"] = _pick(own, has("product"))
-        r["reason"] = _pick(own, lambda n, f: n == "reason") or _pick(own, is_enum) or _pick(own, has("reason", "code"))
-        r["text"] = _pick(own, lambda n, f: n in ("text", "note", "comment")) or _pick(own, has("text", "note"))
+        r["product"] = product
+        r["reason"] = _pick(rest(product), lambda n, f: n == "reason") or _pick(rest(product), is_enum) or _pick(rest(product), has("reason", "code"))
+        r["text"] = _pick(own, lambda n, f: n in ("text", "note", "comment")) or _pick(own, has("text", "note", "comment"))
     elif tool == "schedule_callback":
-        r["date"] = _pick(own, lambda n, f: f.get("format") == "date") or _pick(own, has("date", "day"))
-        r["time"] = _pick(own, has("time", "hour"))
+        dt = _pick(own, lambda n, f: "thh" in desc(f) or "date and time" in desc(f) or n in ("slot", "datetime", "when"))
+        r["time"] = _pick(own, has("time", "hour")) if not dt else None
+        r["date"] = date if not dt else None
+        if dt and not (r["date"] and r["time"]):
+            r["datetime"] = dt                 # one field 'YYYY-MM-DDTHH:MM': the fake bank splits it
     elif tool == "transfer_to_agent":
-        r["queue"] = _pick(own, lambda n, f: n == "queue") or _pick(own, is_enum) or _pick(own, has("queue", "team"))
+        r["queue"] = _pick(own, lambda n, f: n == "queue") or _pick(own, is_enum) or _pick(own, has("queue", "team", "desk")) or only()
     elif tool == "close_call":
         r["outcome"] = _pick(own, lambda n, f: n == "outcome") or _pick(own, is_enum) or _pick(own, has("outcome", "result"))
-        r["reason"] = _pick(own, lambda n, f: n == "reason") or _pick(own, has("reason"))
+        r["reason"] = _pick(rest(r["outcome"]), lambda n, f: n == "reason") or _pick(rest(r["outcome"]), has("reason", "detail")) or only(r["outcome"])
     return {k: v for k, v in r.items() if v}
 
 
@@ -419,9 +436,25 @@ def spec_from_openapi(openapi, scenario_var=SCENARIO_VAR, state_var=STATE_VAR):
         fields = {}
         for f, fs in (sch.get("properties") or {}).items():
             fs = _resolve(openapi, fs)
-            fields[f] = {"type": fs.get("type"), "enum": fs.get("enum"), "format": fs.get("format")}
-        tools[name] = {"path": path, "fields": fields, "required": list(sch.get("required") or []),
-                       "roles": _roles(name, fields)}
+            fields[f] = {"type": fs.get("type"), "enum": fs.get("enum"), "format": fs.get("format"),
+                         "description": str(fs.get("description") or "")[:120]}
+        tools[name] = {"path": path, "fields": fields, "required": list(sch.get("required") or [])}
+        # the response layout of a list answer (get_account): list key and the id field of an item, so the fake bank
+        # answers like the real one ('items' / 'accounts' with 'account_id' instead of 'products' / 'product_id')
+        rs = _resolve(openapi, (((((op.get("responses") or {}).get("200") or {}).get("content") or {}).get("application/json") or {}).get("schema")) or {})
+        for k, v in (rs.get("properties") or {}).items():
+            v = _resolve(openapi, v)
+            if v.get("type") == "array":
+                props = _resolve(openapi, v.get("items") or {}).get("properties") or {}
+                idk = next((f for f in props if f == "id" or f.endswith("_id")), "product_id")
+                tools[name].update(list_key=k, item_id=idk)
+                break
+    acc = tools.get("get_account") or {}
+    cust = list(acc.get("fields") or []) or ["customer_id"]       # get_account needs nothing but the customer
+    for name, t in tools.items():
+        t["roles"] = _roles(name, t["fields"], cust, acc.get("item_id"))
+        for f in t["fields"].values():
+            f.pop("description", None)            # only for the guess: every snippet carries the spec, keep it small
     return {"tools": tools, "scenario_var": scenario_var, "state_var": state_var}
 
 

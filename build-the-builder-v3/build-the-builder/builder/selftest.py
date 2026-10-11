@@ -352,7 +352,10 @@ class SelfTester:
                 restore_busy()
                 restore_calls()
                 if th.is_alive():
-                    res["error"] = "simulation did not finish within %.0f s (abandoned, result ignored)" % (limit or 0)
+                    # an abandoned simulation keeps running on Freya and blocks the workspace for the next round
+                    if getattr(freya, "LAST_SIM", None) and hasattr(freya, "cancel_simulation"):
+                        freya.cancel_simulation(freya.LAST_SIM)
+                    res["error"] = "simulation did not finish within %.0f s (abandoned and cancelled, result ignored)" % (limit or 0)
                     return res
             if "err" in box:
                 res["error"] = box["err"]

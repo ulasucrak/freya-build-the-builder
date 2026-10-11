@@ -97,10 +97,37 @@ def run_simulation(agent_id, name, variables_by_persona, max_seconds=420, concur
         except RuntimeError as e:
             if "concurrent simulations" not in str(e): raise
             print("another simulation is running in this workspace, waiting 30 s", flush=True); time.sleep(30)
-    sim_id = (sim.get("simulation") or sim)["id"]
+    global LAST_SIM
+    sim_id = LAST_SIM = (sim.get("simulation") or sim)["id"]
+    # Freya's judge can leave a call in "analyzing" for good: the simulation then never completes and blocks the
+    # workspace. Cancel it when every call has ended but the analysis has not moved for SIM_ANALYSIS_STALL_S, or when
+    # nothing at all has moved for SIM_STALL_S; the finished calls stay readable and are scored as usual.
+    n, seen, moved = len(variables_by_persona), None, time.time()
     while True:
         time.sleep(10)
         s = api("GET", f"/api/v2/simulations/{sim_id}"); s = s.get("simulation") or s
         if s.get("status") in ("completed", "failed", "paused"): break
+        try:
+            its = api("GET", f"/api/v2/simulations/{sim_id}/iterations"); it = (its.get("iterations") or its.get("items") or its)[0]
+        except Exception:
+            continue
+        done = sum(int(it.get(k) or 0) for k in ("passedRuns", "failedRuns", "inconclusiveRuns", "errorRuns"))
+        now = (done, int(it.get("analyzingRuns") or 0))
+        if now != seen: seen, moved = now, time.time()
+        idle = time.time() - moved
+        if (done + now[1] >= n and now[1] and idle > STALL_ANALYSIS_S) or idle > STALL_S:
+            print(f"simulation {sim_id} stalled ({done} of {n} calls done, {now[1]} still analyzing, no progress for {idle:.0f} s): cancelling it", flush=True)
+            cancel_simulation(sim_id)
+            s = {"status": "cancelled_stalled"}
+            break
     its = api("GET", f"/api/v2/simulations/{sim_id}/iterations"); its = its.get("iterations") or its.get("items") or its
     return sim_id, its[0]["id"], s.get("status")
+
+LAST_SIM = None   # id of the simulation run_simulation started last, so a caller that gives up on it can cancel it
+STALL_ANALYSIS_S = float(os.environ.get("SIM_ANALYSIS_STALL_S", "240"))
+STALL_S = float(os.environ.get("SIM_STALL_S", "900"))
+
+def cancel_simulation(sim_id):
+    """Stop a running simulation and free the workspace. Finished calls stay readable. Never raises."""
+    try: return api("POST", f"/api/v2/simulations/{sim_id}/cancel")
+    except Exception as e: print(f"cancelling simulation {sim_id} failed: {str(e)[:200]}", flush=True)
