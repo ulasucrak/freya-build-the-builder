@@ -61,11 +61,14 @@ class RestatedRuleHidden(unittest.TestCase):
         self.assertIn("(changes 30)", neg)
 
     def test_restated_heuristic(self):
-        self.assertTrue(G._restated('First ask: "Can you make this payment today?".', "[changes x.28] First ask whether all can be paid today."))
+        self.assertTrue(G._restated('First ask: "Can you make this payment today?".', "[changes x.28] First ask whether the customer can pay all of them today."))
         # long, tool-naming or multi-sentence rules hold more than the change
         self.assertFalse(G._restated("Read it back and ask. Call `create_promise` after a yes.", "Read all back together."))
         self.assertFalse(G._restated("Offer the floor once. Say the rest stays overdue.", "Offer the floor twice."))
         self.assertFalse(G._restated("State the amount.", "Persuasion attempts are counted per product."))
+        # shared opening words alone do not make a restatement (review R09)
+        self.assertFalse(G._restated("Do not offer the floor before attempt 2.", "[changes x.12] Do not offer a discount."))
+        self.assertFalse(G._restated("If the customer asks, say the date.", "[changes x.3] If the customer is late, call."))
 
     def test_today_question_once_and_phrase_not_listed_as_fixed(self):
         for raw in (TG.raw("brief-b"), changes_policy(), spol("brief-b")):
@@ -84,8 +87,8 @@ class RestatedRuleHidden(unittest.TestCase):
 
     def test_later_products_open_with_attempt_1(self):
         neg = wf_of(TG.raw("brief-b"))["nodes"]["negotiate"]["task_message"]
-        self.assertIn("A later product opens with its Attempt 1.", neg)
-        self.assertNotIn("A later product opens", wf_of(TG.raw("brief-a"))["nodes"]["negotiate"]["task_message"])
+        self.assertIn("Later products open with Attempt 1.", neg)
+        self.assertNotIn("Later products open", wf_of(TG.raw("brief-a"))["nodes"]["negotiate"]["task_message"])
 
 
 class CustomerValues(unittest.TestCase):
@@ -95,8 +98,8 @@ class CustomerValues(unittest.TestCase):
         for raw in (TG.raw("brief-a"), TG.raw("brief-b"), spol("S4")):
             neg = wf_of(raw)["nodes"]["negotiate"]["task_message"]
             self.assertIn(G.CHECK_LINE, neg)
-        for w in ("condition", "after the weekend", "when I get paid", "'the minimum'", "never an offer instead",
-                  "never 'do you agree?'", "then a non-answer is no refusal"):
+        for w in ("condition", "after the weekend", "when I get paid", "'the minimum'", "not as your own offer",
+                  "ask once more (a second is a refusal)", "Not for full today, an offer from the facts or a value already accepted"):
             self.assertIn(w, G.CHECK_LINE)
 
     def test_no_check_line_without_the_tool(self):
@@ -111,23 +114,25 @@ class NoTalk(unittest.TestCase):
         for name in ("brief-a-live", "brief-b"):
             neg = wf_of(TG.raw(name))["nodes"]["negotiate"]["task_message"]
             line = [x for x in neg.splitlines() if "twice" in x and "talk" in x][0]
-            self.assertIn("'I'm not going into this', 'full stop'", line)
+            self.assertIn("'I'm not going into this'", line)
+            self.assertNotIn("full stop", line)                         # "I can't pay, full stop" is a refusal
             self.assertIn("The second time: close at once", line)    # also for a note-action trigger (Brief B)
 
     def test_only_the_talk_trigger_gets_it(self):
         neg = wf_of(TG.raw("s3-live"))["nodes"]["negotiate"]["task_message"]
         for x in neg.splitlines():
-            if "full stop" in x:
+            if "not going into this" in x:
                 self.assertIn("talk", x.split(":")[0])
 
     def test_not_before_verification(self):
         greet = wf_of(TG.raw("brief-a-live"))["nodes"]["greet_verify"]["task_message"]
-        self.assertNotIn("full stop", greet)
+        self.assertNotIn("not going into this", greet)
 
     def test_extraction_label(self):
         wf = wf_of(TG.raw("brief-a-live"), extract_signals=True)
         x = [e for e in wf["nodes"]["negotiate"]["extraction_schema"] if e["name"] == "x_reply"][0]
-        self.assertIn("full stop", x["description"])
+        self.assertIn("not going into this", x["description"])
+        self.assertNotIn("full stop", x["description"])
 
 
 class Callback(unittest.TestCase):
@@ -164,7 +169,7 @@ class CloseSafety(unittest.TestCase):
 
 
 class DescribedGreeting(unittest.TestCase):
-    """8. Optional static greeting built from a described opening (off by default)."""
+    """8. Static greeting built from a described opening (option static_greeting)."""
 
     def test_built_lines(self):
         cases = {"brief-a": "Hello, I am a digital assistant calling from Freya Bank, and this call is recorded. Am I speaking with {title} {last_name}?",
@@ -172,11 +177,11 @@ class DescribedGreeting(unittest.TestCase):
                  "S7": "Hello, I am Tidewater Bank's virtual assistant, and this call is recorded. Is that {title} {last_name}?"}
         for name, line in cases.items():
             p = S.normalise(spol(name))
-            self.assertEqual(G.static_opening(p), "", name)            # default: the model speaks it
+            self.assertEqual(G.static_opening(p), "", name)            # without the option: the model speaks it
             self.assertEqual(G.static_opening(p, True), line, name)
 
     def test_option(self):
-        self.assertEqual(wf_of(spol("brief-b"))["nodes"]["greet_verify"]["on_enter"]["type"], "llm")
+        self.assertEqual(wf_of(spol("brief-b"), static_greeting=False)["nodes"]["greet_verify"]["on_enter"]["type"], "llm")
         oe = wf_of(spol("brief-b"), static_greeting=True)["nodes"]["greet_verify"]["on_enter"]
         self.assertEqual(oe, {"type": "tts", "text": "Hello, I am a digital assistant calling from Freya Bank, and this call is recorded."
                                                      " Am I speaking with {{title}} {{last_name}}?"})

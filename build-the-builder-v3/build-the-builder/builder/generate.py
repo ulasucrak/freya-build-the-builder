@@ -91,7 +91,8 @@ DEFAULT_OPTIONS = {
                                    # its content (static_entry); the slowest regular turn (median 3.4 s, p90 10.7 s)
     "static_greeting": False,      # an opening the brief describes ('say you are X and that the call is recorded') is built
                                    # as a fixed line (tts, no model call: 250new, 96 calls ended before the first model
-                                   # sentence). Off until a live run and the T06 opening test agree (test_static_opening)
+                                   # sentence); English only, no word forbidden before verification, else the model.
+                                   # Off until tests/test_generate.py test_static_opening is updated (owner: orchestrator)
     "reasoning_off": False,        # reasoning_override "disabled" on the conversation nodes. Untested live: off
 }
 
@@ -695,7 +696,8 @@ _TWICE_RX = re.compile(r"\s*\b(twice|two times|a second time|the second time|thr
 
 # 250new N092: "I'm not going into this, full stop." was taken as a refusal of the offer, not as the first 'does not want
 # to talk', so the call ran two more offers; ways of saying it that name no talk
-NO_TALK_WORDS = "'I'm not going into this', 'full stop', 'leave me alone', 'stop calling me'"
+# ('full stop' alone is not one: "I can't pay, full stop" is a refusal)
+NO_TALK_WORDS = "'I'm not going into this', 'leave me alone', 'stop calling me'"
 
 
 def _count_trigger(p):
@@ -1044,7 +1046,8 @@ def _hidden_by_override(p, r, marks, new_marks):
 
 
 _STOP = {"the", "a", "an", "and", "or", "of", "to", "for", "this", "that", "with", "is", "are", "be", "can", "you",
-         "your", "it", "in", "on", "at", "if", "not", "do", "they", "them", "their", "whether", "customer"}
+         "your", "it", "in", "on", "at", "if", "not", "do", "they", "them", "their", "whether", "customer", "make", "will",
+         "have", "when", "then", "than", "from", "only", "into", "does"}
 
 
 def _words(t):
@@ -1055,16 +1058,16 @@ def _restated(old, new):
     """The later rule says the same instruction again, its own way (250new, Brief B: '[28] First ask: "Can you make this
     payment today?"' next to '[b.4] (changes 28) First ask whether the customer can pay all of them today ... Do not ask
     about today again for each product': the model followed [28] in 1 call of 3). A short one-sentence rule, with no
-    tool, code or table in it, whose opening words open the later rule too, or whose content words the later rule
-    mostly repeats, is not shown: the later rule carries it. Longer rules stay (they hold more than the change)."""
+    tool, code or table in it, whose content words (3 at least; 'pay' matches 'payment') the later rule repeats at least
+    three in four, is not shown: the later rule carries it. Longer rules stay (they hold more than the change); shared
+    opening words alone ('Do not ...', 'If the ...') are not enough."""
     body = _rule_text(old)
     if len(body) > 140 or "`" in body or "\n" in body or _cells(old) or len(re.findall(r"[.!?](?:\s|$)", body.rstrip('"”'))) > 1:
         return False
-    a, b = _words(old), _words(new)
-    if len(a) >= 2 and a[:2] == b[:2]:
-        return True
-    content = {w for w in a if len(w) > 3 and w not in _STOP}
-    return len(content) >= 3 and len(content & set(b)) >= 0.75 * len(content)
+    later = {w for w in _words(new) if len(w) >= 3 and w not in _STOP}
+    content = {w for w in _words(old) if len(w) > 3 and w not in _STOP}
+    hit = [w for w in content if any(w.startswith(x) or x.startswith(w) for x in later)]
+    return len(content) >= 3 and len(hit) >= 0.75 * len(content)
 
 
 def _is_void(t):
@@ -1331,7 +1334,7 @@ NEXT_ACTION = "{{w_next_action}}"
 # (prepare_account, check_offer, close_check, note_pre) and are not repeated in the step prompt (rule_roles 'hook')
 HOOK_POINTER = ("Use the facts and tool results as given for business days, deadlines, floors, offers and the outcome"
                 " (weekdays and years: calendar facts only). A promise: floor to full amount, a business day from today to"
-                " its deadline. A date or an amount the customer names is never a refusal.")
+                " its deadline.")
 
 
 def _codes_in(outcome, reason, text):
@@ -1432,7 +1435,7 @@ def _ladder_line(p, ef=None):
                 " the state line; make exactly that offer, once. One sympathy sentence, once.")
     # a later product's facts say "First question for it: its Attempt 1 offer" (the no to the first 'today' question is
     # the refusal its "only after a refusal" asks for)
-    later = (" A later product opens with its Attempt 1."
+    later = (" Later products open with Attempt 1."
              if p["products"]["max_count"] > 1 else "")
     return ("Persuasion attempts" + (" (" + per + ")" if per else "") + ": each product's, in order, once; a refusal or non-answer"
             " ('not on <day>' with no new day too; not 'too much') uses the next; after the last, close. One sympathy sentence, once."
@@ -1443,8 +1446,9 @@ def _ladder_line(p, ef=None):
 # exact day); N186: "can I just pay the minimum today?" became the agent's own offer with "Do you agree?", and the
 # customer's non-answers after it were counted as refusals. check_offer reads 'the minimum' / 'the full amount'.
 CHECK_LINE = ("A day, period, condition ('end of month', 'after the weekend', 'when I get paid') or amount the customer names"
-              " ('the minimum' too): check_offer first, never an offer instead. Valid: read back at once, never 'do you agree?';"
-              " then a non-answer is no refusal. A yes to your offer: read-back.")
+              " ('the minimum' too) is no refusal: check_offer first. Valid: read back at once, not as your own offer; a"
+              " non-answer: ask once more (a second is a refusal). Not for full today, an offer from the facts or a value"
+              " already accepted: read-back.")
 # 250new Brief B: a per-product "Can you pay X today?" (21 of 58 calls) and a second all-products 'today' question after
 # a dispute; shown when the rules say the 'today' question is not asked again
 TODAY_ONCE = ("The 'today' question is asked once in the call, in the first message, for all products%s; never again (not per"
