@@ -1634,8 +1634,8 @@ def generic_language(policy, p):
 
 
 def name_key(name):
-    """A field or variable name as comparable words: customerNo, customer_number and CustomerNumber all give
-    ('customer', 'number') (no / num / nr / id count as 'number')."""
+    """A field or variable name as comparable words: clientNo, client_number and ClientNumber all give
+    ('client', 'number') (no / num / nr / id count as 'number')."""
     s = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", str(name))
     s = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1 \2", s)
     return tuple("number" if t in _NUM_TOKENS else t for t in re.split(r"[^a-z0-9]+", s.lower()) if t)
