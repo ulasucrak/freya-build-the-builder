@@ -1,0 +1,12 @@
+{
+  "name": "freya-statement-mock",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Worker mock of Freya Bank's voice statement/debt services (test environment)",
+  "scripts": {
+    "gen": "python3 gen_records.py",
+    "test": "node test_mock.mjs",
+    "dev": "npx wrangler dev --port 8787",
+    "deploy": "npx wrangler deploy"
+  }
+}
