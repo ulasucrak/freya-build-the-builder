@@ -24,6 +24,7 @@ from builder import policy_schema as S  # noqa: E402
 import test_generate as TG  # noqa: E402
 
 OFF = {"extract_signals": False, "enforce_callback": False}
+ON = {"extract_signals": True}   # the extraction is off by default (latency); these tests run it on
 CARD_EARLY = {"product_id": "p1", "type": "credit_card", "card_last4": "6604", "past_due": 300.0, "days_late": 4, "minimum_payment": 90.0}
 LOAN_LATE = {"product_id": "p2", "type": "personal_loan", "past_due": 900.0, "days_late": 20, "instalment_amount": 300.0}
 CAR_LATE = {"product_id": "p3", "type": "car_loan", "past_due": 600.0, "days_late": 12, "instalment_amount": 200.0}
@@ -59,7 +60,7 @@ class Structure(unittest.TestCase):
         pols = [TG.raw(n) for n in TG.ALL] + [json.loads(p.read_text()) for p in sorted((KIT / "policies").glob("*.policy.json"))]
         oa = json.loads((KIT / "tools" / "openapi.json").read_text())
         for pol in pols:
-            for opts in (None, OFF):
+            for opts in (None, ON, OFF):
                 wf = G.generate_workflow(pol, None, oa, opts)
                 self.assertEqual(G.lint_workflow(wf), [], opts)
                 for n in wf["nodes"].values():
@@ -68,7 +69,7 @@ class Structure(unittest.TestCase):
                             self.assertLess(len(t.get(hk, "")), 23000, (t["function"]["name"], hk))
 
     def test_negotiate_extraction_and_routing(self):
-        wf = G.generate_workflow(TG.raw("brief-b"))
+        wf = G.generate_workflow(TG.raw("brief-b"), options=ON)
         neg = wf["nodes"]["negotiate"]
         ex = {e["name"]: e for e in neg["extraction_schema"]}
         self.assertEqual(ex["x_reply"]["enum_values"], ["refusal", "too_much", "no_talk", "dispute", "other"])
@@ -90,7 +91,7 @@ class Structure(unittest.TestCase):
         # no model-callable tool was added
         self.assertEqual(sorted(t["function"]["name"] for t in neg["tools"]),
                          sorted(t["function"]["name"] for t in G.generate_workflow(TG.raw("brief-b"), options=OFF)["nodes"]["negotiate"]["tools"]))
-        single = G.generate_workflow(TG.raw("brief-a"))["nodes"]["negotiate"]["extraction_schema"]
+        single = G.generate_workflow(TG.raw("brief-a"), options=ON)["nodes"]["negotiate"]["extraction_schema"]
         self.assertEqual([e["name"] for e in single], ["x_reply"])   # one product: no product label
 
     def test_options_off_restore_v3(self):
@@ -106,13 +107,13 @@ class Structure(unittest.TestCase):
     def test_policy_values_not_brief_values(self):
         """Counts, outcomes and note reasons come from the policy: S3 names its codes differently."""
         p = S.normalise(json.loads((KIT / "policies" / "S3.policy.json").read_text()))
-        ef = G.enforce_rt(p, G.DEFAULT_OPTIONS)
+        ef = G.enforce_rt(p, dict(G.DEFAULT_OPTIONS, **ON))
         self.assertEqual(ef["refused"], {"outcome": p["closing"]["refused"]["outcome"], "reason": p["closing"]["refused"]["reason"] or ""})
         self.assertEqual(ef["refused_note"], "declined")
         if ef["dispute_on"]:
             self.assertEqual(ef["dispute_note"], "disputed")
         b = S.normalise(TG.raw("brief-b"))
-        ef = G.enforce_rt(b, G.DEFAULT_OPTIONS)
+        ef = G.enforce_rt(b, dict(G.DEFAULT_OPTIONS, **ON))
         self.assertEqual((ef["talk_count"], ef["talk"], ef["talk_note"]), (2, {"outcome": "no_promise", "reason": "refused"}, "refused"))
         self.assertEqual((ef["dispute"], ef["dispute_note"]), ({"outcome": "no_promise", "reason": "dispute"}, "dispute"))
         self.assertEqual(ef["no_callback"], {"outcome": "not_reached", "reason": "no_callback"})
@@ -121,16 +122,16 @@ class Structure(unittest.TestCase):
         for t in q["triggers"]:
             if t["name"] == "refuses_to_talk":
                 t["detect"] = t["detect"].replace("twice", "three times")
-        self.assertEqual(G.enforce_rt(S.normalise(q), G.DEFAULT_OPTIONS)["talk_count"], 3)
+        self.assertEqual(G.enforce_rt(S.normalise(q), dict(G.DEFAULT_OPTIONS, **ON))["talk_count"], 3)
         self.assertEqual(G.enforce_rt(b, OFF)["signals"], [])
 
     def test_prompts_shorter_where_code_enforces(self):
         for name in ("brief-a", "brief-b", "brief-a-live"):
-            on = G.generate_workflow(TG.raw(name))["nodes"]
+            on = G.generate_workflow(TG.raw(name), options=ON)["nodes"]
             off = G.generate_workflow(TG.raw(name), options=OFF)["nodes"]
             self.assertLess(len(on["negotiate"]["task_message"]), len(off["negotiate"]["task_message"]), name)
             self.assertLess(len(on["greet_verify"]["task_message"]), len(off["greet_verify"]["task_message"]), name)
-        s = TG.Sim(G.generate_workflow(TG.raw("brief-a")), customer_id="c1")
+        s = TG.Sim(G.generate_workflow(TG.raw("brief-a"), options=ON), customer_id="c1")
         s.account([LOAN_LATE])
         self.assertIn("Persuasion attempts allowed: 2; never repeat an offer that was refused.", s.vs["w_account_facts"])
         self.assertIn("Attempt 2: amount 300.00 on Friday 23 October 2026", s.vs["w_account_facts"])
@@ -146,7 +147,7 @@ class ReviewFixes(unittest.TestCase):
     def test_labels_tie_break_and_confidence(self):
         """Review 2: a message that also fits 'other' (hardship, a question, a counter-offer, 'no, but ...') or a dispute
         is labelled that, never refusal / no_talk; a doubtful label (below 0.8) is dropped."""
-        ex = G.generate_workflow(TG.raw("brief-b"))["nodes"]["negotiate"]["extraction_schema"][0]
+        ex = G.generate_workflow(TG.raw("brief-b"), options=ON)["nodes"]["negotiate"]["extraction_schema"][0]
         self.assertGreaterEqual(ex["min_confidence"], 0.8)
         d = ex["description"]
         self.assertIn("Tie-break: a message that fits dispute or other in any part is labelled that, never refusal or too_much or no_talk", d)
@@ -155,7 +156,7 @@ class ReviewFixes(unittest.TestCase):
 
     def test_turn_cap_survives_re_entry(self):
         """Review 4: each re-entry resets negotiate's turn counter; turn_state sums the turns and routes to turn_cap."""
-        wf = G.generate_workflow(TG.raw("brief-a"), options={"negotiate_max_turns": 6})
+        wf = G.generate_workflow(TG.raw("brief-a"), options={"negotiate_max_turns": 6, "extract_signals": True})
         ts = wf["nodes"]["turn_state"]
         self.assertIn({"target_node": "turn_cap", "description": "negotiate turns (summed over re-entries) over the cap",
                        "condition": {"logic": "or", "conditions": [{"variable": "w_turn_route", "operator": "equals", "operand": "cap"}]}},
@@ -176,7 +177,7 @@ class ReviewFixes(unittest.TestCase):
 
 class Ladder(unittest.TestCase):
     def setUp(self):
-        self.wf = G.generate_workflow(TG.raw("brief-a"))
+        self.wf = G.generate_workflow(TG.raw("brief-a"), options=ON)
         self.sim = TG.Sim(self.wf, customer_id="c1")
         self.sim.vs["w_id_state"] = "verified"
 
@@ -237,7 +238,7 @@ class Ladder(unittest.TestCase):
 
 class NoTalkAndDispute(unittest.TestCase):
     def setUp(self):
-        self.wf = G.generate_workflow(TG.raw("brief-a"))
+        self.wf = G.generate_workflow(TG.raw("brief-a"), options=ON)
         self.sim = TG.Sim(self.wf, customer_id="c1")
         self.sim.vs["w_id_state"] = "verified"
         self.sim.account([LOAN_LATE])
@@ -265,7 +266,7 @@ class NoTalkAndDispute(unittest.TestCase):
 
 class MultiProduct(unittest.TestCase):
     def setUp(self):
-        self.wf = G.generate_workflow(TG.raw("brief-b"))
+        self.wf = G.generate_workflow(TG.raw("brief-b"), options=ON)
         self.sim = TG.Sim(self.wf, customer_id="c1")
         self.sim.vs["w_id_state"] = "verified"
         self.sim.account([CARD_EARLY, LOAN_LATE, CAR_LATE])
@@ -338,7 +339,7 @@ class MultiProduct(unittest.TestCase):
 
 class Callback(unittest.TestCase):
     def test_last_try_outside_the_window_closes_in_the_engine(self):
-        wf = G.generate_workflow(TG.raw("brief-b"))
+        wf = G.generate_workflow(TG.raw("brief-b"), options=ON)
         tr = [t for t in wf["nodes"]["greet_verify"]["transitions"] if t["target_node"] == "close_check"]
         self.assertEqual(len(tr), 2)
         self.assertEqual(tr[1]["condition"]["conditions"][0], {"variable": "w_cb_over", "operator": "equals", "operand": "yes"})

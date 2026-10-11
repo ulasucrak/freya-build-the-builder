@@ -45,8 +45,17 @@ else:
         if nxt is not None:
             set_next(result, "Correct. Now ask the next security question: " + str(nxt.get("ask") or nxt.get("tool_field"))
                      + " (field '" + str(nxt.get("tool_field")) + "').")
+        elif nm("verify_all", "all_verified") in d and not allv:
+            # the bank says explicitly that the check is not complete although every listed question was answered
+            first = qs[0] if qs else dict()
+            set_next(result, "Correct, but the security service has not confirmed the identity yet. Ask the security question "
+                     + str(first.get("ask") or first.get("tool_field") or "again") + " once more and call verify_identity again.")
+            ev, act = "Identity not confirmed by the service yet", "ask the first security question again and call verify_identity"
         else:
-            set_next(result, "Correct.")
+            # every question answered correctly and nothing pending: verified even when the bank omits all_verified
+            # (e.g. the customer was already verified in an earlier, lost call and the bank answers only verified=true)
+            vset(vs, "w_id_state", "verified")
+            set_next(result, "All security answers are correct. The customer is verified.")
     else:
         wrong = int(num(vget(vs, "w_id_wrong", 0))) + 1
         vset(vs, "w_id_wrong", str(wrong))
