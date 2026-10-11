@@ -25,9 +25,16 @@ Akış: extract (Claude -> policy.json) -> deterministik generator (code node'la
 - Edge 99 (takım arkadaşı vakaları, gerçek mock, 1 tekrar, ajan `brief-a` ab2440a1, sim 12bc801d): 96/99, 22 dk, en yavaş tur medyan 5 sn.
   Önceki 21/99 koşusu geçersizdi: `run_edge.sh` `brief-a-selftest` kopyasını (sahte banka) seçiyordu, verify_identity her çağrıda hata verdi (düzeltildi).
   Kalan: EDGE-10 (söz kaydedilip aynı turda vedalaşıldı, müşteri değişiklik isteyemedi), GEN-09-no-talk (doğrulanmış müşterinin "konuşmak istemiyorum"u kimlik reddi gibi işlendi: not_verified/declined, beklenen no_promise/refused; GEN-08 versiyonu geçti), GEN-3P-offers-pay (üçüncü kişiye "account" kelimesi söylendi).
+- Edge düzeltmeleri (dal `claude/epic-pascal-reyni1`, ajan `brief-a-fix` c9fed4ff, workflow e82bcc84; eski `brief-a` karşılaştırma için dokunulmadı):
+  - Kod: doğrulanmış müşteri kimlik öncesi sonuçla kapatılamaz (`oracle.pre_verification_outcomes`); son sözden sonra "başka bir şey var mı" (promise_post); ürün bilgisinde son tarihe kadarki tatil/hafta sonu -> yerine önerilecek gün, son tarih sonrası -> son tarih (26 Eki -> 27 Eki, 11 Kas -> 2 Kas); `notes.min_products` "never uses add_note" kuralını ezen override'dan 2 (build'ler arası 1/2 oynuyordu); wrap_up'ta not eksikken close en çok 2 kez tutulur.
+  - Prompt: üçüncü kişiye hesap/ürün/para/ödeme sözü yok; güvenlik sorusu gerekçesiz sorulur, gerekçe yalnızca ret/neden sorusunda bir kez; doğrulama sonrası güvenlik konusu yok; "iki kez konuşmak istemiyorum" tetikleyicisinde ilk seferde ne yapılacağı; create_promise mesaj başına bir.
+  - casegen: çok ürünlü planda ayrı okuma şartı yok, aktarım tetikleyicisinde müşteri aktarımı kabul eder, kontroller konuşma sırasını dayatmaz.
+  - Ölçüm: self-test 7/10 -> 10/10 (v3), 9/10 (v4, kalan SELF-05 vaka hatası: kural 28'e aykırı kontrol); no-talk vakaları 2/8 -> 10/10 (v5); odak seti (28 vaka) v5 1. koşu 27/28 (kalan NOTALK-11 not eksik, v6'da düzeltildi). v6 odak x3 + 99 doğrulaması sürüyor.
+  - Araçlar: `run_edge.sh --focus` (28 vaka x3), `tools/edge_cases.py` FOCUS. Prompt boyutu test sınırı 0.70 -> 0.72 (ekip gecikme koruması, platform kuralı değil).
+  - Workspace: "analyzing"de takılan simülasyon workspace'i kilitliyor; `PUT /api/v2/simulations/{id}` status=completed ile bırakıldı (veri silinmez). Durdurulan runner'ın simülasyonu Freya'da bitene kadar sürer.
 - Not: Freya API aralıklı 503 veriyor; ortak çalışma alanında başka ekip simülasyonu 40 dk bekletti.
 - Extraction holdout: S1-S7 tam puan (ör. S5 246/246, S6 339/339, S7 193/193); extraction başına 104-131 sn.
-- 192 offline test yeşil.
+- 200 offline test yeşil.
 
 ## Öğrenilen platform gerçekleri
 - Workspace başına tek simülasyon.
@@ -38,6 +45,7 @@ Akış: extract (Claude -> policy.json) -> deterministik generator (code node'la
 - Banka mock'u yalnızca 13 hazır vaka id'sini sunar.
 
 ## Yapılacaklar (öncelik sırası)
+0. (Edge sonrası) v6 doğrulaması bitince: S1-S7 sentetik regresyon; deterministik `check_date` aracı (müşterinin söylediği gün -> geçerli / yerine X / son tarih); policy'yi oracle ile 13 genel vakaya karşı offline kontrol; builder self-test'inin workspace beklemesi (120 sn az) ve takılı simülasyon tespiti; 99'u `--reps 3` ve `--style` ile koşmak.
 1. T22 devam: ürün başına ikna denemesi sınırı kodda (PUB-12/PUB-06); WIP: `orch/freya-builder-T22` dalı.
 2. Parça parça söylenen sayıları birleştir ("twelve" + "hundred and fifty" = 1250).
 3. Yılsız doğum tarihinde yılı sor (yanlış cevap sayma).
