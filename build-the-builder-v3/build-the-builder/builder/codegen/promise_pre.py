@@ -28,9 +28,13 @@ vset(vs, "w_cp_last", json.dumps(dict(amount=body.get(af), date=body.get(dfld)))
 vset(vs, "w_cp_block", "")
 pm = RT.get("promise") or dict()
 retry = int(num(pm.get("retry_on_failure"), 1))
-tries = int(num(vget(vs, "w_cp_tries_" + pid, 0)))
+tries = cnt(vs, "w_cp_tries_" + pid)
 chk = dict(ok=True)
-if nm("guard", "on") == "on" and prods:
+g = nm("guard", "on") == "on"
+if g and str(vget(vs, "w_account_state")) == "failed":
+    # the account could not be loaded (prepare_account wrote 'failed'): nothing to check a promise against
+    chk = dict(ok=False, code="account-failed", message="The account could not be loaded: no promise can be recorded.")
+elif g and prods:
     chk = check_promise(prod, amt, dd, today, cal, promised_of(vs), nm("next_weekday", ""))
     if chk.get("ok") and transfers_of(vs):
         chk = dict(ok=False, code="after-transfer", message="The call was transferred. No promise may be recorded after a transfer.")
@@ -38,28 +42,31 @@ if nm("guard", "on") == "on" and prods:
         chk = dict(ok=False, code="disputed", message="The customer disputes this product: no promise may be recorded for it.")
     if chk.get("ok") and tries > retry:
         chk = dict(ok=False, code="no-more-retries", message="create_promise already failed for this product as often as the rules allow. Do not try again.")
-    if not chk.get("ok"):
-        nxt = "Do not say it was recorded."
-        if chk.get("suggest_date"):
-            nxt += " The date you may offer instead is " + date_label(to_date(chk.get("suggest_date"))) + "."
-        if chk.get("suggest_amount") is not None:
-            nxt += " The amount you may offer instead is " + money(chk.get("suggest_amount")) + "."
-        if chk.get("code") == "no-more-retries":
-            nxt += " Tell the customer you could not record it, as the rules say."
-            sn = (RT.get("enforce") or dict()).get("service_note")
-            if (RT.get("notes") or dict()).get("enabled") and pid and sn:
-                mark(vs, "w_intent_", pid, sn)
-        elif chk.get("code") == "disputed":
-            nxt += " Do not argue and take no promise for it; follow the rules for a dispute."
-        else:
-            nxt += " Explain it in one sentence, follow the rules for this case, and call create_promise again only after a new read-back and a clear yes."
-        chk["next"] = nxt
-        block_request(config, vs, "w_cp_block", chk, "create_promise")
+if not chk.get("ok"):
+    c = chk.get("code")
+    nxt = "Do not say it was recorded."
+    if chk.get("suggest_date"):
+        nxt += " The date you may offer instead is " + date_label(to_date(chk.get("suggest_date"))) + "."
+    if chk.get("suggest_amount") is not None:
+        nxt += " The amount you may offer instead is " + money(chk.get("suggest_amount")) + "."
+    if c == "account-failed":
+        nxt += " " + SVC
+    elif c == "no-more-retries":
+        nxt += " Tell the customer you could not record it, as the rules say."
+        sn = (RT.get("enforce") or dict()).get("service_note")
+        if (RT.get("notes") or dict()).get("enabled") and pid and sn:
+            mark(vs, "w_intent_", pid, sn)
+    elif c == "disputed":
+        nxt += " Do not argue and take no promise for it; follow the rules for a dispute."
+    else:
+        nxt += " Explain it in one sentence, follow the rules for this case, and call create_promise again only after a new read-back and a clear yes."
+    chk["next"] = nxt
+    block_request(config, vs, "w_cp_block", chk, "create_promise")
 if chk.get("ok"):
     tries += 1
     vset(vs, "w_cp_tries_" + pid, str(tries))
     if pid:
-        # per product: survives parallel calls (see sent_ok)
+        # per product, '1' = in flight: survives parallel calls (see sent_ok / in_flight)
         mark(vs, "w_cp_sent_", pid, "1")
     if tries > 1:
         vset(vs, "w_last_event", "Retry " + str(tries - 1) + " of create_promise for " + pid + " is being sent.")

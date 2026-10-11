@@ -16,14 +16,23 @@ if tt:
     body[tfld] = tt
 vset(vs, "w_cb_block", "")
 chk = dict(ok=True)
+bad = cnt(vs, "w_cb_bad")
+mx = int((RT.get("callback") or dict()).get("max_asks") or 2)
 if nm("guard", "on") == "on":
-    chk = check_callback(dd, tt, today, now_time, RT, cal, nm("next_weekday", ""))
+    # max_asks counts the stopped tries: once used up, a callback booked or two service failures, nothing goes out
+    if "yes" in (vget(vs, "w_callback_done"), vget(vs, "w_cb_over")) or bad >= mx or fails(vs, nm("callback_tool", "schedule_callback")) >= 2:
+        chk = dict(ok=False, code="no-callback", message="No further callback may be scheduled (one is booked, the tries are used up or the service failed twice).",
+                   next="Do not ask for another time. Close the call as the rules say.")
+    else:
+        chk = check_callback(dd, tt, today, now_time, RT, cal, nm("next_weekday", ""))
 if chk.get("ok"):
     request_sent(vs)
+elif chk.get("code") == "no-callback":
+    block_request(config, vs, "w_cb_block", chk, "schedule_callback")
 else:
-    bad = int(num(vget(vs, "w_cb_bad", 0))) + 1
+    bad += 1
     vset(vs, "w_cb_bad", str(bad))
-    if bad < int(num((RT.get("callback") or dict()).get("max_asks"), 2)):
+    if bad < mx:
         chk["next"] = "Do not say it was scheduled. Ask once for another day and time inside the allowed window."
     else:
         ef = RT.get("enforce") or dict()

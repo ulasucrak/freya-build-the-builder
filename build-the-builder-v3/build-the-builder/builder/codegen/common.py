@@ -26,16 +26,20 @@ def vset(vs, key, value):
 
 
 def nm(key, default=""):
-    try:
-        v = (RT.get("names") or dict()).get(key)
-    except Exception:
-        v = None
-    return default if v is None or v == "" else v
+    return (RT.get("names") or dict()).get(key) or default
 
 
 def num(value, default=0.0):
     n = to_number(value)
     return default if n is None else n
+
+
+def cnt(vs, key):
+    """A counter variable as an int (0 when unset or unreadable); no number parsing pulled in."""
+    try:
+        return int(float(vget(vs, key, 0) or 0))
+    except Exception:
+        return 0
 
 
 def csv_list(value):
@@ -45,42 +49,62 @@ def csv_list(value):
 def resp_data(result):
     """The API's JSON body inside a tool result envelope, or None."""
     try:
-        if isinstance(result, dict):
-            d = result.get("data")
-            if isinstance(d, dict):
-                return d
-            if d is None and ("ok" in result or "error" in result) and "status_code" not in result:
-                return result
+        d = result.get("data")
+        if isinstance(d, dict):
+            return d
+        if d is None and ("ok" in result or "error" in result) and "status_code" not in result:
+            return result
     except Exception:
         pass
     return None
 
 
 def call_ok(result, ok_field):
-    """True when the call reached the API and the API says it was carried out."""
+    """The one success rule: HTTP 2xx, a JSON body, no error in it, and its ok flag (when it has one) true."""
     try:
-        if not isinstance(result, dict):
-            return False
-        st = str(result.get("status") or "").lower()
-        if st and st not in ("success", "ok", "200"):
-            return False
-        code = result.get("status_code")
-        if code is not None and str(code)[:1] not in ("2", ""):
-            return False
         d = resp_data(result)
-        if d is None:
-            return False
-        if ok_field and ok_field in d:
-            return truthy(d.get(ok_field))
-        return st in ("success", "ok", "200") or not d.get("error")
+        return str(result.get("status") or "").lower() in ("", "success", "ok", "200") \
+            and str(result.get("status_code") or 2)[:1] == "2" and not d.get("error") \
+            and all(truthy(d[k]) for k in (ok_field, "ok") if k in d)
     except Exception:
         return False
 
 
+def var_ok(vs, tool, f):
+    """call_ok on the engine's copy of the last response (<tool>_response.data.*): the ok flag when set, else no error."""
+    p = tool + "_response.data."
+    o = vget(vs, p + f, "")
+    return truthy(o) if str(o) else not vget(vs, p + "error")
+
+
+def err_kind(result):
+    """An answer that is not a service failure: 'done' (already recorded/exists) or 'failed' (locked, no tries left)."""
+    e = api_error(result).lower()
+    if re.search(r"locked|too many", e) or str((resp_data(result) or dict()).get(nm("verify_left", "wrong_answers_left"))).strip() in ("0", "0.0"):
+        return "failed"
+    return "done" if re.search(r"already|duplicate|(?<!not )exists", e) else ""
+
+
+def fails(vs, tool, add=0):
+    """Failed answers of `tool` in this call (w_fail_<tool>), plus `add`, stored when `add` is given."""
+    n = cnt(vs, "w_fail_" + tool) + add
+    if add:
+        vset(vs, "w_fail_" + tool, str(n))
+    return n
+
+
+SVC = "Do not call it again: tell the customer it cannot be done right now and close the call as the rules say for a service error."
+
+
+def svc_close():
+    """SVC with the closing table's service-error outcome (post-hooks; pre-hooks keep RT small and use SVC)."""
+    se = pair((RT.get("closing") or dict()).get("service_error"))
+    return ("Do not call it again: tell the customer it cannot be done right now. Then " + close_instruction(se["outcome"], se["reason"])) if se["outcome"] else SVC
+
+
 def api_error(result):
     try:
-        d = resp_data(result) or dict()
-        return str(d.get("error") or (result or dict()).get("message") or "")
+        return str((resp_data(result) or dict()).get("error") or result.get("message") or "")
     except Exception:
         return ""
 
@@ -101,31 +125,27 @@ def set_next(result, text):
 
 def body_of(config):
     try:
-        if isinstance(config, dict):
-            b = config.get("body")
-            if isinstance(b, dict):
-                return b
-            if isinstance(b, str) and b.strip().startswith("{"):
-                b2 = json.loads(b)
-                config["body"] = b2
-                return b2
+        b = config.get("body")
+        if isinstance(b, str):
+            b = json.loads(b)
+            config["body"] = b
+        if isinstance(b, dict):
+            return b
     except Exception:
         pass
     return dict()
 
 
 def block_request(config, vs, flag, info, tool=""):
-    """Stop a request before it reaches the bank. The URL is replaced by one that cannot resolve and whose host
-    name says why; the explanation is also stored in w_last_event, which every conversation prompt shows, because
-    the post-hook does not run for a request that never got an HTTP response."""
-    code = re.sub(r"[^a-z0-9]+", "-", str((info or dict()).get("code") or "rule").lower()).strip("-")[:30]
+    """Stop a request before it reaches the bank: the URL cannot resolve and its host name says why. The reason
+    also goes to w_last_event (every prompt shows it): no post-hook runs for a request without an HTTP response."""
+    g = info.get
     try:
-        config["url"] = "https://not-sent-" + (code or "rule") + "-nothing-recorded.invalid/"
+        config["url"] = "https://not-sent-" + (re.sub(r"[^a-z0-9]+", "-", str(g("code") or "rule").lower()).strip("-")[:30] or "rule") + "-nothing-recorded.invalid/"
     except Exception:
         pass
     vset(vs, flag, json.dumps(info))
-    vset(vs, "w_last_event", "Your last " + (tool or "tool") + " request was NOT sent to the bank and nothing was recorded. "
-         + str((info or dict()).get("message") or "") + " " + str((info or dict()).get("next") or ""))
+    vset(vs, "w_last_event", "Your last " + (tool or "tool") + " request was NOT sent to the bank and nothing was recorded. " + str(g("message") or "") + " " + str(g("next") or ""))
 
 
 def request_sent(vs):
@@ -162,18 +182,6 @@ def note_intents(vs):
     return n
 
 
-def unsent_notes(vs):
-    """Note intents not sent yet, in get_account order: list of (product id, reason)."""
-    intents = note_intents(vs)
-    sent = notes_of(vs)
-    out = []
-    for p in products_of(vs):
-        pid = p.get("id")
-        if pid in intents and pid not in sent and pid not in promised_of(vs):
-            out.append((pid, intents[pid]))
-    return out
-
-
 def notes_apply(vs):
     """Notes are used in this call: enabled by the policy and enough products (some banks note only multi-product calls)."""
     nt = RT.get("notes") or dict()
@@ -184,7 +192,7 @@ def notes_apply(vs):
 
 def missing_notes(vs, facts):
     """Products with no recorded promise and no note yet, as 'id (name, reason ...)' texts; [] when notes do not apply."""
-    if facts.get("transfers") or not facts.get("verified") or not notes_apply(vs):
+    if facts.get("transfers") or not facts.get("verified") or not notes_apply(vs) or fails(vs, nm("note_tool", "add_note")) >= 2:
         return []
     out = []
     intents = note_intents(vs)
@@ -211,17 +219,11 @@ def notes_instruction(vs):
 
 
 def today_of(vs):
-    d = to_date(vget(vs, "w_today"))
-    if d is None:
-        d, t = parse_now(vget(vs, nm("now_var", "now")))
-    return d
+    return to_date(vget(vs, "w_today")) or parse_now(vget(vs, nm("now_var", "now")))[0]
 
 
 def now_time_of(vs):
-    t = str(vget(vs, "w_now_time") or "")
-    if not t:
-        d, t = parse_now(vget(vs, nm("now_var", "now")))
-    return t
+    return str(vget(vs, "w_now_time") or "") or parse_now(vget(vs, nm("now_var", "now")))[1]
 
 
 def products_of(vs):
@@ -229,35 +231,33 @@ def products_of(vs):
 
 
 def find_product(products, pid):
-    pid = str(pid or "").strip()
-    for p in products:
-        if str(p.get("id")) == pid:
-            return p
-    low = pid.lower()
-    if low:
+    low = str(pid or "").strip().lower()
+    for f in ("id", "name", "type"):
         for p in products:
-            if low == str(p.get("name") or "").lower() or low == str(p.get("type") or "").lower():
+            if low and low == str(p.get(f) or "").lower():
                 return p
-    if len(products) == 1 and not pid:
-        return products[0]
-    return None
+    return products[0] if len(products) == 1 and not low else None
 
 
-def sent_ok(vs, tool, prefix):
-    """{product id: value} of requests a pre-hook marked as sent, when the engine counted every request of `tool` as a
-    success and none as a failure. Parallel tool calls share one post-hook snapshot, so a post-hook can credit the
-    wrong product; per-product marks and the engine's counters survive. Any failure: {} (explicit marks only)."""
-    sent = per_key(vs, prefix)
-    if not sent:
-        return dict()
+def sent_ok(vs, tool, prefix, okf):
+    """{product id: value} of requests a pre-hook marked as sent ('0': known failed), when the engine counted every
+    request of `tool` as a success, none as a failure, and the last answer is ok (var_ok). Parallel tool calls can
+    leave a post-hook unsure which product it answers; per-product marks and the counters survive. Else {}."""
+    sent = dict((k, v) for k, v in per_key(vs, prefix).items() if v != "0")
     ok = int(num(vget(vs, tool + "_success_count", 0)))
     bad = int(num(vget(vs, tool + "_failure_count", 0)))
-    return sent if bad == 0 and ok >= len(sent) else dict()
+    return sent if sent and bad == 0 and ok >= len(sent) and var_ok(vs, tool, okf) else dict()
+
+
+def in_flight(vs, prefix, done):
+    """Products a pre-hook marked as sent (prefix) and no post-hook credited yet (done prefix)."""
+    d = per_key(vs, done)
+    return [k for k, v in per_key(vs, prefix).items() if v != "0" and k not in d]
 
 
 def promised_of(vs):
     out = csv_list(vget(vs, "w_promised"))
-    for pid in list(per_key(vs, "w_promised_")) + list(sent_ok(vs, nm("promise_tool", "create_promise"), "w_cp_sent_")):
+    for pid in list(per_key(vs, "w_promised_")) + list(sent_ok(vs, nm("promise_tool", "create_promise"), "w_cp_sent_", nm("promise_ok", "ok"))):
         if pid not in out:
             out.append(pid)
     return out
@@ -266,7 +266,7 @@ def promised_of(vs):
 def notes_of(vs):
     n = load_json(vget(vs, "w_notes"), dict())
     n = n if isinstance(n, dict) else dict()
-    n.update(sent_ok(vs, nm("note_tool", "add_note"), "w_note_sent_"))
+    n.update(sent_ok(vs, nm("note_tool", "add_note"), "w_note_sent_", nm("note_ok", "ok")))
     n.update(per_key(vs, "w_note_"))
     return n
 
@@ -275,21 +275,15 @@ def transfers_of(vs):
     out = csv_list(vget(vs, "w_transfers"))
     try:
         for k in list(vs.keys()):
-            if str(k).startswith("w_transfer_q_") and str(vget(vs, k)):
-                q = str(vget(vs, k))
-                if q not in out:
-                    out.append(q)
+            q = str(vget(vs, k)) if str(k).startswith("w_transfer_q_") else ""
+            if q and q not in out:
+                out.append(q)
     except Exception:
         pass
-    if not out:
-        tool = nm("transfer_tool", "transfer_to_agent")
-        try:
-            if num(vget(vs, tool + "_success_count", 0)) > 0 and truthy(vget(vs, tool + "_response.data." + nm("transfer_ok", "ok"), "true")):
-                q = vget(vs, tool + "_args." + nm("queue_field", "queue"))
-                if q:
-                    out = [str(q)]
-        except Exception:
-            pass
+    t = nm("transfer_tool", "transfer_to_agent")
+    q = vget(vs, t + "_args." + nm("queue_field", "queue"))
+    if not out and q and num(vget(vs, t + "_success_count", 0)) > 0 and truthy(vget(vs, t + "_response.data." + nm("transfer_ok", "ok"), "false")):
+        out = [str(q)]
     return out
 
 
@@ -310,7 +304,7 @@ def collect_facts(vs):
     promises = promised_of(vs)
     if not promises:
         tool = nm("promise_tool", "create_promise")
-        if num(vget(vs, tool + "_success_count", 0)) > 0 and truthy(vget(vs, tool + "_response.data." + nm("promise_ok", "ok"))):
+        if num(vget(vs, tool + "_success_count", 0)) > 0 and truthy(vget(vs, tool + "_response.data." + nm("promise_ok", "ok"))) and not vget(vs, tool + "_response.data.error"):
             promises = ["unknown"]
     st = id_state_of(vs)
     cb_done = str(vget(vs, "w_callback_done")) == "yes"

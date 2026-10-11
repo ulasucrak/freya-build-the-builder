@@ -4,6 +4,8 @@
 # goes out before, or together with, another write; the engine sends close_call from close_api as the last call.
 config = extra
 body = body_of(config)
+# every model close_call is stopped here and counted, so final_close_pre can tell a failed engine close apart
+vset(vs, "w_close_reqs", str(int(num(vget(vs, "w_close_reqs", 0))) + 1))
 # in the wrap-up step the to-do list is binding: while notes are missing the close is refused (twice at most, so a
 # model that never sends them cannot keep the call open; the turn cap closes it in the end)
 held = int(num(vget(vs, "w_close_holds", 0)))
