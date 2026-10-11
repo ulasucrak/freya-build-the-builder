@@ -188,7 +188,8 @@ class GenericWorkflowTest(unittest.TestCase):
         sp = self.wf["system_prompt"]
         for s in ("Speak Turkish", "{{clientNumber}}", "{{now}}", "{{w_now_text}}", "never ask the caller",
                   "Start from orders.list", "Never read more than one order", "Hangi siparişinizi öğrenmek istersiniz?",
-                  "Sizi müşteri temsilcimize aktarıyorum.", "orders_slot_change: Change the delivery slot.", "end_conversation"):
+                  "Sizi müşteri temsilcimize aktarıyorum.", "orders_slot_change: Change the delivery slot.", "end_conversation",
+                  "waiting phrase"):
             self.assertIn(s, sp)
         self.assertNotIn("Old rule that was struck", sp)
         self.assertLess(G.prompt_sizes(self.wf, ["clientNumber", "now"])["assistant"], 10000)

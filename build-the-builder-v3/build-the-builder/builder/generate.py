@@ -1863,7 +1863,8 @@ def generic_system_prompt(p, language, tool_lines):
         "Every date decision uses %s: now is {{w_now_text}}. Never use another clock or a date you assume." % now_var,
         "",
         "Tools: one call per message, then wait for its result; copy values from earlier results exactly; follow a result's"
-        " what_to_do_next; never read a service's message text or codes aloud.",
+        " what_to_do_next; never read a service's message text or codes aloud. Before calling a service, say the rules'"
+        " waiting phrase (if the rules define one) in the same message.",
         _bul(tool_lines),
         "",
         "The rules:",
