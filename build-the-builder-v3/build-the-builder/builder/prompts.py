@@ -38,6 +38,7 @@ RULES = """How the platform uses these texts:
 - Routing is decided elsewhere: never describe routing or name other steps. If a step has tools, refer to them by name.
 - The current texts were generated from the policy and work together with the code steps: keep their instructions about tools, tool results, `what_to_do_next` hints, facts blocks and closing unless the brief contradicts them.
 - Your job: find what is missing or wrong compared with the BRIEF (verbatim sentences the brief prescribes, rules the policy lost, wrong wording, forbidden words before identity is verified, honesty about failed tools) and fix it with small edits. Do not restate what is already there.
+- Keep the texts short: every turn sends system_prompt plus one step's text, and a longer prompt makes each reply slower. Say each rule once: do not copy a rule from system_prompt into a step (or the other way), do not restate tool descriptions, and add a sentence only where the brief needs it.
 - Keep every {{placeholder}} spelled exactly as it is. Use only placeholders listed as available. Never write double braces for anything else.
 
 Edit operations (answer with a list; at most %d edits):
