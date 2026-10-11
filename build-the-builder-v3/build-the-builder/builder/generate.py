@@ -377,8 +377,26 @@ def _field_desc(spec, extra=""):
     return d
 
 
+_FREE_TEXT_HINT = ("Neutral and short, a few words about the reason only. Never write health, family or other personal "
+                   "details the customer mentioned (personal data protection: store only what the bank needs).")
+
+
+def _free_text_fields(p, name, keep):
+    """String fields of a write tool the model would fill with free text: no enum, not an id, amount, date or a role
+    the rules use (`keep`). Optional ones are left out of the tool (data minimisation: nothing to store), required
+    ones get a 'no personal details' hint."""
+    t = p["tools"].get(name) or {}
+    calls = set(_var_names(p))
+    out = {}
+    for f, spec in (t.get("fields") or {}).items():
+        if f in calls or f in keep or spec.get("enum") or (spec.get("type") or "string") != "string":
+            continue
+        out[f] = bool(spec.get("required"))
+    return out
+
+
 def _api_tool(p, name, description, field_hints=None, baked=None, pre=None, post=None, rt=None, retries=0,
-              timeout=12000, mapping=None, config_extra=None):
+              timeout=12000, mapping=None, config_extra=None, omit=()):
     """An api_call tool from the policy's tool definition. Call variables with the field's name are baked,
     `baked` gives fixed values, every other field is filled by the model."""
     t = p["tools"][name]
@@ -387,6 +405,8 @@ def _api_tool(p, name, description, field_hints=None, baked=None, pre=None, post
     field_hints = field_hints or {}
     baked = baked or {}
     for f, spec in t["fields"].items():
+        if f in omit:
+            continue
         leaf = {"type": spec.get("type") or "string"}
         if leaf["type"] not in ("string", "number", "integer", "boolean"):
             leaf["type"] = "string"
@@ -593,26 +613,76 @@ def rule_phases(p):
 
     def hit(x, texts):
         return any(x[:60] in t or t[:60] in x for t in texts)
-    out = {}
+    out, nowhere = {}, []
     for r in p["rules"]:
         named = re.findall(r"`(\w+)`", r["text"].split("|")[0])
         if re.match(r"\s*Variable:", r["text"]) and named and set(named) <= calls:
             out[r["id"]] = "drop"
             continue
         x = _norm_rule(r["text"])
-        g, n = hit(x, pre), hit(x, post)
-        out[r["id"]] = "all" if hit(x, any_) or g == n else ("greet" if g else "negotiate")
-    return out
+        g, n, a = hit(x, pre), hit(x, post), hit(x, any_)
+        out[r["id"]] = "all" if a or g == n else ("greet" if g else "negotiate")
+        if not (a or g or n):
+            nowhere.append(r)
+    return _balance(p, out, nowhere)
 
 
-def _phase_rules(p, phase):
-    ph = rule_phases(p)
+SYSTEM_PROMPT_TOKENS = (1500, 2500)      # target band for the global system prompt (team guideline)
+
+
+def _est_tokens(text, ratio=3.5):
+    # cl100k on these prompts: 3.5 (raw bank material, codes) to 4.0 characters per token. The upper edge counts with
+    # 3.5 (never ends above), the lower edge with 4.0 (never ends below)
+    return len(text) / ratio
+
+
+def _vocab(p):
+    """Words that tie a rule to one step, taken from the brief's own policy (plus a few generic domain words)."""
+    pre = {"security", "identity", "verif", "callback", "relative", "third party"}
+    for q in p["identity"]["questions"]:
+        f = str(q.get("tool_field") or "").lower()
+        pre |= {f, f.replace("_", " ")} | {w for w in f.split("_") if len(w) > 3 and w not in ("last", "number")}
+    pre |= {str(_tool_name(p, r) or "").lower() for r in ("verify", "callback")}
+    post = {"deadline", "floor", "promise", "persuasion", "attempt"}
+    for k, t in (p["products"].get("types") or {}).items():
+        post |= {str(k).lower(), str(k).lower().replace("_", " ")}
+        post |= {w for w in re.findall(r"[a-z]{4,}", str(t.get("speak_as") or "").lower()) if w not in ("your", "ending")}
+    post |= {str(b.get("name") or "").lower() for b in p.get("bands") or [] if len(str(b.get("name") or "")) > 2}
+    post |= {str(_tool_name(p, r) or "").lower() for r in ("promise", "note")}
+    return {w for w in pre if w}, {w for w in post if w}
+
+
+def _balance(p, phases, nowhere):
+    """Keep the system prompt inside SYSTEM_PROMPT_TOKENS without losing a rule. Too long: rules the policy files
+    nowhere move to the one step whose vocabulary they use (largest first). Too short: step rules move back to the
+    system prompt (shortest first). Rules filed under triggers/outcomes/closing never move."""
+    lo, hi = SYSTEM_PROMPT_TOKENS
+    size = lambda ratio=3.5: _est_tokens(default_system_prompt(p, phases), ratio)
+    if size() > hi:
+        pre_w, post_w = _vocab(p)
+        for r in sorted(nowhere, key=lambda r: -len(r["text"])):
+            x = r["text"].lower()
+            g, n = any(w in x for w in pre_w), any(w in x for w in post_w)
+            if g != n:
+                phases[r["id"]] = "greet" if g else "negotiate"
+                if size() <= hi:
+                    break
+    if size(4.0) < lo:
+        for r in sorted([r for r in p["rules"] if phases.get(r["id"]) in ("greet", "negotiate")], key=lambda r: len(r["text"])):
+            phases[r["id"]] = "all"
+            if size(4.0) >= lo:
+                break
+    return phases
+
+
+def _phase_rules(p, phase, ph=None):
+    ph = rule_phases(p) if ph is None else ph
     return _bul(["[" + r["id"] + "] " + r["text"] for r in p["rules"] if ph.get(r["id"]) == phase])
 
 
-def default_system_prompt(p):
+def default_system_prompt(p, phases=None):
     vars_ = _bul(["%s = {{%s}}%s" % (v["name"], v["name"], (" (" + v["meaning"] + ")") if v["meaning"] else "") for v in p["variables"]])
-    rules = _phase_rules(p, "all")
+    rules = _phase_rules(p, "all", phases)
     phrases = _bul(["%s: \"%s\"" % (k, v) for k, v in p["phrases"].items() if isinstance(v, str)])
     return "\n".join(x for x in [
         "You are a bank's digital phone agent on a live call. Speak %s. Say one to three short sentences per turn and ask one question at a time." % p["language"],
@@ -650,7 +720,7 @@ def default_greet_task(p, cl):
             line += " say \"" + c["say"] + "\";"
         if c["action"] == "callback":
             line += (" ask when the customer can be reached, then call schedule_callback (date YYYY-MM-DD, time HH:MM 24 h) with each day and"
-                     " time the person offers, even one outside the allowed window: the system checks it and says what to do next;")
+                     " time the person offers, even one outside the allowed window: do not judge the time yourself, the system checks it and says what to do next;")
         if c["outcome"]:
             line += " close " + c["outcome"] + (" / " + c["reason"] if c["reason"] else "") + "."
         cases.append(line)
@@ -783,9 +853,12 @@ def generate_workflow(policy, prompts=None, openapi=None, options=None):
                            names["promise_amount"]: "Amount as a number, e.g. 420.5.",
                            names["promise_date"]: "Payment date as YYYY-MM-DD."},
                           pre="promise_pre", post="promise_post", rt=rt, timeout=to)
+    note_free = _free_text_fields(p, tn["note"], {names["note_product"], names["note_reason"]}) if tn["note"] else {}
     t_note = _api_tool(p, tn["note"], tdesc("note", "Record why ONE product ended without a promise. CALL it only at the end of the call, once per product without a promise, when every product is handled and no transfer happened."),
-                       {names["note_product"]: "product_id exactly as listed in the account facts."},
-                       pre="note_pre", post="note_post", rt=rt, timeout=to) if tn["note"] and p["notes"]["enabled"] else None
+                       dict({names["note_product"]: "product_id exactly as listed in the account facts."},
+                            **{f: _FREE_TEXT_HINT for f, req in note_free.items() if req}),
+                       pre="note_pre", post="note_post", rt=rt, timeout=to,
+                       omit=[f for f, req in note_free.items() if not req]) if tn["note"] and p["notes"]["enabled"] else None
 
     t_check = _code_tool("check_offer", "Check a date and/or an amount the customer named for one product, before the read-back. CALL it whenever the customer names a day or an amount themselves.",
                          {"product_id": "product_id exactly as listed in the account facts.",

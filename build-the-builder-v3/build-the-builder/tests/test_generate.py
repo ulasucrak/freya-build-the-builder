@@ -1151,3 +1151,32 @@ class Generalization(unittest.TestCase):
         for _ in range(20):
             y = int(C.identity_value({"answer_format": "digits", "tool_field": "birth_year", "ask": "year of birth"}, {}, r))
             self.assertTrue(1950 <= y <= 2000, y)
+
+    def test_system_prompt_in_token_band(self):
+        """Team guideline: the global system prompt stays within 1500-2500 tokens on every real brief, no rule lost."""
+        for pol in ["S1", "S2", "S3", "S4", "S5", "S6", "S7"]:
+            raw_p = json.loads((KIT / "policies" / (pol + ".policy.json")).read_text())
+            wf = G.generate_workflow(raw_p, openapi=json.loads((KIT / "fixtures" / pol / "openapi.json").read_text()))
+            n = len(wf["system_prompt"])
+            self.assertTrue(1500 <= n / 3.7 <= 2500, (pol, n, round(n / 3.7)))      # ~3.7 characters per cl100k token
+            p = S.normalise(raw_p)
+            ph = G.rule_phases(p)
+            where = {"all": wf["system_prompt"], "greet": wf["nodes"]["greet_verify"]["task_message"],
+                     "negotiate": wf["nodes"]["negotiate"]["task_message"]}
+            for r in p["rules"]:
+                if ph[r["id"]] != "drop":
+                    self.assertIn(G._brace_vars(r["text"], p), where[ph[r["id"]]], (pol, r["id"]))
+
+    def test_check_offer_vague_dates(self):
+        """EDGE-05 / AD-16: a vague period gets the follow-up (deadline); a bare weekday after 'next week' is next week's."""
+        from builder import testmode as T
+        wf = G.generate_workflow(raw("brief-b"))
+        code = [t for t in wf["nodes"]["negotiate"]["tools"] if t["function"]["name"] == "check_offer"][0]["function"]["parameters"]["properties"]["code"]["default"]
+        vs = {"now": "2026-10-14T11:00"}
+        T.run_code_locally(code_of(wf["nodes"]["setup"]), {}, vs)
+        vs["w_account_products"] = [{"product_id": "p1", "type": "personal_loan", "past_due": 310.5, "days_late": 11, "instalment_amount": 103.5}]
+        T.run_code_locally(code_of(wf["nodes"]["prepare_account"]), {}, vs)
+        r = T.run_code_locally(code, {"product_id": "p1", "date": "end of next week"}, vs)[1]
+        self.assertEqual(r["code"], "bad_date")
+        self.assertIn("2026-10-23", r["what_to_do_next"])                        # the deadline to propose if no day comes
+        self.assertEqual(T.run_code_locally(code, {"product_id": "p1", "date": "Thursday"}, vs)[1]["date"][-12:], "(2026-10-22)")

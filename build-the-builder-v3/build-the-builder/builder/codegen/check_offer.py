@@ -7,6 +7,12 @@ today = today_of(vs)
 prods = products_of(vs)
 prod = find_product(prods, args.get("product_id"))
 said = str(args.get("date") or "").strip()
+prev = str(vget(vs, "w_offer_vague") or "")
+wd = re.fullmatch(r"(?:on\s+)?([a-z]+day)", said.lower())
+wk = re.search(r"\b(next|this)\s+week\b", prev.lower())
+if wd and wk and today is not None and weekday_from_word(wd.group(1)) is not None:
+    # 'end of next week' ... 'Thursday': that weekday in the week named before (no 'next <weekday>' rule needed)
+    said = iso(week_monday(today) + datetime.timedelta(days=(7 if wk.group(1) == "next" else 0) + weekday_from_word(wd.group(1))))
 amt = to_number(args.get("amount"))
 out = dict(ok=False, code="", date="", amount=None, suggest_date="", suggest_amount=None, what_to_do_next="")
 if prod is None:
@@ -29,7 +35,14 @@ else:
     if chk.get("ok"):
         out["what_to_do_next"] = "Valid for " + str(prod.get("id")) + ((": " + what) if what else "") + ". Use it in the read-back."
     elif code == "bad_date":
-        out["what_to_do_next"] = "The day could not be read as one exact date. Ask the customer for the exact day, as the rules say for a vague date."
+        vset(vs, "w_offer_vague", said)
+        dl = to_date(prod.get("deadline"))
+        if prev:
+            out["what_to_do_next"] = ("Still no exact day. Propose the latest date you can record, " + date_label(dl) + ", as the rules say for a vague date."
+                                      if dl else "Still no exact day: follow the rules for a vague date.")
+        else:
+            out["what_to_do_next"] = ("The day could not be read as one exact date. Ask once for the exact day. If the customer still gives none, propose the latest date you can record, "
+                                      + date_label(dl) + ", as the rules say for a vague date." if dl else "The day could not be read as one exact date. Ask once for the exact day, as the rules say for a vague date.")
     elif code == "after_deadline":
         out["what_to_do_next"] = ("This day is after the latest date that can be recorded. Say the latest date you can record is "
                                   + out["suggest_date"] + " and offer it.")
