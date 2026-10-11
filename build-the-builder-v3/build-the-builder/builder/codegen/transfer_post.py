@@ -15,5 +15,7 @@ if call_ok(result, nm("transfer_ok", "ok")):
     else:
         t += "close the call as the rules say."
     set_next(result, t)
+    set_action(vs)
 else:
     set_next(result, "The transfer did NOT work (" + api_error(result) + "). Do not say the customer was transferred. Call transfer_to_agent once more with the same queue.")
+    set_action(vs, "Transfer did NOT work", "call transfer_to_agent once more with the same queue")

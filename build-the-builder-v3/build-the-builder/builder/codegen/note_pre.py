@@ -12,6 +12,12 @@ if prod is not None:
     body[pf] = prod.get("id")
 pid = str(body.get(pf) or "")
 reason = str(body.get(rf) or "")
+# privacy (data minimisation, KVKK): the model must not store what the customer told (health, a death, family,
+# work). Every free-text field of the request gets a short fixed phrase built from the reason code only.
+reasons = [str(r) for r in ((RT.get("notes") or dict()).get("tool_reasons") or [])]
+for k in list(body.keys()):
+    if k not in (pf, rf) and str(k).lower() in NOTE_TEXT_FIELDS:
+        body[k] = safe_note_text(reason, reasons)
 vset(vs, "w_note_pending", pid + "|" + reason)
 vset(vs, "w_note_block", "")
 info = None
