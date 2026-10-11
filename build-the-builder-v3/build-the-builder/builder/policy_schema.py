@@ -38,8 +38,12 @@ every section may carry "notes": [verbatim brief sentences].
                  path?, response?:{<field>:{type, enum}}}}  plus optional "base_url" in tools or in api.base_url
   rules        [{id, text}]
 
+A policy whose tools lack one of the roles verify_identity / get_account / create_promise / close_call (is_generic;
+roles matched like the generator does) gets a generic service-agent workflow: check_generic then requires only the
+rules, and the collection sections above are optional.
+
 Optional extensions (filled by normalise() when absent, may be given explicitly by the extractor):
-  language     "English"
+  language     "English"   (the language of the calls; a {name: ...} object or a list is reduced to the name)
   api          {base_url}
   closing      {promise, id_fail, callback, no_callback, refused, service_error: {outcome, reason},
                 promise_mixed: {outcome, reason} (a promise recorded and some product noted), promise_mixed_except:
@@ -67,6 +71,14 @@ TRIGGER_ACTIONS = ["transfer", "note", "callback", "close", "continue", "say"]
 NEXT_WEEKDAY = ["following_week", "next_occurrence", ""]
 TOOL_ROLES = ["verify_identity", "get_account", "create_promise", "add_note", "schedule_callback",
               "transfer_to_agent", "close_call"]
+# How a tool takes a collection role: its exact role name, else a keyword in its name (the generator's own match,
+# builder.generate.ROLES). A policy whose tools lack one of REQUIRED_ROLES gets a generic service-agent workflow from
+# the generator; the collection sections (identity, products, bands, outcomes ...) are then not used.
+ROLE_KEYWORDS = {"verify_identity": ("verify", "identity"), "get_account": ("account",), "create_promise": ("promise",),
+                 "add_note": ("note",), "schedule_callback": ("callback",), "transfer_to_agent": ("transfer",),
+                 "close_call": ("close",)}
+REQUIRED_ROLES = ["verify_identity", "get_account", "create_promise", "close_call"]
+NOT_TOOLS = ("base_url", "server", "servers")
 
 ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 HHMM = re.compile(r"^\d{2}:\d{2}$")
@@ -172,6 +184,52 @@ def find_tool_field(policy, tool, *keywords):
     return ""
 
 
+def tool_names(policy):
+    """Names of the policy's tools (raw or normalised policy)."""
+    return [_s(n) for n in _dict(_dict(policy).get("tools")) if _s(n) and n not in NOT_TOOLS]
+
+
+def role_tools(policy):
+    """{collection role: tool name} for every role one of the policy's tools takes (see ROLE_KEYWORDS)."""
+    names = tool_names(policy)
+    out = {}
+    for role, kws in ROLE_KEYWORDS.items():
+        hit = role if role in names else next((n for n in names if any(k in n.lower() for k in kws)), "")
+        if hit:
+            out[role] = hit
+    return out
+
+
+def is_generic(policy):
+    """True when the tools lack a role the debt-collection workflow needs (verify, account, promise, close): the
+    generator then builds a generic service agent from the tools, the variables and the rules, and the collection
+    sections of the contract are optional."""
+    roles = role_tools(policy)
+    return any(r not in roles for r in REQUIRED_ROLES)
+
+
+def language_name(x):
+    """'German', {'name': 'German'}, ['German'] -> 'German'; '' when nothing usable."""
+    if isinstance(x, dict):
+        x = x.get("name") or x.get("language") or x.get("value") or ""
+    elif isinstance(x, (list, tuple)):
+        x = next((v for v in x if _s(v)), "")
+    return _s(x) if isinstance(x, (str, int, float)) else ""
+
+
+def _example(v):
+    """The example value of a call variable: `example`, else the first of `examples`, else `sample`; None when absent."""
+    for k in ("example", "examples", "sample", "example_value"):
+        x = v.get(k)
+        if isinstance(x, (list, tuple)):
+            x = next((e for e in x if e not in (None, "")), None)
+        if isinstance(x, dict):
+            continue
+        if x not in (None, ""):
+            return x if isinstance(x, str) else str(x) if not isinstance(x, bool) else str(x).lower()
+    return None
+
+
 # ----------------------------------------------------------------------------------------------- normalise
 
 def normalise(policy):
@@ -188,6 +246,10 @@ def normalise(policy):
             v = {"name": v}
         if isinstance(v, dict) and _s(v.get("name")):
             nv = {**v, "name": _s(v.get("name")).strip("{} `"), "meaning": _s(v.get("meaning"))}
+            if v.get("example") in (None, "") or isinstance(v.get("example"), (list, tuple, dict)):
+                ex = _example(v)              # the generator's test_variables come from these examples
+                if ex is not None:
+                    nv["example"] = ex
             variables.append(nv)
     p["variables"] = variables
 
@@ -389,7 +451,7 @@ def normalise(policy):
             rules.append({"id": str(i + 1), "text": _s(r)})
     p["rules"] = rules
 
-    p["language"] = _s(p.get("language")) or "English"
+    p["language"] = language_name(p.get("language")) or "English"
     p["closing"] = derive_closing(p)
     return p
 
@@ -629,6 +691,8 @@ def check(policy):
     errors, warnings = [], []
     if not isinstance(policy, dict):
         return ["policy is not a JSON object"], []
+    if is_generic(policy):
+        return check_generic(policy)
     for k in REQUIRED_KEYS:
         if k not in policy:
             errors.append("missing top-level key: %s" % k)
@@ -754,4 +818,39 @@ def check(policy):
             warnings.append("closing.%s could not be derived from the outcome table" % k)
     if not p["rules"]:
         warnings.append("rules is empty")
+    return errors, warnings
+
+
+def check_generic(policy):
+    """(errors, warnings) for a policy whose tools take no full set of collection roles (is_generic). The generic
+    workflow uses the tools, the call variables, the clock, the language, the phrases and the rules, so only the rules
+    can block it (the policy fix can fill them from the brief); the collection sections are neither required nor
+    checked, which spares a pointless policy-fix round."""
+    errors = []
+    missing = [r for r in REQUIRED_ROLES if r not in role_tools(policy)]
+    warnings = ["generic policy: no tool takes the role%s %s; collection sections are not checked" % (
+        "" if len(missing) == 1 else "s", ", ".join(missing))]
+    for k in policy:
+        if k not in REQUIRED_KEYS and k not in ("language", "api", "closing", "notes"):
+            warnings.append("unknown top-level key kept as is: %s" % k)
+    if "rules" not in policy:
+        errors.append("missing top-level key: rules")
+    try:
+        p = normalise(policy)
+    except Exception as e:  # normalise must not fail; report instead of raising
+        return errors + ["normalise failed: %r" % (e,)], warnings
+    raw_cal = _dict(policy.get("calendar"))
+    for h in _list(raw_cal.get("holidays")):
+        if not ISO_DATE.match(_s(h)):
+            warnings.append("calendar.holidays: not YYYY-MM-DD: %r" % (h,))
+    if p["variables"] and p["clock"]["now_variable"] not in [v["name"] for v in p["variables"]]:
+        warnings.append("clock.now_variable %r is not listed in variables" % p["clock"]["now_variable"])
+    if not p["tools"]:
+        warnings.append("tools is empty: the agent can only talk")
+    elif not p["api"]["base_url"] and not all(_s(t.get("url")) for t in p["tools"].values()):
+        warnings.append("no api.base_url; generate_workflow needs the openapi file to know the tool URLs")
+    if "rules" in policy and not p["rules"]:
+        errors.append("rules is empty: a generic workflow follows the brief's rules")
+    if not language_name(policy.get("language")):
+        warnings.append("language missing; the agent speaks %s" % p["language"])
     return errors, warnings
