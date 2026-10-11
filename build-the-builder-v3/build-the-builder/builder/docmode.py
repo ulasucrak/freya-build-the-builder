@@ -35,11 +35,15 @@ Return one JSON object:
                 "description": "meaning and format", "from_variable": "name of a call variable that fills it, or null"}],
     "response": "the response fields the agent uses, their meaning, and every documented error or status (HTTP code too)"
  }],
+ "envelope": {"fields_under": "the key the service fields are nested under in every request body, or null when they are top-level",
+              "constant": {"other top-level parts of every request body with fixed values, e.g. metadata objects": "..."}},
  "notes": ["anything about the services the agent must know: formats, codes, limits"]
 }
 Rules:
 - Only services the agent itself calls during a call. Use paths, methods and field names exactly as documented.
-- A field that always comes from a call variable gets from_variable; everything the conversation decides gets null.
+- A field that always comes from a call variable gets from_variable; a field the documents give one fixed value gets
+  "fixed": "<that value>"; everything the conversation decides gets neither.
+- Fields are the service's own fields (the ones inside the envelope), never the envelope keys.
 - Copy nothing that is not in the documents.
 
 DOCUMENTS:
@@ -75,9 +79,75 @@ DOCUMENTS:
 """
 
 
-def _docs_text(docs, limit=150000):
+TEST_PROMPT = """From the documents below, write up to {n} test calls for the bank's phone assistant: the example
+conversations the documents contain first (as close to them as possible), then the most important other situations.
+Each test uses one of the bank's test customers exactly as the documents list them.
+
+Return one JSON object: {{"tests": [{{
+  "id": "T1",
+  "title": "short",
+  "variables": {{"<call variable name>": "<value>"}},
+  "caller": "who the caller is and exactly what they say and want, step by step, in the language of the calls",
+  "success": ["checkable facts about what the assistant must say or do, from the documents"]
+}}]}}
+Call variables: {variables}
+
+DOCUMENTS:
+{docs}
+"""
+
+REPAIR_PROMPT = """The assistant below failed some test calls. Rewrite its procedure so that it handles them, without
+breaking what works. Keep the format and language. Use only what the documents support.
+
+Return one JSON object: {{"procedure": "the complete new procedure", "diagnosis": "one or two sentences"}}
+
+CURRENT PROCEDURE:
+{procedure}
+
+FAILED TESTS (success criteria, the judge's reason, the transcript end):
+{failures}
+
+DOCUMENTS:
+{docs}
+"""
+
+CALLER = ("OUTPUT RULE: Write only the words you say on the phone. No stage directions. One or two short sentences per "
+          "turn, then wait.\n\nWHO YOU ARE AND WHAT HAPPENS: {caller}\n\nWhen the assistant says goodbye, say goodbye and nothing more.")
+
+
+def run_tests(freya, agent_id, tests, label, trace, max_wait_s):
+    """One simulation of the tests; returns rows [{id, pass, reason, transcript}] (Freya's judge decides)."""
+    specs = [{"name": "%s %s" % (t["id"], str(t.get("title") or "")[:40]), "prompt": CALLER.format(caller=t.get("caller") or ""),
+              "successCriteria": "All of these are true:\n- " + "\n- ".join(t.get("success") or ["the call is handled correctly"]),
+              "tags": ["docmode-selftest"]} for t in tests]
+    made = freya.create_personas(specs)["personas"]
+    ids = {p["id"]: t for p, t in zip(made, tests)}
+    t0 = time.time()
+    sim_id, it_id, status = freya.run_simulation(agent_id, label, {pid: dict(t.get("variables") or {}) for pid, t in ids.items()})
+    rows = []
+    for run in freya.get_iteration(sim_id, it_id)["runs"]:
+        t = ids.get(run.get("personaId"))
+        if not t:
+            continue
+        tx = ""
+        try:
+            call = freya.get_call(run["callId"])
+            tx = "\n".join("%s: %s" % (m["role"][0].upper(), m.get("message", "")[:300]) for m in call.get("messages", [])
+                           if m.get("role") in ("assistant", "user"))[-2500:]
+        except Exception:
+            pass
+        rows.append({"id": t["id"], "pass": run.get("outcome") == "pass", "reason": str(run.get("reason") or "")[:600],
+                     "success": t.get("success"), "transcript": tx})
+    trace.test_run(label, cases=[t["id"] for t in tests], passed=sum(r["pass"] for r in rows), total=len(rows),
+                   duration_s=round(time.time() - t0, 1), detail="simulation %s, status %s" % (sim_id, status))
+    return rows
+
+
+def _docs_text(docs, limit=150000, per_doc=40000):
     parts = []
     for name, text in docs:
+        if len(text) > per_doc:                               # a big data file must not push the documents out
+            text = text[:per_doc] + "\n[... %d more characters of this file not shown]" % (len(text) - per_doc)
         parts.append("=== %s%s ===\n%s" % (name, (" (" + docs.dates[name] + ")") if getattr(docs, "dates", {}).get(name) else "", text))
     out = "\n\n".join(parts)
     return out[:limit]
@@ -89,7 +159,14 @@ def _braces_safe(text, variables):
     return re.sub(r"\{\{\s*(\w+)\s*\}\}", lambda m: "{{" + m.group(1) + "}}" if m.group(1) in keep else "{ " + m.group(1) + " }", str(text or ""))
 
 
-def service_tool(svc, base_url, variables):
+def _join(base_url, path):
+    """Base URL + service path, without doubling a path prefix the base already has (…/v1 + /v1/x -> …/v1/x)."""
+    m = re.match(r"(https?://[^/]+)(/.*)?$", base_url.rstrip("/"))
+    host, bpath = (m.group(1), m.group(2) or "") if m else (base_url.rstrip("/"), "")
+    return host + (path if bpath and path.startswith(bpath + "/") else bpath + path)
+
+
+def service_tool(svc, base_url, variables, rt=None):
     """One api_call tool from an extracted service description."""
     props, required = {}, []
     for f in svc.get("fields") or []:
@@ -99,7 +176,9 @@ def service_tool(svc, base_url, variables):
         typ = f.get("type") if f.get("type") in ("string", "number", "integer", "boolean") else "string"
         var = f.get("from_variable")
         leaf = {"type": typ}
-        if var and var in variables:
+        if f.get("fixed") not in (None, ""):
+            leaf["default"] = f.get("fixed")                    # a value the documents fix: never the model's
+        elif var and var in variables:
             leaf["default"] = "{{" + var + "}}"               # filled from the call variable, never by the model
         else:
             leaf["default"] = "{{" + name + "}}"
@@ -108,23 +187,26 @@ def service_tool(svc, base_url, variables):
                 required.append(name)
         props[name] = leaf
     path = "/" + str(svc.get("path") or "").lstrip("/")
+    if re.match(r"https?://", str(svc.get("path") or "")):    # a full URL in the documents: keep only its path
+        path = "/" + re.sub(r"^https?://[^/]+/?", "", str(svc.get("path")))
     desc = (str(svc.get("purpose") or "") + " Result: " + str(svc.get("response") or ""))[:1000]
     return {"type": "function", "config": {"timeoutMs": 12000, "maxRetries": 0},
             "function": {"name": re.sub(r"[^a-z0-9_]", "_", str(svc.get("name") or "service").lower())[:60],
                          "handler": "__function__:api_call", "description": desc,
                          "parameters": {"type": "object", "properties": {
-                             "url": {"type": "string", "default": base_url.rstrip("/") + path},
+                             "url": {"type": "string", "default": _join(base_url, path)},
                              "method": {"type": "string", "default": str(svc.get("method") or "POST").upper()},
                              "headers": {"type": "object", "properties": {"Content-Type": {"type": "string", "default": "application/json"}}},
-                             "body": {"type": "object", "properties": props, "required": required}}}}}
+                             "body": {"type": "object", "properties": props, "required": required}}}},
+            **({"pre_process_code": G.build_code("doc_wrap", rt, "pre")} if rt and (rt.get("envelope") or {}).get("fields_under") else {})}
 
 
 def assemble(api, flow, base_url):
     """Extracted services + written procedure -> a Freya workflow (deterministic)."""
     variables = [str(v.get("name")) for v in api.get("variables") or [] if v.get("name")]
     now_var = next((v for v in variables if v.lower() in ("now", "call_time", "calltime", "now_iso")), "now")
-    rt = {"names": {"now_var": now_var}}
-    tools = [service_tool(s, base_url, variables) for s in api.get("services") or []]
+    rt = {"names": {"now_var": now_var}, "envelope": api.get("envelope") or {}}
+    tools = [service_tool(s, base_url, variables, rt) for s in api.get("services") or []]
     endings = [str(e.get("name")) for e in flow.get("endings") or [] if e.get("name")]
     end_tool = G._code_tool("end_call_now", "End the call: CALL it in the same message as your goodbye, once, as the very last action.",
                             {"ending": "How the call ended: one of " + ", ".join(endings or ["done"]) + "."}, "doc_end", rt)
@@ -148,7 +230,7 @@ def assemble(api, flow, base_url):
     return wf
 
 
-def build(briefs, base_url, slot, out_dir, trace_dir, state_file, budget_min=28.0, freya=None):
+def build(briefs, base_url, slot, out_dir, trace_dir, state_file, budget_min=28.0, freya=None, no_test=False, max_tests=6):
     """Run document mode end to end. Returns the same shape of result as pipeline.Builder.run()."""
     if freya is None:
         import freya as freya_mod
@@ -193,6 +275,39 @@ def build(briefs, base_url, slot, out_dir, trace_dir, state_file, budget_min=28.
         freya.export_workflow(saved["workflow_id"], export)
         trace.freya("exported", workflow_id=saved.get("workflow_id"), path=export)
         status = "ok"
+        if no_test or budget.remaining() < 420:
+            trace.note("self-test skipped (%s)" % ("--no-test" if no_test else "not enough time"))
+        else:
+            try:
+                variables = [str(v.get("name")) for v in api.get("variables") or [] if v.get("name")]
+                tests = llm.ask_json(TEST_PROMPT.format(n=max_tests, variables=json.dumps(variables), docs=text),
+                                     system=API_SYSTEM, purpose="document mode: write self-test calls",
+                                     timeout_s=min(300, budget.remaining() - 300)).get("tests") or []
+                tests = [t for t in tests if isinstance(t, dict) and t.get("caller")][:max_tests]
+                rows = run_tests(freya, saved["agent_id"], tests, "self-test v1", trace, budget.remaining() - 200) if tests else []
+                failed = [r for r in rows if not r["pass"]]
+                if failed and budget.remaining() > 360:
+                    fix = llm.ask_json(REPAIR_PROMPT.format(procedure=flow.get("procedure"), docs=text, failures=json.dumps(
+                        [{k: r[k] for k in ("id", "success", "reason", "transcript")} for r in failed], ensure_ascii=False)),
+                        system=FLOW_SYSTEM, purpose="document mode: repair the procedure from failed tests",
+                        timeout_s=min(400, budget.remaining() - 240))
+                    if fix.get("procedure"):
+                        wf2 = assemble(api, dict(flow, procedure=fix["procedure"]), base_url)
+                        freya.validate_workflow(slot, wf2)
+                        trace.note("repair 1: %s" % one_line(fix.get("diagnosis") or "", 300))
+                        saved2 = freya.save_workflow(slot, wf2, state_file=state_file)
+                        rows2 = run_tests(freya, saved2["agent_id"], tests, "self-test v2 (after repair 1)", trace, budget.remaining() - 120)
+                        if sum(r["pass"] for r in rows2) > sum(r["pass"] for r in rows):
+                            saved, wf = saved2, wf2
+                            (out / (slot + ".workflow.local.json")).write_text(json.dumps(wf, indent=1, ensure_ascii=False))
+                            trace.note("repair 1 kept: %d -> %d passing" % (sum(r["pass"] for r in rows), sum(r["pass"] for r in rows2)))
+                        else:
+                            freya.save_workflow(slot, json.loads((out / (slot + ".workflow.local.json")).read_text()), state_file=state_file)
+                            trace.note("repair 1 discarded: no gain; the first version is saved again")
+                        freya.export_workflow(saved["workflow_id"], export)
+                        trace.freya("exported", workflow_id=saved.get("workflow_id"), path=export)
+            except Exception as e:  # noqa: BLE001
+                trace.note("self-test failed (the saved agent stays): %s" % one_line(e, 300))
     except Exception as e:  # noqa: BLE001
         err = "%s: %s" % (type(e).__name__, one_line(e, 400))
         trace.note("error: " + err)
